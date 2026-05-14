@@ -11,8 +11,8 @@ export interface ImplementationStep {
 }
 
 export const IMPLEMENTATION_CHECKLIST_STEPS: ImplementationStep[] = [
-  { id: 'company-info', order: 1, label: 'Байгууллагын мэдээлэл', href: '/dashboard/company', phase: 'Суурь тохиргоо' },
-  { id: 'company-values', order: 2, label: 'Үнэт зүйлс', href: '/dashboard/company/branding', phase: 'Суурь тохиргоо' },
+  { id: 'company-info', order: 1, label: 'Байгууллагын мэдээлэл', href: '/company', phase: 'Суурь тохиргоо' },
+  { id: 'company-values', order: 2, label: 'Үнэт зүйлс', href: '/company/branding', phase: 'Суурь тохиргоо' },
   { id: 'work-schedules', order: 3, label: 'Ажлын цагийн хуваарь', href: '/dashboard/settings/time-off', phase: 'Суурь тохиргоо' },
   { id: 'holidays', order: 4, label: 'Амралтын өдрүүд', href: '/dashboard/settings/time-off', phase: 'Суурь тохиргоо' },
   { id: 'departments', order: 5, label: 'Хэлтэс/Нэгжүүд', href: '/dashboard/organization', phase: 'Байгууллагын бүтэц' },
@@ -23,7 +23,7 @@ export const IMPLEMENTATION_CHECKLIST_STEPS: ImplementationStep[] = [
   { id: 'employees', order: 10, label: 'Ажилтнуудын мэдээлэл', href: '/dashboard/employees', phase: 'Ажилтнууд' },
   { id: 'employees-link-positions', order: 11, label: 'Ажилтнуудыг ажлын байртай холбох', href: '/dashboard/organization', phase: 'Ажилтнууд' },
   { id: 'employee-code', order: 12, label: 'Ажилтны кодны тохиргоо', href: '/dashboard/settings/employee-code', phase: 'Тохиргоо ба бодлого' },
-  { id: 'company-policies', order: 13, label: 'Байгууллагын бодлого', href: '/dashboard/company/policies', phase: 'Тохиргоо ба бодлого' },
+  { id: 'company-policies', order: 13, label: 'Байгууллагын бодлого', href: '/company/policies', phase: 'Тохиргоо ба бодлого' },
   { id: 'vacation-settings', order: 14, label: 'Амралтын тохиргоо', href: '/dashboard/settings/time-off', phase: 'Тохиргоо ба бодлого' },
   { id: 'attendance-settings', order: 15, label: 'Ирц хянах тохиргоо', href: '/dashboard/settings/attendance', phase: 'Нэмэлт модулууд' },
   { id: 'points-settings', order: 16, label: 'Онооны системийн тохиргоо', href: '/dashboard/points', phase: 'Нэмэлт модулууд' },

@@ -1,4 +1,5 @@
 import { Firestore, doc, getDoc, runTransaction } from 'firebase/firestore';
+import { tenantDoc } from '@/firebase/tenant-helpers';
 import { ERDocumentType, NumberingConfig } from '../types';
 
 const DEFAULT_NUMBERING_CONFIG: NumberingConfig = {
@@ -29,7 +30,8 @@ function generateDocumentNumber(
     }
     
     if (config.includeYear) {
-        parts.push(date.getFullYear().toString());
+        const year = date.getFullYear();
+        parts.push(config.shortYear ? String(year % 100).padStart(2, '0') : year.toString());
     }
     
     if (config.includeMonth) {
@@ -83,9 +85,13 @@ function shouldResetCounter(
  */
 export async function getNextDocumentNumber(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<string> {
-    const docTypeRef = doc(firestore, 'er_process_document_types', documentTypeId);
+    if (!companyPath) {
+        throw new Error('companyPath байхгүй — tenant isolation алдагдана');
+    }
+    const docTypeRef = tenantDoc(firestore, companyPath, 'er_process_document_types', documentTypeId);
     
     return await runTransaction(firestore, async (transaction) => {
         const docTypeSnap = await transaction.get(docTypeRef);
@@ -148,9 +154,10 @@ export async function getNextDocumentNumber(
  */
 export async function getDocumentType(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<ERDocumentType | null> {
-    const docTypeRef = doc(firestore, 'er_process_document_types', documentTypeId);
+    const docTypeRef = tenantDoc(firestore, companyPath, 'er_process_document_types', documentTypeId);
     const docTypeSnap = await getDoc(docTypeRef);
     
     if (!docTypeSnap.exists()) {
@@ -169,9 +176,10 @@ export async function getDocumentType(
  */
 export async function previewNextDocumentNumber(
     firestore: Firestore,
-    documentTypeId: string
+    documentTypeId: string,
+    companyPath: string | null = null
 ): Promise<string | null> {
-    const docType = await getDocumentType(firestore, documentTypeId);
+    const docType = await getDocumentType(firestore, documentTypeId, companyPath);
     
     if (!docType) {
         return null;

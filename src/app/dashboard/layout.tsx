@@ -61,7 +61,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
               <Link href="/dashboard">Хүний нөөц</Link>
             </Button>
             <div className="h-4 w-px bg-border" />
-            <Link href="/dashboard/company" className="inline-flex items-center gap-2 transition-opacity hover:opacity-80">
+            <div className="inline-flex items-center gap-2">
               {isLoadingProfile ? (
                 <>
                   <Skeleton className="h-7 w-7 rounded-md" />
@@ -78,7 +78,7 @@ function AdminDashboard({ children }: { children: React.ReactNode }) {
                   <span className="text-body-medium">{companyProfile?.name || 'Компани'}</span>
                 </>
               )}
-            </Link>
+            </div>
           </div>
 
           <div className="flex items-center gap-1">

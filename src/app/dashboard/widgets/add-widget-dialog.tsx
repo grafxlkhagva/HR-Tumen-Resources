@@ -264,14 +264,6 @@ function WidgetRealPreview({ widget, onAdd, index }: WidgetRealPreviewProps) {
                     </div>
                 );
 
-            case 'posts':
-                return (
-                    <div>
-                        <div className="text-4xl font-semibold text-white mb-1">--</div>
-                        <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
-                    </div>
-                );
-
             case 'recruitment':
                 return (
                     <div className="relative z-10">

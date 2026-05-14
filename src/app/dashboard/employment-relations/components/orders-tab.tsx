@@ -2,7 +2,7 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { ERDocument, ERDocumentType } from '../types';
-import { formatDateTime, getStatusConfig } from '../utils';
+import { getStatusConfig, toJSDate } from '../utils';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,10 +51,8 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
     const availableYears = useMemo(() => {
         const years = new Set<number>();
         documents?.forEach(doc => {
-            if (doc.createdAt) {
-                const date = doc.createdAt.toDate ? doc.createdAt.toDate() : new Date(doc.createdAt);
-                years.add(date.getFullYear());
-            }
+            const date = toJSDate(doc.createdAt);
+            if (date) years.add(date.getFullYear());
         });
         return Array.from(years).sort((a, b) => b - a); // Newest first
     }, [documents]);
@@ -62,12 +60,13 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
     // Filter and sort documents
     const filteredDocuments = useMemo(() => {
         if (!documents) return [];
-        
+
         const filtered = documents.filter(doc => {
             // Search filter
-            const matchesSearch = !searchQuery || 
+            const employeeName = typeof doc.metadata?.employeeName === 'string' ? doc.metadata.employeeName : '';
+            const matchesSearch = !searchQuery ||
                 doc.documentNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                doc.metadata?.employeeName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 docTypeMap[doc.documentTypeId]?.name?.toLowerCase().includes(searchQuery.toLowerCase());
 
             // Type filter
@@ -75,9 +74,9 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
 
             // Year filter
             let matchesYear = yearFilter === 'all';
-            if (!matchesYear && doc.createdAt) {
-                const date = doc.createdAt.toDate ? doc.createdAt.toDate() : new Date(doc.createdAt);
-                matchesYear = date.getFullYear().toString() === yearFilter;
+            if (!matchesYear) {
+                const date = toJSDate(doc.createdAt);
+                if (date) matchesYear = date.getFullYear().toString() === yearFilter;
             }
 
             return matchesSearch && matchesType && matchesYear;
@@ -85,8 +84,8 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
 
         // Sort by createdAt descending (newest first)
         filtered.sort((a, b) => {
-            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
-            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+            const dateA = toJSDate(a.createdAt) ?? new Date(0);
+            const dateB = toJSDate(b.createdAt) ?? new Date(0);
             return dateB.getTime() - dateA.getTime();
         });
 
@@ -102,17 +101,16 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
 
         const headers = ['Дугаар', 'Огноо', 'Төрөл', 'Ажилтан', 'Төлөв'];
         const rows = filteredDocuments.map(doc => {
-            const createdDate = doc.createdAt?.toDate 
-                ? doc.createdAt.toDate() 
-                : new Date(doc.createdAt || 0);
+            const createdDate = toJSDate(doc.createdAt) ?? new Date(0);
             const docType = docTypeMap[doc.documentTypeId];
             const statusConfig = getStatusConfig(doc.status);
-            
+            const employeeName = typeof doc.metadata?.employeeName === 'string' ? doc.metadata.employeeName : '';
+
             return [
                 doc.documentNumber || '',
                 createdDate.toLocaleDateString('mn-MN'),
                 docType?.name || '',
-                doc.metadata?.employeeName || '',
+                employeeName,
                 statusConfig.label
             ];
         });
@@ -141,12 +139,11 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
         }
 
         const rows = filteredDocuments.map(doc => {
-            const createdDate = doc.createdAt?.toDate 
-                ? doc.createdAt.toDate() 
-                : new Date(doc.createdAt || 0);
+            const createdDate = toJSDate(doc.createdAt) ?? new Date(0);
             const docType = docTypeMap[doc.documentTypeId];
             const statusConfig = getStatusConfig(doc.status);
-            
+            const employeeName = typeof doc.metadata?.employeeName === 'string' ? doc.metadata.employeeName : '';
+
             return `
                 <tr>
                     <td>${doc.documentNumber || ''}</td>
@@ -154,7 +151,7 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
                     <td>${createdDate.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' })}</td>
                     <td>${docType?.prefix || ''}</td>
                     <td>${docType?.name || ''}</td>
-                    <td>${doc.metadata?.employeeName || ''}</td>
+                    <td>${employeeName}</td>
                     <td>${statusConfig.label}</td>
                 </tr>
             `;
@@ -206,9 +203,8 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
     const stats = useMemo(() => {
         const total = filteredDocuments.length;
         const thisYear = filteredDocuments.filter(doc => {
-            if (!doc.createdAt) return false;
-            const date = doc.createdAt.toDate ? doc.createdAt.toDate() : new Date(doc.createdAt);
-            return date.getFullYear() === new Date().getFullYear();
+            const date = toJSDate(doc.createdAt);
+            return !!date && date.getFullYear() === new Date().getFullYear();
         }).length;
         const signed = filteredDocuments.filter(doc => doc.status === 'SIGNED').length;
         return { total, thisYear, signed };
@@ -362,9 +358,8 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
                                 filteredDocuments.map((doc) => {
                                     const statusConfig = getStatusConfig(doc.status);
                                     const docType = docTypeMap[doc.documentTypeId];
-                                    const createdDate = doc.createdAt?.toDate 
-                                        ? doc.createdAt.toDate() 
-                                        : new Date(doc.createdAt || 0);
+                                    const createdDate = toJSDate(doc.createdAt) ?? new Date(0);
+                                    const employeeName = typeof doc.metadata?.employeeName === 'string' ? doc.metadata.employeeName : '';
                                     
                                     return (
                                         <TableRow key={doc.id} className="group hover:bg-slate-50/50">
@@ -404,7 +399,7 @@ export function OrdersTab({ documents, docTypes, isLoading }: OrdersTabProps) {
                                             </TableCell>
                                             <TableCell>
                                                 <span className="text-sm font-medium">
-                                                    {doc.metadata?.employeeName || '—'}
+                                                    {employeeName || '—'}
                                                 </span>
                                             </TableCell>
                                             <TableCell>

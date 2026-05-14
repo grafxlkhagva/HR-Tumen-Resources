@@ -6,6 +6,7 @@ import { Building2, Briefcase, FileText, Layers, Tag, Zap } from 'lucide-react';
 import { LookupManagement } from './components/lookup-management';
 import { OrganizationActionSettings } from './components/organization-action-settings';
 import { PositionPreparationSettings } from './components/position-preparation-settings';
+import { PositionCodeSettings } from './components/position-code-settings';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 
 export default function OrganizationSettingsPage() {
@@ -28,11 +29,11 @@ export default function OrganizationSettingsPage() {
                             orientation="horizontal"
                             items={[
                                 { value: 'dept-types', label: 'Бүтцийн нэгжийн төрөл' },
-                                { value: 'job-categories', label: 'Ажил мэргэжлийн код' },
                                 { value: 'levels', label: 'Зэрэглэл' },
                                 { value: 'emp-types', label: 'Ажлын байрны төрөл' },
                                 { value: 'actions', label: 'Үйлдэл' },
                                 { value: 'position-prep', label: 'Ажлын байр бэлтгэх' },
+                                { value: 'position-code', label: 'Кодчлол' },
                             ]}
                         />
                     </div>
@@ -61,24 +62,7 @@ export default function OrganizationSettingsPage() {
                             />
                         </TabsContent>
 
-                        <TabsContent value="job-categories" className="space-y-4 focus-visible:outline-none">
-                            <LookupManagement
-                                collectionName="jobCategories"
-                                title="Ажил мэргэжлийн код (ЯАМАТ)"
-                                description="Үндэсний ажил мэргэжлийн ангилал, код."
-                                columns={[
-                                    { key: 'code', label: 'Код', type: 'text', required: true, width: '20%' },
-                                    { key: 'name', label: 'Нэр', type: 'text', required: true, width: '40%' }
-                                ]}
-                                referenceCheck={{
-                                    collection: 'positions',
-                                    field: 'jobCategoryId',
-                                    label: 'ажлын байр'
-                                }}
-                            />
-                        </TabsContent>
-
-                        <TabsContent value="levels" className="space-y-4 focus-visible:outline-none">
+<TabsContent value="levels" className="space-y-4 focus-visible:outline-none">
                             <LookupManagement
                                 collectionName="positionLevels"
                                 title="Ажлын байрны зэрэглэл"
@@ -116,6 +100,10 @@ export default function OrganizationSettingsPage() {
 
                         <TabsContent value="position-prep" className="space-y-4 focus-visible:outline-none">
                             <PositionPreparationSettings />
+                        </TabsContent>
+
+                        <TabsContent value="position-code" className="space-y-4 focus-visible:outline-none">
+                            <PositionCodeSettings />
                         </TabsContent>
                     </div>
                 </Tabs>

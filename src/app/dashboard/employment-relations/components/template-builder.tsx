@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useRef } from 'react';
-import { Textarea } from '@/components/ui/textarea';
+import React from 'react';
+import type { Editor } from '@tiptap/react';
 import { Card, CardContent } from '@/components/ui/card';
-import { DynamicFieldSelector } from './dynamic-field-selector';
 import { Label } from '@/components/ui/label';
-import { QrCode, Building2, ChevronDown, ChevronRight } from 'lucide-react';
+import { Building2 } from 'lucide-react';
+import { FieldChipEditor } from './field-chip-editor';
+import { DocumentQR } from './document-qr';
 
 import { PrintSettings } from '../types';
 
@@ -13,47 +14,29 @@ interface TemplateBuilderProps {
     content: string;
     onChange: (content: string) => void;
     resolvers?: Record<string, string>; // Map of {{field}} -> "Real Value"
+    overrides?: Record<string, string>;
+    onOverridesChange?: (next: Record<string, string>) => void;
+    disabled?: boolean;
     printSettings?: PrintSettings;
-    companyProfile?: any;
-    customInputs?: any[]; // Array of definitions { id, label, type ... }
+    companyProfile?: Record<string, unknown> | null;
 }
 
-export function TemplateBuilder({ content, onChange, resolvers, printSettings, companyProfile, customInputs }: TemplateBuilderProps) {
-    const textareaRef = useRef<HTMLTextAreaElement>(null);
-    const [isFieldsOpen, setIsFieldsOpen] = React.useState(false); // Default to collapsed as requested "too much space"
+export function TemplateBuilder({
+    content,
+    onChange,
+    resolvers,
+    overrides,
+    onOverridesChange,
+    disabled,
+    printSettings,
+    companyProfile,
+}: TemplateBuilderProps) {
+    const editorRef = React.useRef<Editor | null>(null);
 
-    const handleInsertField = (field: string) => {
-        // ... existing logic ...
-        const textToInsert = `{{${field}}}`; // Always insert as placeholder tag for editing
-
-        const textarea = textareaRef.current;
-        if (!textarea) return;
-
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const text = textarea.value;
-        const before = text.substring(0, start);
-        const after = text.substring(end, text.length);
-
-        const newContent = before + textToInsert + after;
-        onChange(newContent);
-
-        setTimeout(() => {
-            textarea.focus();
-            textarea.setSelectionRange(start + textToInsert.length, start + textToInsert.length);
-        }, 0);
-    };
-
-    // ... customFieldsForSelector logic ...
-    const customFieldsForSelector = React.useMemo(() => {
-        if (!customInputs || !Array.isArray(customInputs)) return [];
-        return customInputs.map(input => ({
-            key: `custom.${input.key}`,
-            label: input.label,
-            example: input.description || '',
-            type: input.type
-        }));
-    }, [customInputs]);
+    // Free-form Firestore profile object — narrow common fields locally
+    const companyLogoUrl = typeof companyProfile?.logoUrl === 'string' ? companyProfile.logoUrl : '';
+    const companyLegalName = typeof companyProfile?.legalName === 'string' ? companyProfile.legalName : '';
+    const companyName = typeof companyProfile?.name === 'string' ? companyProfile.name : '';
 
     return (
         <div className="space-y-6">
@@ -90,8 +73,8 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                             <div className="mb-8 flex flex-col items-center text-center space-y-4">
                                 {printSettings?.showLogo && (
                                     <div className="h-20 w-20 bg-slate-50 border rounded-2xl p-2 flex items-center justify-center overflow-hidden">
-                                        {companyProfile?.logoUrl ? (
-                                            <img src={companyProfile.logoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
+                                        {companyLogoUrl ? (
+                                            <img src={companyLogoUrl} alt="Logo" className="max-h-full max-w-full object-contain" />
                                         ) : (
                                             <Building2 className="h-10 w-10 text-slate-200" />
                                         )}
@@ -101,7 +84,7 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                                 {printSettings?.companyName !== undefined && (
                                     <div className="space-y-1">
                                         <h3 className="text-sm font-black tracking-[0.2em] uppercase text-slate-800">
-                                            {printSettings.companyName || companyProfile?.legalName || companyProfile?.name || 'БАЙГУУЛЛАГЫН НЭР'}
+                                            {printSettings.companyName || companyLegalName || companyName || 'БАЙГУУЛЛАГЫН НЭР'}
                                         </h3>
                                         <div className="h-0.5 w-16 bg-primary/20 mx-auto rounded-full" />
                                     </div>
@@ -125,12 +108,14 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                         )}
 
                         <div className="flex-1 min-h-0">
-                            <Textarea
-                                ref={textareaRef}
-                                value={content}
-                                onChange={(e) => onChange(e.target.value)}
-                                className="w-full h-full font-mono text-sm leading-relaxed resize-none border-none focus-visible:ring-0 bg-transparent p-0"
-                                placeholder="Загварын агуулгыг энд бичнэ үү..."
+                            <FieldChipEditor
+                                content={content}
+                                onChange={onChange}
+                                resolvers={resolvers || {}}
+                                overrides={overrides || {}}
+                                onOverridesChange={onOverridesChange || (() => {})}
+                                disabled={disabled}
+                                onReady={(editor) => { editorRef.current = editor; }}
                             />
                         </div>
 
@@ -141,9 +126,7 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                                     {printSettings?.footer}
                                 </div>
                                 {printSettings?.showQRCode && (
-                                    <div className="shrink-0 p-1 border border-slate-200 rounded-sm bg-slate-50">
-                                        <QrCode className="h-10 w-10 text-slate-400" />
-                                    </div>
+                                    <DocumentQR size={56} />
                                 )}
                             </div>
                         )}
@@ -151,40 +134,6 @@ export function TemplateBuilder({ content, onChange, resolvers, printSettings, c
                 </Card>
             </div>
 
-            {/* Collapsible Dynamic Fields Section */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-                <button
-                    onClick={() => setIsFieldsOpen(!isFieldsOpen)}
-                    className="w-full flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100 transition-colors text-left"
-                >
-                    <div className="flex items-center gap-2">
-                        {isFieldsOpen ? <ChevronDown className="h-4 w-4 text-slate-500" /> : <ChevronRight className="h-4 w-4 text-slate-500" />}
-                        <div>
-                            <span className="font-bold text-slate-700 text-sm">Динамик талбарууд ашиглах</span>
-                            {!isFieldsOpen && <p className="text-[10px] text-slate-400 font-normal">Баримтад ажилтан, байгууллагын мэдээллийг автоматаар бөглөх талбарууд</p>}
-                        </div>
-                    </div>
-                </button>
-
-                {isFieldsOpen && (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-6 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
-                        <div className="lg:col-span-1 space-y-2">
-                            <Label className="text-base font-bold text-slate-900">Заавар</Label>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                Та хүссэн талбараа дээрх текст рүү чирч оруулж эсвэл жагсаалтаас сонгож нэмэх боломжтой. Сонгосон талбар нь тухайн ажилтны бодит мэдээллээр автоматаар солигдоно.
-                            </p>
-                            <div className="pt-2">
-                                <div className="p-3 bg-amber-50 border border-amber-100 rounded-lg text-amber-700 text-[10px] italic">
-                                    Жишээ: <code>{`{{employee.firstName}}`}</code> гэж бичвэл ажилтны нэрээр солигдоно.
-                                </div>
-                            </div>
-                        </div>
-                        <div className="lg:col-span-2">
-                            <DynamicFieldSelector onSelect={handleInsertField} customFields={customFieldsForSelector} />
-                        </div>
-                    </div>
-                )}
-            </div>
         </div>
     );
 }

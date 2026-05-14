@@ -1,7 +1,8 @@
 'use client';
 
-import { Firestore, collection, doc, Timestamp, writeBatch } from 'firebase/firestore';
+import { Firestore, collection, doc, Timestamp, writeBatch, query, where, getDocs } from 'firebase/firestore';
 import { addDays, format } from 'date-fns';
+import { tenantCollection } from '@/firebase/tenant-helpers';
 
 export interface PositionPreparationTask {
   id: string;
@@ -38,6 +39,8 @@ const DEFAULT_STAGE_DUE_DATE_OFFSETS: Record<string, number> = {
 
 export interface CreatePositionPreparationProjectsParams {
   firestore: Firestore;
+  /** Tenant root path — `companies/{companyId}` (SaaS олон tenant санд заавал). */
+  companyPath: string | null;
   positionId: string;
   positionTitle: string;
   initiatorId: string;
@@ -57,6 +60,7 @@ export async function createPositionPreparationProjects(
 ): Promise<PositionPreparationProjectResult> {
   const {
     firestore,
+    companyPath,
     positionId,
     positionTitle,
     initiatorId,
@@ -133,7 +137,9 @@ export async function createPositionPreparationProjects(
 
   const teamMemberIds = Array.from(teamMemberSet);
 
-  const projectRef = doc(collection(firestore, 'projects'));
+  // Tenant-scoped path: companies/{id}/projects. Top-level `projects` collection
+  // нь security rules-д хаалттай учир энд tenantCollection-оор дамжуулна.
+  const projectRef = doc(tenantCollection(firestore, companyPath, 'projects'));
   const projectId = projectRef.id;
   projectIds.push(projectId);
 
@@ -163,7 +169,8 @@ export async function createPositionPreparationProjects(
   for (const stage of stagesToCreate) {
     const stagePlanMap = taskPlanByStageId[stage.id];
     for (const task of stage.tasks || []) {
-      const taskRef = doc(collection(firestore, 'projects', projectId, 'tasks'));
+      // tasks subcollection нь projectRef-ээс шууд үүсгэнэ — tenant-scoped замтай.
+      const taskRef = doc(collection(projectRef, 'tasks'));
       const taskId = taskRef.id;
       const plan = stagePlanMap?.[task.id];
 
@@ -203,5 +210,45 @@ export async function createPositionPreparationProjects(
     projectIds,
     taskCount: totalTaskCount,
   };
+}
+
+/**
+ * Release flow-д дуудагдана — ажилтан чөлөөлөгдөж ажлын байр сул болоход
+ * өмнөх бэлтгэл төслүүд + таск subcollection-ийг устгана. Ингэснээр шинэ
+ * ажилтан томилохоос өмнө бэлтгэлийг ДАХИН хийж буюу UI дээр "Ажлын байр
+ * бэлтгэх" товч автоматаар буцаж гарна (prepProjects.length === 0).
+ */
+export async function deletePositionPreparationProjects(params: {
+  firestore: Firestore;
+  companyPath: string | null;
+  positionId: string;
+}): Promise<{ deletedProjects: number; deletedTasks: number }> {
+  const { firestore, companyPath, positionId } = params;
+
+  const projectsQuery = query(
+    tenantCollection(firestore, companyPath, 'projects'),
+    where('type', '==', 'position_preparation'),
+    where('positionPreparationPositionId', '==', positionId),
+  );
+  const projectsSnap = await getDocs(projectsQuery);
+  if (projectsSnap.empty) return { deletedProjects: 0, deletedTasks: 0 };
+
+  let deletedProjects = 0;
+  let deletedTasks = 0;
+
+  // Per-project batch → Firestore 500-write batch лимитээс хамгаална.
+  for (const projectDoc of projectsSnap.docs) {
+    const tasksSnap = await getDocs(collection(projectDoc.ref, 'tasks'));
+    const batch = writeBatch(firestore);
+    tasksSnap.forEach((t) => {
+      batch.delete(t.ref);
+      deletedTasks++;
+    });
+    batch.delete(projectDoc.ref);
+    await batch.commit();
+    deletedProjects++;
+  }
+
+  return { deletedProjects, deletedTasks };
 }
 

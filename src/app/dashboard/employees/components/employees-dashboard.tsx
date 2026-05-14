@@ -3,9 +3,7 @@
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AddActionButton } from '@/components/ui/add-action-button';
 import {
-  FileBarChart2,
   ClipboardCheck,
   GraduationCap,
 } from 'lucide-react';
@@ -17,15 +15,15 @@ import {
   Tooltip,
 } from 'recharts';
 import { Employee, Department, isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
-import { useFirebase } from '@/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { useTenantWrite } from '@/firebase';
+import { getDoc } from 'firebase/firestore';
 
 // ─── Status colours (semantic, matching the page's statusConfig) ─────────────
 const STATUS_COLORS: Record<string, string> = {
+  'appointing': '#f59e0b',
   'active': '#10b981',
   'active_probation': '#f59e0b',
   'active_permanent': '#10b981',
-  'active_contract': '#14b8a6',
   'on_leave': '#3b82f6',
   'releasing': '#f97316',
   'terminated': '#f43f5e',
@@ -33,24 +31,14 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_LABELS: Record<string, string> = {
+  'appointing': EMPLOYEE_STATUS_LABELS.appointing,
   'active': EMPLOYEE_STATUS_LABELS.active,
   'active_probation': EMPLOYEE_STATUS_LABELS.active_probation,
   'active_permanent': EMPLOYEE_STATUS_LABELS.active_permanent,
-  'active_contract': EMPLOYEE_STATUS_LABELS.active_contract,
   'on_leave': EMPLOYEE_STATUS_LABELS.on_leave,
   'releasing': EMPLOYEE_STATUS_LABELS.releasing,
   'terminated': EMPLOYEE_STATUS_LABELS.terminated,
   'suspended': EMPLOYEE_STATUS_LABELS.suspended,
-};
-
-const LIFECYCLE_COLORS: Record<string, { color: string; label: string }> = {
-  attraction: { color: '#a78bfa', label: 'Татах' },
-  recruitment: { color: '#818cf8', label: 'Сонгон шалгаруулалт' },
-  onboarding: { color: '#34d399', label: 'Чиглүүлэлт' },
-  development: { color: '#60a5fa', label: 'Хөгжүүлэлт' },
-  retention: { color: '#fbbf24', label: 'Тогтвортой байдал' },
-  offboarding: { color: '#fb923c', label: 'Чөлөөлөлт' },
-  alumni: { color: '#94a3b8', label: 'Алумни' },
 };
 
 // ─── Age group definitions ───────────────────────────────────────────────────
@@ -78,7 +66,6 @@ const EDUCATION_FALLBACK_COLOR = '#94a3b8';
 interface EmployeesDashboardProps {
   employees: Employee[] | null;
   departments: Department[] | null;
-  documents: any[] | null;
   onboardingProcesses: any[] | null;
   offboardingProjects: any[] | null;
   isLoading: boolean;
@@ -109,12 +96,10 @@ function calcAge(birthDate: any): number | null {
 // ─── Component ───────────────────────────────────────────────────────────────
 export function EmployeesDashboard({
   employees,
-  departments,
-  documents,
   isLoading,
 }: EmployeesDashboardProps) {
   // ── Fetch questionnaire data (gender + birthDate) per employee ──────────
-  const { firestore } = useFirebase();
+  const { firestore, tDoc } = useTenantWrite();
   const [questionnaireMap, setQuestionnaireMap] = React.useState<
     Map<string, { gender?: string; birthDate?: any; education?: any[] }>
   >(new Map());
@@ -129,9 +114,13 @@ export function EmployeesDashboard({
 
     const fetchAll = async () => {
       const map = new Map<string, { gender?: string; birthDate?: any; education?: any[] }>();
-      const promises = employees.map(async (emp) => {
+      // Зөвхөн active ажилтнуудын questionnaire ачаалах (дээд тал нь 50)
+      const activeEmployees = employees
+        .filter(e => isActiveStatus(e.status))
+        .slice(0, 50);
+      const promises = activeEmployees.map(async (emp) => {
         try {
-          const docRef = doc(firestore, 'employees', emp.id, 'questionnaire', 'data');
+          const docRef = tDoc('employees', emp.id, 'questionnaire', 'data');
           const snap = await getDoc(docRef);
           if (snap.exists()) {
             const d = snap.data();
@@ -151,7 +140,8 @@ export function EmployeesDashboard({
 
     fetchAll();
     return () => { cancelled = true; };
-  }, [firestore, employees]);
+   
+  }, [firestore, employees, tDoc]);
 
   // ── Derived metrics ──────────────────────────────────────────────────────
   const metrics = React.useMemo(() => {
@@ -167,7 +157,6 @@ export function EmployeesDashboard({
         pyramidData: [] as { label: string; male: number; female: number }[],
         pyramidMax: 1,
         educationData: [] as { name: string; value: number; color: string }[],
-        lifecycleData: [] as { stage: string; count: number; color: string; label: string }[],
       };
     }
 
@@ -269,21 +258,6 @@ export function EmployeesDashboard({
         color: EDUCATION_COLORS[name] || EDUCATION_FALLBACK_COLOR,
       }));
 
-    // Lifecycle distribution
-    const lifecycleCounts: Record<string, number> = {};
-    employees.forEach(e => {
-      if (e.lifecycleStage) {
-        lifecycleCounts[e.lifecycleStage] = (lifecycleCounts[e.lifecycleStage] || 0) + 1;
-      }
-    });
-    const lifecycleData = Object.entries(lifecycleCounts)
-      .map(([stage, count]) => ({
-        stage,
-        count,
-        color: LIFECYCLE_COLORS[stage]?.color || '#94a3b8',
-        label: LIFECYCLE_COLORS[stage]?.label || stage,
-      }));
-
     return {
       total,
       active,
@@ -295,7 +269,6 @@ export function EmployeesDashboard({
       pyramidData,
       pyramidMax,
       educationData,
-      lifecycleData,
     };
   }, [employees, questionnaireMap]);
 
@@ -322,7 +295,6 @@ export function EmployeesDashboard({
     );
   }
 
-  const lifecycleTotal = metrics.lifecycleData.reduce((s, d) => s + d.count, 0);
   const hasPyramidData = metrics.pyramidData.some(d => d.male > 0 || d.female > 0);
 
   return (
@@ -331,18 +303,10 @@ export function EmployeesDashboard({
       <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10" />
       <CardContent className="p-5 sm:p-6 relative z-10">
         {/* ── Header ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Dashboard | хамт олон
-            </h3>
-          </div>
-          <AddActionButton
-            label="Дэлгэрэнгүй тайлан"
-            description="Ажилтнуудын тайлан харах"
-            href="/dashboard/employees/reports"
-            icon={<FileBarChart2 className="h-4 w-4" />}
-          />
+        <div className="mb-5">
+          <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Dashboard | хамт олон
+          </h3>
         </div>
 
         {/* ── Main grid: Status donut | Population Pyramid ──── */}
@@ -565,43 +529,6 @@ export function EmployeesDashboard({
             </div>
           </div>
 
-          {/* Lifecycle stage bar */}
-          <div className="rounded-xl bg-slate-800/50 dark:bg-slate-700/30 border border-slate-700/60 p-4">
-            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">
-              Амьдралын мөчлөг
-            </p>
-            {lifecycleTotal > 0 ? (
-              <>
-                <div className="flex h-2 rounded-full overflow-hidden bg-slate-700">
-                  {metrics.lifecycleData.map((item) => (
-                    <div
-                      key={item.stage}
-                      className="h-full transition-all duration-500"
-                      style={{
-                        width: `${(item.count / lifecycleTotal) * 100}%`,
-                        backgroundColor: item.color,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
-                  {metrics.lifecycleData.map((item) => (
-                    <div key={item.stage} className="flex items-center gap-1">
-                      <span
-                        className="inline-block h-1.5 w-1.5 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <span className="text-[10px] text-slate-400">
-                        {item.label} ({item.count})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="text-xs text-slate-500">Мэдээлэл байхгүй</div>
-            )}
-          </div>
         </div>
       </CardContent>
     </Card>

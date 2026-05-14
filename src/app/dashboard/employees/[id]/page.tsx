@@ -2,730 +2,199 @@
 'use client';
 
 import * as React from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { useFirebase, useDoc, useMemoFirebase, useCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser } from '@/firebase';
-import { collection, doc, query, orderBy, where, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import * as Sentry from '@sentry/nextjs';
+import { useFirebase, useDoc, useMemoFirebase, useCollection, useFetchCollection, addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking, useUser, tenantCollection, tenantDoc, tenantEmployeeSubdoc, useTenantWrite } from '@/firebase';
+import { useTenant } from '@/contexts/tenant-context';
+import { query, where, getDocs, updateDoc, getCountFromServer, deleteField } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { type Employee } from '../data';
-import { isActiveStatus, EMPLOYEE_STATUS_LABELS } from '@/types';
+import { isActiveStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
 import {
-    ArrowLeft,
-    Calendar,
-    Edit,
-    Mail,
-    Phone,
-    FileText,
+    Camera,
     User,
-    PlusCircle,
     AlertTriangle,
-    Trash2,
+    ChevronLeft,
     ChevronRight,
-    File as FileIcon,
-    Activity,
-    ClipboardCheck,
-    LogOut,
-    Shield,
-    Settings,
-    Check,
-    X,
     Loader2,
-    Truck,
-    Newspaper,
-    HeartHandshake,
-    Target
+    CheckCircle2,
+    ShieldCheck,
+    ShieldAlert,
+    Crown,
+    Clock,
+    Sparkles,
+    Lock,
+    Unlock,
+    GraduationCap,
+    TrendingUp,
+    LogOut,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { ERDocument, DOCUMENT_STATUSES } from '../../employment-relations/types';
-import { EmployeeCard } from '@/components/employees/employee-card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { PageHeader } from '@/components/patterns/page-layout';
-import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
-import { ReferenceTable, type ReferenceItem } from '@/components/ui/reference-table';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { ERDocument } from '../../employment-relations/types';
+
+import { SettingRow } from '@/components/ui/setting-row';
+import { normalizePhoneNumber } from '@/lib/phone-utils';
+import { DetailSidebarLayout, type DetailTab } from '@/components/patterns/detail-sidebar-layout';
+import { BASE_TABS, statusConfig, type Department, type Position, type WorkSchedule } from './constants';
+import { HistoryTabContent } from './history-tab-content';
+import { DocumentsTabContent } from './documents-tab-content';
+import { ProfileSkeleton } from './profile-skeleton';
 
 import { VacationTabContent } from './vacation-tab-content';
 import { OnboardingTabContent } from './onboarding-tab-content';
 import { OffboardingTabContent } from './offboarding-tab-content';
-import { AddEmployeeDocumentDialog } from './AddEmployeeDocumentDialog';
-import { MakeAdminDialog } from './make-admin-dialog';
-import { TmsAccessDialog } from './tms-access-dialog';
-import { NewsAccessDialog } from './news-access-dialog';
-import { CrmAccessDialog } from './crm-access-dialog';
-import { BusinessPlanAccessDialog } from './business-plan-access-dialog';
+
 import { SystemSettingsTabContent } from './system-settings-tab-content';
-import { CVTabContent } from './cv-tab-content';
+import { QuestionnaireTabContent } from './questionnaire-tab-content';
+import { LifecycleTabContent } from './lifecycle-tab-content';
+import { SkillsTabContent } from './skills-tab-content';
+import { VerificationDialog } from './verification-dialog';
+import { MakeAdminDialog } from './make-admin-dialog';
+import { EmployeeInsightPanel } from './employee-insight-panel';
+import { EmployeeAstrologyCard } from './employee-astrology-card';
+import { EmployeeContractsTab } from '@/components/legal/employee-contracts-tab';
+import { ProbationAlert } from '@/components/legal/probation-alert';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Project, Task } from '@/types/project';
+import { NegeAiIcon } from '@/components/icons/nege-ai-icon';
 
-
-type Department = {
-    id: string;
-    name: string;
-};
-
-type Position = {
-    id: string;
-    workScheduleId?: string;
-}
-
-type WorkSchedule = {
-    id: string;
-    name: string;
-}
-
-type EmploymentHistoryEvent = {
-    id: string;
-    eventType: string;
-    eventDate: string;
-    notes?: string;
-    documentUrl?: string;
-    documentName?: string;
-    documentId?: string;
-};
-
-type CompanyPolicy = {
-    id: string;
-    title: string;
-    documentUrl: string;
-    uploadDate: string;
-    appliesToAll: boolean;
-    applicablePositionIds: string[];
-}
-
-
-const statusConfig: { [key: string]: { variant: 'default' | 'secondary' | 'destructive' | 'outline', className: string, label: string } } = {
-    "active_recruitment": { variant: 'outline', className: 'bg-indigo-50 text-indigo-700 hover:bg-indigo-50/80 border-indigo-200', label: EMPLOYEE_STATUS_LABELS.active_recruitment },
-    "appointing": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: EMPLOYEE_STATUS_LABELS.appointing },
-    "active": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active },
-    "active_probation": { variant: 'secondary', className: 'bg-amber-50 text-amber-700 hover:bg-amber-50/80 border-amber-200', label: EMPLOYEE_STATUS_LABELS.active_probation },
-    "active_permanent": { variant: 'default', className: 'bg-emerald-100 text-emerald-700 hover:bg-emerald-100/80 border-emerald-200', label: EMPLOYEE_STATUS_LABELS.active_permanent },
-    "active_contract": { variant: 'default', className: 'bg-teal-100 text-teal-700 hover:bg-teal-100/80 border-teal-200', label: EMPLOYEE_STATUS_LABELS.active_contract },
-    "on_leave": { variant: 'secondary', className: 'bg-blue-50 text-blue-700 hover:bg-blue-50/80 border-blue-200', label: EMPLOYEE_STATUS_LABELS.on_leave },
-    "releasing": { variant: 'secondary', className: 'bg-orange-50 text-orange-700 hover:bg-orange-50/80 border-orange-200', label: EMPLOYEE_STATUS_LABELS.releasing },
-    "terminated": { variant: 'destructive', className: 'bg-rose-50 text-rose-700 hover:bg-rose-50/80 border-rose-200', label: EMPLOYEE_STATUS_LABELS.terminated },
-    "suspended": { variant: 'destructive', className: 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-gray-200', label: EMPLOYEE_STATUS_LABELS.suspended },
-};
-
-const AvatarWithProgress = ({ 
-    employee, 
-    size = 120, 
-    // kept for backward-compatibility, but no longer rendered as a ring
-    onboardingProgress = 0,
-    onClick
-}: { 
-    employee?: Employee; 
-    size?: number; 
-    onboardingProgress?: number;
-    onClick?: () => void;
-}) => {
-    // Questionnaire progress (single ring)
-    const questionnaireProgress = employee?.questionnaireCompletion || 0;
-    
-    const strokeWidth = 3;
-    // Single ring radius around avatar
-    const ringRadius = (size / 2) + 2;
-    const ringCircumference = 2 * Math.PI * ringRadius;
-    const ringOffset = ringCircumference - (questionnaireProgress / 100) * ringCircumference;
-    const questionnaireColor = questionnaireProgress < 50 ? '#ef4444' : questionnaireProgress < 90 ? '#f59e0b' : '#10b981'; // red -> amber -> emerald
-
-    const avatarContent = (
-        <div className="relative" style={{ width: size, height: size }}>
-            <Avatar className="h-full w-full border-2 border-background shadow-xl">
-                <AvatarImage src={employee?.photoURL} alt={employee?.firstName} className="object-cover" />
-                <AvatarFallback className="text-2xl bg-muted text-muted-foreground">
-                    {employee ? `${employee.firstName?.charAt(0)}${employee.lastName?.charAt(0)}` : <User className="h-8 w-8" />}
-                </AvatarFallback>
-            </Avatar>
-            {employee && (
-                <svg
-                    className="absolute pointer-events-none"
-                    style={{ top: -strokeWidth - 2, left: -strokeWidth - 2 }}
-                    width={size + (strokeWidth + 2) * 2}
-                    height={size + (strokeWidth + 2) * 2}
-                >
-                    {/* Ring Background (Questionnaire) */}
-                    <circle
-                        stroke="#e2e8f0"
-                        strokeWidth={strokeWidth}
-                        fill="transparent"
-                        r={ringRadius}
-                        cx={size / 2 + strokeWidth + 2}
-                        cy={size / 2 + strokeWidth + 2}
-                    />
-                    {/* Ring Progress (Questionnaire) */}
-                    <circle
-                        stroke={questionnaireColor}
-                        strokeWidth={strokeWidth}
-                        strokeDasharray={ringCircumference}
-                        strokeDashoffset={ringOffset}
-                        strokeLinecap="round"
-                        fill="transparent"
-                        r={ringRadius}
-                        cx={size / 2 + strokeWidth + 2}
-                        cy={size / 2 + strokeWidth + 2}
-                        transform={`rotate(-90 ${size / 2 + strokeWidth + 2} ${size / 2 + strokeWidth + 2})`}
-                        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }}
-                    />
-                </svg>
-            )}
-        </div>
-    );
-
-    if (employee && onClick) {
-        return (
-            <button
-                type="button"
-                onClick={onClick}
-                className="group relative focus:outline-none"
-                aria-label="Зураг солих"
-            >
-                {avatarContent}
-                <div className="absolute inset-0 bg-black/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white font-medium text-[10px] backdrop-blur-[1px] text-center leading-tight px-2">
-                    Зураг солих
-                </div>
-            </button>
-        );
-    }
-
-    return avatarContent;
-};
-
-
-function ProfileSkeleton() {
-    return (
-        <div className="space-y-8 animate-pulse p-6">
-            <div className="flex items-center gap-2">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-4" />
-                <Skeleton className="h-4 w-32" />
-            </div>
-
-            <div className="flex flex-col md:flex-row gap-8 items-start">
-                <Skeleton className="h-32 w-32 rounded-full" />
-                <div className="space-y-4 flex-1 w-full">
-                    <Skeleton className="h-8 w-64" />
-                    <Skeleton className="h-5 w-48" />
-                    <div className="flex gap-4 pt-2">
-                        <Skeleton className="h-10 w-32 rounded-lg" />
-                        <Skeleton className="h-10 w-32 rounded-lg" />
-                    </div>
-                </div>
-            </div>
-            <div className="space-y-4 pt-8">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-64 w-full rounded-xl" />
-            </div>
-        </div>
-    )
-}
-
-
-
-const DocumentsTabContent = ({ employee }: { employee: Employee }) => {
-    const { firestore } = useFirebase();
-    const { toast } = useToast();
-
-    const documentsQuery = useMemoFirebase(
-        () =>
-            firestore
-                ? query(
-                    collection(firestore, 'documents'),
-                    where('metadata.employeeId', '==', employee.id),
-                    orderBy('uploadDate', 'desc')
-                )
-                : null,
-        [firestore, employee.id]
-    );
-
-    const { data: documents, isLoading: isLoadingDocs, error } = useCollection<any>(documentsQuery as any);
-
-    const mandatoryQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'er_document_types') : null,
-        [firestore]
-    );
-    const { data: allDocTypes, isLoading: isLoadingDocTypes } = useCollection<any>(mandatoryQuery);
-
-    const legacyDocTypesQuery = useMemoFirebase(
-        () => firestore ? collection(firestore, 'documentTypes') : null,
-        [firestore]
-    );
-    const { data: legacyDocTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
-
-    const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false);
-    const [isDocTypeSettingsOpen, setIsDocTypeSettingsOpen] = React.useState(false);
-    const didImportLegacyRef = React.useRef(false);
-
-    React.useEffect(() => {
-        async function importLegacyTypesIfNeeded() {
-            if (!firestore) return;
-            if (!isDocTypeSettingsOpen) return;
-            if (didImportLegacyRef.current) return;
-
-            const legacy = legacyDocTypes || [];
-            const current = allDocTypes || [];
-            if (legacy.length === 0) {
-                didImportLegacyRef.current = true;
-                return;
-            }
-
-            const existingNames = new Set(
-                current.map((t: any) => String(t?.name || '').trim()).filter(Boolean)
-            );
-            const toImport = legacy.filter((t: any) => {
-                const name = String(t?.name || '').trim();
-                return !!name && !existingNames.has(name);
-            });
-
-            // Nothing to import
-            if (toImport.length === 0) {
-                didImportLegacyRef.current = true;
-                return;
-            }
-
-            try {
-                // Create missing legacy types in `er_document_types`
-                for (const t of toImport) {
-                    const name = String(t?.name || '').trim();
-                    await addDocumentNonBlocking(collection(firestore, 'er_document_types'), {
-                        name,
-                        isMandatory: t?.isMandatory === true,
-                        fields: Array.isArray(t?.fields) ? t.fields : [],
-                    });
-                }
-
-                toast({
-                    title: 'Төрлүүд импортлогдлоо',
-                    description: `${toImport.length} хуучин төрлийг шинэ тохиргоо руу автоматаар шилжүүллээ.`,
-                });
-            } catch (e: any) {
-                console.error('Import legacy document types error:', e);
-                toast({
-                    variant: 'destructive',
-                    title: 'Алдаа',
-                    description: e?.message || 'Хуучин төрлүүдийг импортлоход алдаа гарлаа.',
-                });
-            } finally {
-                didImportLegacyRef.current = true;
-            }
-        }
-
-        importLegacyTypesIfNeeded();
-    }, [firestore, isDocTypeSettingsOpen, legacyDocTypes, allDocTypes, toast]);
-
-    const complianceStats = React.useMemo(() => {
-        if (!allDocTypes || !documents) return null;
-        const mandatoryDocs = allDocTypes.filter((t: any) => t.isMandatory === true);
-        const total = mandatoryDocs.length;
-        if (total === 0) return null;
-
-        const uploadedTypes = new Set(documents.map((d: any) => d.documentType));
-        const completedDocs = mandatoryDocs.filter((m: any) => uploadedTypes.has(m.name));
-        const missingDocs = mandatoryDocs.filter((m: any) => !uploadedTypes.has(m.name));
-        const completed = completedDocs.length;
-        const percentage = Math.round((completed / total) * 100);
-
-        return { total, completed, percentage, missingDocs };
-    }, [allDocTypes, documents]);
-
-    const isLoading = isLoadingDocs || isLoadingDocTypes || isLoadingLegacyDocTypes;
-
-    if (error) {
-        return (
-            <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-600 text-sm">
-                Алдаа: {error.message}
-            </div>
-        );
-    }
-
-    if (isLoading) return (
-        <div className="space-y-3">
-            {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}
-        </div>
-    );
-
-    const docTypeColumns = [
-        { key: 'name', header: 'Нэр' },
-        {
-            key: 'isMandatory',
-            header: 'Заавал бүрдүүлэх',
-            render: (val: boolean | undefined) =>
-                val === true ? (
-                    <Badge variant="secondary" className="bg-indigo-600 text-white border-none text-[10px] font-bold uppercase tracking-tighter px-2 h-5">
-                        Шаардлагатай
-                    </Badge>
-                ) : (
-                    <span className="text-slate-300 text-[10px] font-bold uppercase tracking-widest">Үгүй</span>
-                ),
-        },
-        {
-            key: 'fields',
-            header: 'Талбарууд',
-            render: (value: any[] | undefined) => {
-                const fields = Array.isArray(value) ? value : [];
-                if (fields.length === 0) return <span className="text-muted-foreground">-</span>;
-                const labels = fields
-                    .map((f) => (typeof (f as any)?.label === 'string' ? String((f as any).label).trim() : ''))
-                    .filter(Boolean);
-                return (
-                    <div className="flex flex-wrap items-center gap-1">
-                        <Badge variant="secondary" className="text-[10px] h-5">
-                            {fields.length}
-                        </Badge>
-                        <span className="text-xs text-muted-foreground line-clamp-1">
-                            {labels.slice(0, 3).join(', ')}
-                            {labels.length > 3 ? ` +${labels.length - 3}` : ''}
-                        </span>
-                    </div>
-                );
-            },
-        },
-    ] as const;
-
+/**
+ * AI дүгнэлт цэсний дотоод таб — `insight` (үндсэн дүгнэлт) + `astrology` (зурхай).
+ * Зурхай нь өмнө тусдаа цэс байсныг энд нэгтгэв.
+ */
+function AiInsightWithAstrology({
+    employeeId,
+    employeeName,
+    birthDate,
+}: {
+    employeeId: string;
+    employeeName: string;
+    birthDate?: string | null;
+}) {
+    const [view, setView] = React.useState<'insight' | 'astrology'>('insight');
     return (
         <div className="space-y-4">
-            {/* Compliance Stats */}
-            {complianceStats && (
-                <div className="bg-white rounded-xl border p-4">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <ClipboardCheck className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">Баримтын бүрдүүлэлт</span>
-                        </div>
-                        <span className="text-sm font-medium">{complianceStats.percentage}%</span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                        <div
-                            className="h-full bg-primary rounded-full transition-all"
-                            style={{ width: `${complianceStats.percentage}%` }}
-                        />
-                    </div>
-                    {complianceStats.missingDocs.length > 0 && (
-                        <div className="flex flex-wrap gap-1.5">
-                            {complianceStats.missingDocs.map((m: any, i: number) => (
-                                <Badge key={i} variant="outline" className="text-[10px] bg-rose-50 text-rose-600 border-rose-200">
-                                    Дутуу: {m.name}
-                                </Badge>
-                            ))}
-                        </div>
+            <div className="inline-flex items-center gap-1 p-1 rounded-xl bg-muted border">
+                <button
+                    type="button"
+                    onClick={() => setView('insight')}
+                    className={cn(
+                        'px-4 h-8 rounded-lg text-xs font-semibold transition-colors inline-flex items-center gap-1.5',
+                        view === 'insight'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
                     )}
-                </div>
+                >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI дүгнэлт
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setView('astrology')}
+                    className={cn(
+                        'px-4 h-8 rounded-lg text-xs font-semibold transition-colors',
+                        view === 'astrology'
+                            ? 'bg-background text-foreground shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                    )}
+                >
+                    Зурхай
+                </button>
+            </div>
+            {view === 'insight' ? (
+                <EmployeeInsightPanel employeeId={employeeId} employeeName={employeeName} />
+            ) : (
+                <EmployeeAstrologyCard birthDate={birthDate} />
             )}
-
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-slate-600">Бичиг баримт</h3>
-                <div className="flex items-center gap-2">
-                    <TooltipProvider delayDuration={150}>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => setIsDocTypeSettingsOpen(true)}
-                                    aria-label="Баримт бичгийн төрөл тохируулах"
-                                >
-                                    <Settings className="h-4 w-4" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <div className="text-xs font-semibold">Төрөл тохируулах</div>
-                            </TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-                    <Button onClick={() => setIsAddDialogOpen(true)} size="sm" className="h-8">
-                        <PlusCircle className="w-3.5 h-3.5 mr-1.5" />
-                        Нэмэх
-                    </Button>
-                </div>
-            </div>
-
-            {/* Documents List */}
-            <div className="space-y-2">
-                {documents && documents.length > 0 ? (
-                    documents.map((docItem: any, idx: number) => (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-white rounded-xl border hover:border-primary/20 transition-all group">
-                            <div className="h-9 w-9 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
-                                <FileIcon className="h-4 w-4 text-slate-500" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <h4 className="text-sm font-medium truncate">{docItem.title}</h4>
-                                    <Badge variant="secondary" className="text-[10px] shrink-0">
-                                        {docItem.documentType}
-                                    </Badge>
-                                </div>
-                                <p className="text-xs text-slate-500">
-                                    {new Date(docItem.uploadDate).toLocaleDateString()}
-                                </p>
-                            </div>
-                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600">
-                                            <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Баримт устгах</AlertDialogTitle>
-                                            <AlertDialogDescription>
-                                                Энэ баримтыг устгахдаа итгэлтэй байна уу?
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Болих</AlertDialogCancel>
-                                            <AlertDialogAction
-                                                onClick={() => {
-                                                    if (!firestore) return;
-                                                    deleteDocumentNonBlocking(doc(firestore, 'documents', docItem.id));
-                                                }}
-                                                className="bg-rose-600 hover:bg-rose-700"
-                                            >
-                                                Устгах
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400" asChild>
-                                    <Link href={`/dashboard/employee-documents/${docItem.id}`}>
-                                        <ChevronRight className="h-4 w-4" />
-                                    </Link>
-                                </Button>
-                            </div>
-                        </div>
-                    ))
-                ) : (
-                    <div className="bg-white rounded-xl border p-12 text-center">
-                        <FileIcon className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                        <p className="text-sm text-slate-500 mb-4">Баримт бичиг байхгүй</p>
-                        <Button onClick={() => setIsAddDialogOpen(true)} variant="outline" size="sm">
-                            Баримт нэмэх
-                        </Button>
-                    </div>
-                )}
-            </div>
-
-            <AddEmployeeDocumentDialog
-                employeeId={employee.id}
-                open={isAddDialogOpen}
-                onOpenChange={setIsAddDialogOpen}
-            />
-
-            <Dialog open={isDocTypeSettingsOpen} onOpenChange={setIsDocTypeSettingsOpen}>
-                <DialogContent className="sm:max-w-3xl max-h-[80vh] flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle>Баримт бичгийн төрөл</DialogTitle>
-                        <DialogDescription>
-                            Баримт бичгийн төрлийг эндээс нэмэх, засах, устгах боломжтой.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="min-h-0 flex-1">
-                        <ReferenceTable
-                            collectionName="er_document_types"
-                            columns={docTypeColumns as any}
-                            itemData={(allDocTypes || []) as ReferenceItem[]}
-                            isLoading={false}
-                            dialogTitle="Баримт бичгийн төрөл"
-                            enableFieldDefs={true}
-                            compact={false}
-                            maxVisibleItems={50}
-                        />
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     );
-};
-
-
-const HistoryTabContent = ({ employeeId, erDocuments, isLoading }: { employeeId: string; erDocuments?: ERDocument[]; isLoading: boolean }) => {
-    const sortedDocs = React.useMemo(() => {
-        if (!erDocuments) return [];
-        return [...erDocuments].sort((a, b) => {
-            const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
-            const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
-            return (dateB || 0) - (dateA || 0);
-        });
-    }, [erDocuments]);
-
-    if (isLoading) {
-        return (
-            <div className="space-y-3">
-                {Array.from({ length: 3 }).map((_, i) => (
-                    <Skeleton key={i} className="h-20 w-full rounded-xl" />
-                ))}
-            </div>
-        );
-    }
-
-    if (!sortedDocs || sortedDocs.length === 0) {
-        return (
-            <div className="bg-white rounded-xl border p-12 text-center">
-                <FileText className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                <p className="text-sm text-slate-500">Хөдөлмөрийн харилцааны баримт байхгүй</p>
-            </div>
-        );
-    }
-
-    // Helper to extract date fields from customInputs
-    const getDateFields = (customInputs: Record<string, any> | undefined) => {
-        if (!customInputs) return [];
-        return Object.entries(customInputs)
-            .filter(([key, value]) => {
-                // Check if value looks like a date (yyyy-MM-dd format)
-                if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return true;
-                return false;
-            })
-            .map(([key, value]) => {
-                // Convert key to readable label
-                const label = key
-                    .replace(/_/g, ' ')
-                    .replace(/([a-z])([A-Z])/g, '$1 $2')
-                    .replace(/^\w/, c => c.toUpperCase());
-                return { label, value };
-            });
-    };
-
-    return (
-        <div className="space-y-3">
-            {sortedDocs.map((doc, idx) => {
-                const dateFields = getDateFields(doc.customInputs);
-
-                return (
-                    <Link 
-                        key={`${doc.id}-${idx}`} 
-                        href={`/dashboard/employment-relations/${doc.id}`}
-                        className="flex items-center gap-4 p-4 bg-white rounded-xl border hover:border-primary/20 hover:shadow-sm transition-all group"
-                    >
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <FileText className="h-5 w-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            {/* Document number - most prominent */}
-                            {doc.documentNumber && (
-                                <div className="text-base font-bold text-slate-900 mb-0.5">
-                                    {doc.documentNumber}
-                                </div>
-                            )}
-                            {/* Template name with status badge */}
-                            <div className="flex items-center gap-2 mb-1">
-                                <h4 className="text-sm font-medium text-slate-700 truncate">{doc.metadata?.templateName || 'Баримт'}</h4>
-                                <Badge className={cn("text-[10px] shrink-0", DOCUMENT_STATUSES[doc.status].color)}>
-                                    {DOCUMENT_STATUSES[doc.status].label}
-                                </Badge>
-                            </div>
-                            {/* Custom input dates with labels */}
-                            {dateFields.length > 0 && (
-                                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-                                    {dateFields.map(({ label, value }, i) => (
-                                        <span key={i}>
-                                            <span className="text-slate-400">{label}:</span>{' '}
-                                            <span className="font-medium">{value}</span>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-slate-300 group-hover:text-primary transition-colors shrink-0" />
-                    </Link>
-                );
-            })}
-        </div>
-    );
-};
+}
 
 export default function EmployeeProfilePage() {
+    return (
+        <React.Suspense fallback={
+            <div className="py-8 min-h-screen container mx-auto max-w-7xl">
+                <ProfileSkeleton />
+            </div>
+        }>
+            <EmployeeProfilePageInner />
+        </React.Suspense>
+    );
+}
+
+function EmployeeProfilePageInner() {
     const { id } = useParams();
-    const router = useRouter();
     const employeeId = Array.isArray(id) ? id[0] : id;
-    const { firestore, storage } = useFirebase();
+    const { storage } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const { user } = useUser();
-    const [showAdminDialog, setShowAdminDialog] = React.useState(false);
-    const [showTmsAccessDialog, setShowTmsAccessDialog] = React.useState(false);
-    const [showNewsAccessDialog, setShowNewsAccessDialog] = React.useState(false);
-    const [showCrmAccessDialog, setShowCrmAccessDialog] = React.useState(false);
-    const [showBusinessPlanAccessDialog, setShowBusinessPlanAccessDialog] = React.useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = React.useState(false);
     const photoInputRef = React.useRef<HTMLInputElement>(null);
     
-    // Inline editing state
-    const [isEditing, setIsEditing] = React.useState(false);
-    const [isSaving, setIsSaving] = React.useState(false);
-    const [editForm, setEditForm] = React.useState({
-        firstName: '',
-        lastName: '',
-        phoneNumber: '',
-        email: ''
-    });
 
-    // Start editing - populate form with current values
-    const handleStartEdit = React.useCallback((emp: Employee) => {
-        setEditForm({
-            firstName: emp.firstName || '',
-            lastName: emp.lastName || '',
-            phoneNumber: emp.phoneNumber || '',
-            email: emp.email || ''
-        });
-        setIsEditing(true);
-    }, []);
+    // Make admin dialog state
+    const searchParams = useSearchParams();
+    const [activeTab, setActiveTab] = React.useState(searchParams.get('tab') || 'profile');
+    const [makeAdminOpen, setMakeAdminOpen] = React.useState(false);
 
-    // Cancel editing
-    const handleCancelEdit = React.useCallback(() => {
-        setIsEditing(false);
-        setEditForm({ firstName: '', lastName: '', phoneNumber: '', email: '' });
-    }, []);
+    // Questionnaire header actions state
+    const [isCVDialogOpen, setIsCVDialogOpen] = React.useState(false);
+    const [isTogglingLock, setIsTogglingLock] = React.useState(false);
 
-    // Save changes
-    const handleSaveEdit = React.useCallback(async () => {
-        if (!firestore || !employeeId) return;
-        
-        // Validation
-        if (!editForm.firstName.trim()) {
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Нэр хоосон байж болохгүй' });
-            return;
+    // Verification dialog state
+    const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false);
+    const [verifyType, setVerifyType] = React.useState<'email' | 'phone'>('email');
+    const [verifyTarget, setVerifyTarget] = React.useState('');
+
+    // employee/companyId нь callbacks-ээс хойд талд declare хийгддэг тул latest утгыг ref-ээр унших.
+    const employeeLatestRef = React.useRef<Employee | null>(null);
+    const companyIdRef = React.useRef<string | null>(null);
+
+    // Per-field inline save
+    const saveEmployeeField = React.useCallback(async (patch: Record<string, string>) => {
+        if (!employeeId) return;
+        const empRef = tDoc('employees', employeeId);
+        const current = employeeLatestRef.current;
+        const finalPatch: Record<string, unknown> = { ...patch };
+        if ('email' in patch && (patch.email || '') !== (current?.email || '')) {
+            finalPatch.emailVerified = false;
+            finalPatch.emailVerifiedAt = deleteField();
         }
-        if (!editForm.lastName.trim()) {
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Овог хоосон байж болохгүй' });
-            return;
+        if ('phoneNumber' in patch && (patch.phoneNumber || '') !== (current?.phoneNumber || '')) {
+            finalPatch.phoneVerified = false;
+            finalPatch.phoneVerifiedAt = deleteField();
         }
-        if (!editForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) {
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Имэйл хаяг буруу байна' });
-            return;
-        }
-
-        setIsSaving(true);
         try {
-            const empRef = doc(firestore, 'employees', employeeId);
-            await updateDocumentNonBlocking(empRef, {
-                firstName: editForm.firstName.trim(),
-                lastName: editForm.lastName.trim(),
-                phoneNumber: editForm.phoneNumber.trim(),
-                email: editForm.email.trim()
-            });
-            toast({ title: 'Амжилттай', description: 'Мэдээлэл шинэчлэгдлээ' });
-            setIsEditing(false);
+            await updateDoc(empRef, finalPatch);
+            toast({ title: 'Хадгалагдлаа' });
         } catch (error) {
-            console.error('Error updating employee:', error);
-            toast({ variant: 'destructive', title: 'Алдаа', description: 'Мэдээлэл хадгалахад алдаа гарлаа' });
-        } finally {
-            setIsSaving(false);
+            Sentry.captureException(error, { tags: { module: 'employees', action: 'save-field' } });
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Хадгалахад алдаа гарлаа.' });
+            throw error;
         }
-    }, [firestore, employeeId, editForm, toast]);
+    }, [employeeId, tDoc, toast]);
+
+    const handleOpenVerify = React.useCallback((type: 'email' | 'phone', target: string) => {
+        setVerifyType(type);
+        setVerifyTarget(target);
+        setVerifyDialogOpen(true);
+    }, []);
+
+    const handleVerified = React.useCallback(() => {
+        toast({ title: 'Амжилттай', description: 'Баталгаажуулалт амжилттай боллоо' });
+    }, [toast]);
 
     const handlePhotoSelected = React.useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
-        if (!file || !firestore || !storage || !employeeId) return;
+        const currentEmployee = employeeLatestRef.current;
+        const currentCompanyId = companyIdRef.current;
+        if (!file || !firestore || !storage || !employeeId || !currentCompanyId) return;
 
         const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
         if (!allowedTypes.includes(file.type)) {
@@ -739,167 +208,132 @@ export default function EmployeeProfilePage() {
             return;
         }
 
+        const oldPhotoURL = currentEmployee?.photoURL;
+        const newStorageRef = ref(storage, `employee-photos/${currentCompanyId}/${employeeId}/${Date.now()}-${file.name}`);
+
         setIsUploadingPhoto(true);
         try {
-            const storageRef = ref(storage, `employee-photos/${employeeId}/${Date.now()}-${file.name}`);
-            await uploadBytes(storageRef, file);
-            const url = await getDownloadURL(storageRef);
-            const empRef = doc(firestore, 'employees', employeeId);
-            await updateDocumentNonBlocking(empRef, { photoURL: url });
+            // 1) Шинэ зургийг upload хийнэ
+            await uploadBytes(newStorageRef, file);
+            const url = await getDownloadURL(newStorageRef);
+
+            // 2) Doc-ийг шинэчилнэ — амжилтгүй бол шинэ object-ийг буцааж устгана
+            try {
+                const empRef = tDoc('employees', employeeId);
+                await updateDoc(empRef, { photoURL: url });
+            } catch (docError) {
+                try { await deleteObject(newStorageRef); } catch { /* cleanup best-effort */ }
+                throw docError;
+            }
+
+            // 3) Doc амжилттай шинэчлэгдсэний дараа хуучин зургийг устгана (best-effort)
+            if (oldPhotoURL && oldPhotoURL.includes('firebase')) {
+                try {
+                    await deleteObject(ref(storage, oldPhotoURL));
+                } catch { /* хуучин зураг устгах алдаа — алгасах */ }
+            }
+
             toast({ title: 'Амжилттай', description: 'Аватар зураг шинэчлэгдлээ' });
         } catch (error) {
+            Sentry.captureException(error, { tags: { module: 'employees', action: 'photo-upload' } });
             console.error('Photo upload error:', error);
             toast({ variant: 'destructive', title: 'Алдаа', description: 'Зураг солиход алдаа гарлаа' });
         } finally {
             setIsUploadingPhoto(false);
             if (photoInputRef.current) photoInputRef.current.value = '';
         }
-    }, [employeeId, firestore, storage, toast]);
+    }, [employeeId, firestore, storage, toast, tDoc]);
 
     const employeeDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null),
+        [employeeId]
     );
 
     const departmentsQuery = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'departments') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
+        []
     );
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc<Employee>(employeeDocRef as any);
+    employeeLatestRef.current = employee ?? null;
+
+    const handleToggleQuestionnaireLock = React.useCallback(async () => {
+        if (!employeeDocRef || isTogglingLock) return;
+        setIsTogglingLock(true);
+        const currentlyLocked = !!employee?.questionnaireLocked;
+        try {
+            await updateDoc(employeeDocRef, { questionnaireLocked: !currentlyLocked });
+            toast({
+                title: !currentlyLocked ? 'Анкет түгжигдлээ' : 'Анкетийн түгжээ нээгдлээ',
+                description: !currentlyLocked
+                    ? 'Ажилтан өөрийн анкетийг засах боломжгүй боллоо.'
+                    : 'Ажилтан өөрийн анкетийг засах боломжтой боллоо.',
+            });
+        } catch (error) {
+            Sentry.captureException(error, { tags: { module: 'employees', action: 'toggle-lock' } });
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Түгжээний төлөв өөрчлөхөд алдаа гарлаа' });
+        } finally {
+            setIsTogglingLock(false);
+        }
+    }, [employeeDocRef, isTogglingLock, employee, toast]);
 
     // Fetch questionnaire for gender & birthDate
     const questionnaireDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) =>
+          firestore && employeeId ? tenantEmployeeSubdoc(firestore, companyPath, employeeId, 'questionnaire', 'data') : null,
+        [employeeId]
     );
     const { data: questionnaireData } = useDoc<any>(questionnaireDocRef as any);
 
     const positionDocRef = useMemoFirebase(
-        ({ firestore }) => (firestore && employee?.positionId ? doc(firestore, 'positions', employee.positionId) : null),
+        ({ firestore, companyPath }) => (firestore && employee?.positionId ? tenantDoc(firestore, companyPath, 'positions', employee.positionId) : null),
         [employee]
     );
 
     const { data: position, isLoading: isLoadingPosition } = useDoc<Position>(positionDocRef as any);
 
     const workScheduleDocRef = useMemoFirebase(
-        ({ firestore }) => (firestore && position?.workScheduleId ? doc(firestore, 'workSchedules', position.workScheduleId) : null),
+        ({ firestore, companyPath }) => (firestore && position?.workScheduleId ? tenantDoc(firestore, companyPath, 'workSchedules', position.workScheduleId) : null),
         [position?.workScheduleId]
     );
 
     const { data: workSchedule, isLoading: isLoadingWorkSchedule } = useDoc<WorkSchedule>(workScheduleDocRef as any);
 
     const orgActionsRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'organization_actions') : null),
-        [firestore]
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'organization_actions') : null),
+        []
     );
-    const { data: orgActions, isLoading: isLoadingOrgActions } = useCollection<any>(orgActionsRef);
+    const { data: orgActions, isLoading: isLoadingOrgActions } = useFetchCollection<any>(orgActionsRef);
 
 
+    // NOTE: `(employeeId, createdAt)` composite index байхгүй учир orderBy
+    // хасаад client-side-д эрэмбэлнэ (HistoryTabContent нь аль хэдийн sort
+    // хийдэг). `limit` ч мөн client-side дарна.
     const erDocumentsQuery = React.useMemo(() =>
         firestore && employeeId ? query(
-            collection(firestore, 'er_documents'),
+            tCollection('er_documents'),
             where('employeeId', '==', employeeId)
         ) : null
-        , [firestore, employeeId]);
+        , [firestore, employeeId, tCollection]);
 
     const { data: erDocuments, isLoading: isLoadingDocs } = useCollection<ERDocument>(erDocumentsQuery as any);
 
-    // Auto-finalize employee status when ER document is APPROVED/SIGNED
-    // but employee is still in intermediate state (appointing / releasing)
-    const didAutoFinalizeRef = React.useRef(false);
-    React.useEffect(() => {
-        if (!firestore || !employee || !employeeId || !erDocuments || erDocuments.length === 0) return;
-        if (didAutoFinalizeRef.current) return;
-        if (employee.status !== 'appointing' && employee.status !== 'releasing' && employee.status !== 'suspended') return;
-
-        const finalDoc = erDocuments.find(d => d.status === 'APPROVED' || d.status === 'SIGNED');
-        if (!finalDoc) return;
-
-        const actionId = String((finalDoc as any)?.metadata?.actionId || '');
-        const templateName = String((finalDoc as any)?.metadata?.templateName || '').toLowerCase();
-
-        const inferAppointmentType = (): string | null => {
-            if (actionId.startsWith('appointment_')) return actionId;
-            if (templateName.includes('туршилт')) return 'appointment_probation';
-            if (templateName.includes('гэрээт')) return 'appointment_contract';
-            if (templateName.includes('үндсэн') || templateName.includes('томилох')) return 'appointment_permanent';
-            return null;
-        };
-
-        const inferReleaseType = (): string | null => {
-            if (actionId.startsWith('release_')) return actionId;
-            if (templateName.includes('түр чөлөө')) return 'release_temporary';
-            if (templateName.includes('чөлөөлөх')) return 'release_company';
-            return null;
-        };
-
-        if (employee.status === 'appointing') {
-            const appointType = inferAppointmentType();
-            if (!appointType) return;
-            didAutoFinalizeRef.current = true;
-            const targetStatus =
-                appointType === 'appointment_probation' ? 'active_probation' :
-                appointType === 'appointment_contract' ? 'active_contract' :
-                'active_permanent';
-            updateDoc(doc(firestore, 'employees', employeeId), {
-                status: targetStatus,
-                lifecycleStage: 'active',
-                updatedAt: Timestamp.now()
-            }).then(() => {
-                toast({ title: 'Томилгоо баталгаажлаа', description: 'Ажилтны төлөв автоматаар шинэчлэгдлээ.' });
-            }).catch(e => {
-                console.warn('Auto-finalize appointment failed:', e);
-                didAutoFinalizeRef.current = false;
-            });
-        } else if (employee.status === 'releasing' || employee.status === 'suspended') {
-            const relType = inferReleaseType();
-            if (!relType) return;
-            didAutoFinalizeRef.current = true;
-            const ci: any = (finalDoc as any)?.customInputs || {};
-            const terminationDate =
-                (typeof ci.releaseDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci.releaseDate) ? ci.releaseDate : null) ||
-                (typeof ci['Ажлаас чөлөөлөх огноо'] === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(ci['Ажлаас чөлөөлөх огноо']) ? ci['Ажлаас чөлөөлөх огноо'] : null);
-
-            if (relType === 'release_temporary') {
-                updateDoc(doc(firestore, 'employees', employeeId), {
-                    status: 'on_leave',
-                    lifecycleStage: 'retention',
-                    updatedAt: Timestamp.now()
-                }).catch(e => {
-                    console.warn('Auto-finalize release failed:', e);
-                    didAutoFinalizeRef.current = false;
-                });
-            } else {
-                updateDoc(doc(firestore, 'employees', employeeId), {
-                    status: 'terminated',
-                    lifecycleStage: 'alumni',
-                    ...(terminationDate ? { terminationDate } : {}),
-                    updatedAt: Timestamp.now()
-                }).catch(e => {
-                    console.warn('Auto-finalize release failed:', e);
-                    didAutoFinalizeRef.current = false;
-                });
-            }
-        }
-    }, [firestore, employee, employeeId, erDocuments, toast]);
-
     // Fetch onboarding process for this employee
     const onboardingProcessRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'onboarding_processes', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'onboarding_processes', employeeId) : null),
+        [employeeId]
     );
     const { data: onboardingProcess, isLoading: isLoadingOnboarding } = useDoc<any>(onboardingProcessRef as any);
 
     // Fetch offboarding projects for this employee (project-based)
-    const offboardingProjectsQuery = useMemoFirebase(() => {
+    const offboardingProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !employeeId) return null;
         return query(
-            collection(firestore, 'projects'),
+            tenantCollection(firestore, companyPath, 'projects'),
             where('type', '==', 'offboarding'),
             where('offboardingEmployeeId', '==', employeeId)
         );
-    }, [firestore, employeeId]);
+    }, [employeeId]);
     const { data: offboardingProjects, isLoading: isLoadingOffboarding } = useCollection<Project>(offboardingProjectsQuery as any);
     const [offboardingTaskCounts, setOffboardingTaskCounts] = React.useState<Record<string, { total: number; completed: number }>>({});
 
@@ -919,18 +353,39 @@ export default function EmployeeProfilePage() {
     }, [onboardingProcess]);
 
     React.useEffect(() => {
+        let cancelled = false;
+
         async function fetchOffboardingCounts() {
             if (!firestore || !offboardingProjects || offboardingProjects.length === 0) return;
             const counts: Record<string, { total: number; completed: number }> = {};
-            for (const p of offboardingProjects) {
-                const snap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
-                const tasks = snap.docs.map(d => d.data() as Task);
-                counts[p.id] = { total: tasks.length, completed: tasks.filter(t => t.status === 'DONE').length };
+            const projectsToFetch = offboardingProjects.slice(0, 10);
+            // getCountFromServer aggregation — task бүрийн data татахгүйгээр
+            // зөвхөн тоог уншина. Project тутамд ~10+ task эвритэй үед уншилт
+            // 5-10x багасна (full fetch → 2 count query).
+            const entries = await Promise.all(
+                projectsToFetch.map(async (p) => {
+                    if (cancelled) return null;
+                    const tasksRef = tCollection('projects', p.id, 'tasks');
+                    const [totalSnap, doneSnap] = await Promise.all([
+                        getCountFromServer(tasksRef),
+                        getCountFromServer(query(tasksRef, where('status', '==', 'DONE'))),
+                    ]);
+                    return [p.id, {
+                        total: totalSnap.data().count,
+                        completed: doneSnap.data().count,
+                    }] as const;
+                })
+            );
+            if (cancelled) return;
+            for (const entry of entries) {
+                if (entry) counts[entry[0]] = entry[1];
             }
-            setOffboardingTaskCounts(counts);
+            if (!cancelled) setOffboardingTaskCounts(counts);
         }
         fetchOffboardingCounts();
-    }, [firestore, offboardingProjects]);
+        return () => { cancelled = true; };
+
+    }, [firestore, offboardingProjects, tCollection]);
 
     const offboardingProgress = React.useMemo(() => {
         const ps = offboardingProjects || [];
@@ -945,16 +400,22 @@ export default function EmployeeProfilePage() {
         return total > 0 ? Math.round((done / total) * 100) : 0;
     }, [offboardingProjects, offboardingTaskCounts]);
 
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery as any);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery as any);
 
     const currentUserEmployeeRef = useMemoFirebase(
-        ({ firestore, user }) => (firestore && user ? doc(firestore, 'employees', user.uid) : null),
+        ({ firestore, companyPath, user }) => (firestore && user ? tenantDoc(firestore, companyPath, 'employees', user.uid) : null),
         [user?.uid]
     );
     const { data: currentUserEmployee } = useDoc<Employee>(currentUserEmployeeRef as any);
-    const currentUserRole = currentUserEmployee?.role;
+    const { role: tenantRole, companyId } = useTenant();
+    companyIdRef.current = companyId ?? null;
+    // super_admin нь employees doc-д байхгүй байж болно → token claims-аас авна
+    const currentUserRole = (tenantRole === 'super_admin' ? 'super_admin' : currentUserEmployee?.role) as
+        'super_admin' | 'company_super_admin' | 'admin' | 'manager' | 'employee' | undefined;
 
-    const isLoading = isLoadingEmployee || isLoadingDepts || isLoadingPosition || isLoadingWorkSchedule || isLoadingDocs || isLoadingOrgActions || isLoadingOnboarding || isLoadingOffboarding;
+    // Profile-ийн үндсэн skeleton зөвхөн employee + departments хүлээнэ.
+    // Бусад тусдаа модулиудын data (onboarding, offboarding, ER docs гэх мэт) өөрсдийн loading state-тэй.
+    const isLoading = isLoadingEmployee || isLoadingDepts;
 
     const { effectiveHireDate, probationEndDate, effectiveTerminationDate } = React.useMemo(() => {
         let hireDate = employee?.hireDate;
@@ -963,29 +424,40 @@ export default function EmployeeProfilePage() {
 
         if (!erDocuments || erDocuments.length === 0) return { effectiveHireDate: hireDate, probationEndDate: null, effectiveTerminationDate: terminationDate };
 
+        const getActionId = (doc: ERDocument): string =>
+            typeof doc.metadata?.actionId === 'string' ? doc.metadata.actionId : '';
+        const getTsSeconds = (ts: unknown): number => {
+            if (ts && typeof ts === 'object' && 'seconds' in ts && typeof (ts as { seconds: unknown }).seconds === 'number') {
+                return (ts as { seconds: number }).seconds;
+            }
+            if (typeof ts === 'string' || typeof ts === 'number') {
+                const t = new Date(ts).getTime();
+                return isNaN(t) ? 0 : t / 1000;
+            }
+            return 0;
+        };
+        const asStringOrNull = (v: unknown): string | null =>
+            typeof v === 'string' ? v : null;
+
         // Filter for appointment documents and sort by date (newest first)
         const appointmentDocs = erDocuments
             .filter(doc =>
-                (doc.metadata?.actionId?.startsWith('appointment') || doc.templateId?.includes('appointment')) &&
-                ['APPROVED', 'SIGNED'].includes(doc.status)
+                (getActionId(doc).startsWith('appointment') || doc.templateId?.includes('appointment')) &&
+                ['APPROVED', 'SIGNED', 'SENT_TO_EMPLOYEE', 'ACKNOWLEDGED'].includes(doc.status)
             )
-            .sort((a, b) => {
-                const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
-                const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
-                return (dateB || 0) - (dateA || 0);
-            });
+            .sort((a, b) => getTsSeconds(b.createdAt) - getTsSeconds(a.createdAt));
 
         if (appointmentDocs.length > 0) {
             const latestDoc = appointmentDocs[0];
-            const inputs = latestDoc.customInputs || {};
-            const actionId = latestDoc.metadata?.actionId;
+            const inputs: Record<string, unknown> = latestDoc.customInputs || {};
+            const actionId = getActionId(latestDoc);
 
             // Get mapping for this action
-            const actionConfig = orgActions?.find((a: any) => a.id === actionId);
-            const mappings = actionConfig?.dateMappings || {};
+            const actionConfig = orgActions?.find((a: { id?: string }) => a.id === actionId);
+            const mappings: Record<string, string> = (actionConfig as { dateMappings?: Record<string, string> } | undefined)?.dateMappings || {};
 
-            let hireDateKey = null;
-            let probationEndKey = null;
+            let hireDateKey: string | null = null;
+            let probationEndKey: string | null = null;
 
             if (actionId === 'appointment_probation') {
                 hireDateKey = mappings['probationStartDate'];
@@ -996,28 +468,27 @@ export default function EmployeeProfilePage() {
                 hireDateKey = mappings['appointmentDate'];
             }
 
-            let hireDateVal = hireDateKey ? inputs[hireDateKey] : null;
-            probationEnd = probationEndKey ? inputs[probationEndKey] : null;
+            let hireDateVal: string | null = hireDateKey ? asStringOrNull(inputs[hireDateKey]) : null;
+            probationEnd = probationEndKey ? asStringOrNull(inputs[probationEndKey]) : null;
 
             // Fallback to legacy hardcoded keys or generic ones if mapping is missing
             if (!hireDateVal) {
                 if (actionId === 'appointment_probation') {
-                    hireDateVal = inputs['Туршилтын эхлэх огноо'] || inputs['probationStartDate'];
+                    hireDateVal = asStringOrNull(inputs['Туршилтын эхлэх огноо']) || asStringOrNull(inputs['probationStartDate']);
                 } else if (actionId === 'appointment_reappoint') {
-                    hireDateVal = inputs['Томилогдсон огноо'] || inputs['appointmentDate'];
+                    hireDateVal = asStringOrNull(inputs['Томилогдсон огноо']) || asStringOrNull(inputs['appointmentDate']);
                 } else if (actionId === 'appointment_permanent') {
-                    hireDateVal = inputs['Томилогдсон хугацаа'] || inputs['appointmentDate'];
+                    hireDateVal = asStringOrNull(inputs['Томилогдсон хугацаа']) || asStringOrNull(inputs['appointmentDate']);
                 }
             }
 
             // General fallbacks for hire date
             if (!hireDateVal) {
-                hireDateVal = inputs['startDate'] || inputs['date'] || inputs['Огноо'];
+                hireDateVal = asStringOrNull(inputs['startDate']) || asStringOrNull(inputs['date']) || asStringOrNull(inputs['Огноо']);
             }
 
-            // Last resort: find any string that looks like a date
             if (!hireDateVal) {
-                hireDateVal = Object.values(inputs).find(v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v));
+                console.warn(`[EmployeeProfile] No hire date mapping found for actionId="${actionId}". Available keys: ${Object.keys(inputs).join(', ')}`);
             }
 
             if (hireDateVal) {
@@ -1028,27 +499,23 @@ export default function EmployeeProfilePage() {
         // Filter for release documents
         const releaseDocs = erDocuments
             .filter(doc =>
-                (doc.metadata?.actionId?.startsWith('release') || doc.templateId?.includes('release')) &&
-                ['APPROVED', 'SIGNED'].includes(doc.status)
+                (getActionId(doc).startsWith('release') || doc.templateId?.includes('release')) &&
+                ['APPROVED', 'SIGNED', 'SENT_TO_EMPLOYEE', 'ACKNOWLEDGED'].includes(doc.status)
             )
-            .sort((a, b) => {
-                const dateA = a.createdAt?.seconds ? a.createdAt.seconds : new Date(a.createdAt).getTime() / 1000;
-                const dateB = b.createdAt?.seconds ? b.createdAt.seconds : new Date(b.createdAt).getTime() / 1000;
-                return (dateB || 0) - (dateA || 0);
-            });
+            .sort((a, b) => getTsSeconds(b.createdAt) - getTsSeconds(a.createdAt));
 
         if (releaseDocs.length > 0) {
             const latestDoc = releaseDocs[0];
-            const inputs = latestDoc.customInputs || {};
-            const actionId = latestDoc.metadata?.actionId;
-            const actionConfig = orgActions?.find((a: any) => a.id === actionId);
-            const mappings = actionConfig?.dateMappings || {};
+            const inputs: Record<string, unknown> = latestDoc.customInputs || {};
+            const actionId = getActionId(latestDoc);
+            const actionConfig = orgActions?.find((a: { id?: string }) => a.id === actionId);
+            const mappings: Record<string, string> = (actionConfig as { dateMappings?: Record<string, string> } | undefined)?.dateMappings || {};
 
             const releaseDateKey = mappings['releaseDate'];
-            let releaseDateVal = releaseDateKey ? inputs[releaseDateKey] : null;
+            let releaseDateVal: string | null = releaseDateKey ? asStringOrNull(inputs[releaseDateKey]) : null;
 
             if (!releaseDateVal) {
-                releaseDateVal = inputs['Ажлаас чөлөөлөх огноо'] || inputs['releaseDate'] || inputs['terminationDate'];
+                releaseDateVal = asStringOrNull(inputs['Ажлаас чөлөөлөх огноо']) || asStringOrNull(inputs['releaseDate']) || asStringOrNull(inputs['terminationDate']);
             }
 
             if (releaseDateVal) {
@@ -1067,7 +534,7 @@ export default function EmployeeProfilePage() {
         }, new Map<string, string>());
     }, [departments]);
 
-
+    const employeeTabs = BASE_TABS;
 
     if (isLoading) {
         return (
@@ -1097,392 +564,450 @@ export default function EmployeeProfilePage() {
     const fullName = employee.lastName
         ? `${employee.lastName.substring(0, 1)}.${employee.firstName}`
         : employee.firstName;
-    const departmentName = departmentMap.get(employee.departmentId) || 'Тодорхойгүй';
+    const departmentName = departmentMap.get(employee.departmentId ?? '') || 'Тодорхойгүй';
     const workScheduleName = workSchedule?.name || 'Тодорхойгүй';
     const statusInfo = statusConfig[employee.status] || { variant: 'outline', className: '', label: employee.status };
-    const isActive = isActiveStatus(employee.status);
-
-
 
     return (
         <>
-        <div className="flex flex-col h-full bg-slate-50/50">
-            <div className="px-6 md:px-8 pt-6">
-                <PageHeader
-                    title={fullName}
-                    description="Ажилтаны хувийн хэрэг"
-                    showBackButton={true}
-                    hideBreadcrumbs={true}
-                    backButtonPlacement="inline"
-                    backBehavior="history"
-                    fallbackBackHref="/dashboard/employees"
-                    actions={
-                        <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", employee.role === 'admin' && "border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100")}
-                                onClick={() => setShowAdminDialog(true)}
-                            >
-                                <Shield className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.role === 'admin' ? 'Админ' : 'Админ болгох'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", employee.tmsAccess && "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100")}
-                                onClick={() => setShowTmsAccessDialog(true)}
-                            >
-                                <Truck className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.tmsAccess ? 'TMS эрхтэй' : 'TMS эрх олгох'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", employee.newsAccess && "border-orange-200 bg-orange-50 text-orange-700 hover:bg-orange-100")}
-                                onClick={() => setShowNewsAccessDialog(true)}
-                            >
-                                <Newspaper className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.newsAccess ? 'Мэдээлэл эрхтэй' : 'Мэдээлэл эрх олгох'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", employee.crmAccess && "border-cyan-200 bg-cyan-50 text-cyan-700 hover:bg-cyan-100")}
-                                onClick={() => setShowCrmAccessDialog(true)}
-                            >
-                                <HeartHandshake className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.crmAccess ? 'CRM эрхтэй' : 'CRM эрх олгох'}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className={cn("h-8", employee.businessPlanAccess && "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100")}
-                                onClick={() => setShowBusinessPlanAccessDialog(true)}
-                            >
-                                <Target className="h-3.5 w-3.5 mr-1.5" />
-                                {employee.businessPlanAccess ? 'Бизнес төлөвлөгөө эрхтэй' : 'Бизнес төлөвлөгөө эрх олгох'}
-                            </Button>
-                            <Button variant="outline" size="sm" className="h-8" asChild>
-                                <Link href={`/dashboard/employees/${employeeId}/lifecycle`}>
-                                    <Activity className="h-3.5 w-3.5 mr-1.5" />
-                                    Life Cycle
-                                </Link>
-                            </Button>
-                        </>
-                    }
-                />
-            </div>
-
-            {/* Main Content */}
-            <div className="flex-1 overflow-y-auto">
-                <div className="p-6 md:p-8 space-y-6 pb-32">
-                    {/* Status Warning - only for pending appointment */}
-                    {employee.status === 'appointing' && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                            <p className="text-sm font-medium text-amber-900">
-                                Энэ ажилтан <strong>томилогдож буй</strong> төлөвтэй байна. Томилох бичиг баримт баталгаажсан үед идэвхтэй болно.
-                            </p>
-                        </div>
-                    )}
-                    {/* Releasing employee info */}
-                    {employee.status === 'releasing' && (
-                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
-                            <p className="text-sm font-medium text-orange-900">
-                                Энэ ажилтан <strong>чөлөөлөгдөж буй</strong> төлөвтэй байна. Чөлөөлөх бичиг баримт баталгаажсан үед &quot;Ажлаас гарсан&quot; болно.
-                            </p>
-                        </div>
-                    )}
-                    {/* Terminated employee info */}
-                    {employee.status === 'terminated' && (
-                        <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
-                            <AlertTriangle className="w-5 h-5 text-slate-500 shrink-0" />
-                            <p className="text-sm font-medium text-slate-700">
-                                Энэ ажилтан <strong>ажлаас гарсан</strong> төлөвтэй байна.
-                            </p>
-                        </div>
-                    )}
-
-            {/* Main Layout */}
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-                {/* Left Sidebar - Profile Card */}
-                <div className="xl:col-span-1 space-y-4">
-                    {/* Employee Card (replaces old profile + quick info cards) */}
-                    <EmployeeCard
-                        employee={{
-                            ...(employee as any),
-                            gender: questionnaireData?.gender,
-                            birthDate: questionnaireData?.birthDate,
+        <DetailSidebarLayout
+            tabs={employeeTabs}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            sidebarHeader={
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (window.history.length > 1) window.history.back();
+                            else window.location.assign('/dashboard/employees');
                         }}
-                        variant="detailed"
-                        asLink={false}
-                        departmentName={departmentName}
-                        className="shadow-sm"
-                        topRightActions={
-                            <TooltipProvider delayDuration={150}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8 rounded-lg"
-                                            onPointerDown={(e) => e.stopPropagation()}
-                                            onClick={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleStartEdit(employee);
-                                            }}
-                                            disabled={isSaving || isUploadingPhoto}
-                                            aria-label="Засах"
-                                        >
-                                            <Edit className="h-4 w-4" />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <div className="text-xs font-semibold">Засах</div>
-                                    </TooltipContent>
-                                </Tooltip>
-                            </TooltipProvider>
-                        }
-                    />
-
-                    {/* Edit dialog (kept outside EmployeeCard for reliable interactions) */}
-                    <Dialog
-                        open={isEditing}
-                        onOpenChange={(open) => {
-                            if (open) return;
-                            handleCancelEdit();
-                        }}
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        aria-label="Буцах"
                     >
-                        <DialogContent className="sm:max-w-[520px]">
-                            <DialogHeader>
-                                <DialogTitle>Ажилтны мэдээлэл засах</DialogTitle>
-                                <DialogDescription>Овог, нэр, утас, имэйл, аватар зураг.</DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-5">
-                                {/* Avatar */}
-                                <div className="flex items-center gap-4">
-                                    <input
-                                        ref={photoInputRef}
-                                        type="file"
-                                        accept="image/jpeg,image/jpg,image/png,image/webp"
-                                        className="hidden"
-                                        onChange={handlePhotoSelected}
-                                        disabled={isUploadingPhoto}
-                                    />
-                                    <div className="shrink-0">
-                                        <AvatarWithProgress
-                                            employee={employee}
-                                            size={72}
-                                            onboardingProgress={onboardingProgress}
-                                            onClick={() => photoInputRef.current?.click()}
-                                        />
-                                    </div>
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-semibold truncate">{fullName}</div>
-                                        <div className="text-xs text-muted-foreground truncate">
-                                            #{employee.employeeCode} • {departmentName}
-                                        </div>
-                                        <div className="mt-2 text-[11px] text-muted-foreground">
-                                            Зураг дээр дарж солино (JPG/PNG/WebP, 8MB).
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Fields */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Овог</div>
-                                        <Input
-                                            value={editForm.lastName}
-                                            onChange={(e) => setEditForm((prev) => ({ ...prev, lastName: e.target.value }))}
-                                            className="h-9"
-                                            placeholder="Овог"
-                                            disabled={isSaving}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Нэр</div>
-                                        <Input
-                                            value={editForm.firstName}
-                                            onChange={(e) => setEditForm((prev) => ({ ...prev, firstName: e.target.value }))}
-                                            className="h-9"
-                                            placeholder="Нэр"
-                                            disabled={isSaving}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Утас</div>
-                                        <Input
-                                            value={editForm.phoneNumber}
-                                            onChange={(e) => setEditForm((prev) => ({ ...prev, phoneNumber: e.target.value }))}
-                                            className="h-9"
-                                            placeholder="+976 9911..."
-                                            disabled={isSaving}
-                                        />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <div className="text-[10px] font-medium text-slate-500 uppercase">Имэйл</div>
-                                        <Input
-                                            type="email"
-                                            value={editForm.email}
-                                            onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                                            className="h-9"
-                                            placeholder="email@example.com"
-                                            disabled={isSaving}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <DialogFooter>
-                                <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                                    Болих
-                                </Button>
-                                <Button onClick={handleSaveEdit} disabled={isSaving}>
-                                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Хадгалах'}
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Offboarding Progress - Only show if projects exist */}
-                    {(offboardingProjects && offboardingProjects.length > 0) && (
-                        <div className="bg-white rounded-xl border p-4 ring-2 ring-amber-100">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-xs font-semibold text-amber-600 uppercase">Offboarding</h3>
-                                <span className={cn(
-                                    "text-xs font-medium",
-                                    offboardingProgress >= 100 ? "text-emerald-600" : "text-amber-600"
-                                )}>
-                                    {offboardingProgress}%
-                                </span>
-                            </div>
-                            <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
-                                <div 
-                                    className={cn(
-                                        "h-full rounded-full transition-all",
-                                        offboardingProgress >= 100 ? "bg-emerald-500" : "bg-amber-500"
-                                    )}
-                                    style={{ width: `${offboardingProgress}%` }}
-                                />
-                            </div>
-                            <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs text-amber-700 hover:text-amber-800 hover:bg-amber-50" asChild>
-                                <Link href={`/dashboard/offboarding/${employeeId}`}>
-                                    Offboarding харах
-                                    <ChevronRight className="h-3.5 w-3.5 ml-1" />
-                                </Link>
-                            </Button>
-                        </div>
-                    )}
-                </div>
-
-                {/* Right Content - Tabs */}
-                <div className="xl:col-span-3">
-                    <Tabs defaultValue="history" className="w-full">
-                        {/* Tab Navigation (shared VerticalTabMenu like Position Detail) */}
-                        <div className="mb-4">
-                            <VerticalTabMenu
-                                orientation="horizontal"
-                                items={[
-                                    { value: 'history', label: 'Хөдөлмөрийн харилцаа' },
-                                    { value: 'onboarding', label: 'Onboarding' },
-                                    ...(offboardingProjects && offboardingProjects.length > 0
-                                        ? [{ value: 'offboarding', label: 'Offboarding' as const }]
-                                        : []),
-                                    { value: 'documents', label: 'Ажилтны бичиг баримт' },
-                                    { value: 'time-off', label: 'Чөлөө' },
-                                    { value: 'vacation', label: 'Амралт' },
-                                    { value: 'cv', label: 'CV' },
-                                    { value: 'system-settings', label: 'Системийн тохиргоо' },
-                                ]}
-                                className="w-full"
-                                triggerClassName="text-sm"
-                            />
-                        </div>
-
-                        {/* Tab Contents */}
-                        <TabsContent value="history" className="mt-0 focus-visible:outline-none">
-                            <HistoryTabContent employeeId={employeeId || ''} erDocuments={erDocuments} isLoading={isLoadingDocs} />
-                        </TabsContent>
-                        <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
-                            <VacationTabContent employee={employee} effectiveHireDate={effectiveHireDate || undefined} />
-                        </TabsContent>
-                        <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
-                            <div className="bg-white rounded-xl border p-8 text-center">
-                                <Calendar className="mx-auto h-10 w-10 text-slate-200 mb-3" />
-                                <p className="text-sm text-slate-500">Одоогоор чөлөөний бүртгэл байхгүй байна</p>
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
-                            <DocumentsTabContent employee={employee} />
-                        </TabsContent>
-                        <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
-                            <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
-                        </TabsContent>
-                        {(offboardingProjects && offboardingProjects.length > 0) && (
-                            <TabsContent value="offboarding" className="mt-0 focus-visible:outline-none">
-                                <OffboardingTabContent employeeId={employeeId || ''} employee={employee} />
-                            </TabsContent>
+                        <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <Avatar className="h-8 w-8 shrink-0 border border-border">
+                        <AvatarImage src={employee.photoURL} alt={fullName} className="object-cover" />
+                        <AvatarFallback className="bg-gradient-to-br from-muted to-muted/80 text-caption-medium font-bold text-muted-foreground">
+                            {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                        <p className="truncate text-menu-medium font-semibold text-foreground leading-tight">{fullName}</p>
+                        {employee.jobTitle && (
+                            <p className="truncate text-micro text-muted-foreground leading-tight mt-0.5">{employee.jobTitle}</p>
                         )}
-                        <TabsContent value="cv" className="mt-0 focus-visible:outline-none">
-                            <CVTabContent employee={employee} />
-                        </TabsContent>
-                        <TabsContent value="system-settings" className="mt-0 focus-visible:outline-none">
-                            <SystemSettingsTabContent
-                                employee={employee}
-                                currentUserId={user?.uid ?? ''}
-                                currentUserRole={currentUserRole}
-                            />
-                        </TabsContent>
-                    </Tabs>
+                    </div>
                 </div>
-            </div>
-                </div>
-            </div>
-        </div>
+            }
+            tabActions={
+                activeTab === 'questionnaire' && employee ? (
+                    <div className="flex items-center gap-2">
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        className={cn(
+                                            "h-7 w-7",
+                                            employee.questionnaireLocked
+                                                ? "border-success/30 bg-success/10 text-success hover:bg-success/20"
+                                                : ""
+                                        )}
+                                        onClick={handleToggleQuestionnaireLock}
+                                        disabled={isTogglingLock}
+                                    >
+                                        {employee.questionnaireLocked
+                                            ? <Unlock className="h-3 w-3" />
+                                            : <Lock className="h-3 w-3" />
+                                        }
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p className="text-caption font-semibold">
+                                        {employee.questionnaireLocked
+                                            ? 'Түгжигдсэн — дарж нээнэ'
+                                            : 'Нээлттэй — дарж түгжинэ'
+                                        }
+                                    </p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+                        <Button
+                            onClick={() => setIsCVDialogOpen(true)}
+                            size="sm"
+                            className="h-7 text-caption text-white hover:text-white bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-lg shadow-red-500/25"
+                        >
+                            <NegeAiIcon size={14} className="mr-1" />
+                            <span className="hidden sm:inline">AI CV Уншигч</span>
+                            <span className="sm:hidden">AI</span>
+                        </Button>
+                    </div>
+                ) : undefined
+            }
+            tabBadge={
+                activeTab === 'questionnaire' && employee ? (() => {
+                    const pct = Math.round(employee.questionnaireCompletion || 0);
+                    return (
+                        <div className="flex items-center gap-1.5 ml-1">
+                            <p className={cn(
+                                "text-body-medium font-semibold",
+                                pct >= 90 ? "text-success" : pct >= 50 ? "text-warning" : "text-error"
+                            )}>{pct}%</p>
+                            <div className="h-6 w-6 relative">
+                                <svg className="h-6 w-6 -rotate-90" viewBox="0 0 36 36">
+                                    <circle cx="18" cy="18" r="15" fill="none" stroke="hsl(var(--border))" strokeWidth="3" />
+                                    <circle cx="18" cy="18" r="15" fill="none"
+                                        stroke={pct >= 90 ? "hsl(var(--success))" : pct >= 50 ? "hsl(var(--warning))" : "hsl(var(--error))"}
+                                        strokeWidth="3" strokeDasharray={`${pct * 0.94} 100`} strokeLinecap="round"
+                                    />
+                                </svg>
+                            </div>
+                        </div>
+                    );
+                })() : undefined
+            }
+        >
 
-            {/* Admin Dialog */}
-            {user && (
-                <MakeAdminDialog
-                    open={showAdminDialog}
-                    onOpenChange={setShowAdminDialog}
-                    employee={employee}
-                    currentUserId={user.uid}
-                />
-            )}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
 
-            {/* TMS Access Dialog */}
-            <TmsAccessDialog
-                open={showTmsAccessDialog}
-                onOpenChange={setShowTmsAccessDialog}
-                employee={employee}
+                <TabsContent value="profile" className="mt-0 focus-visible:outline-none">
+                    <div className="space-y-6">
+                        {/* Status Warnings */}
+                        {employee.status === 'appointing' && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-3">
+                                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                                <p className="text-sm font-medium text-amber-900">
+                                    Энэ ажилтан <strong>томилогдож буй</strong> төлөвтэй байна. Томилох бичиг баримт баталгаажсан үед идэвхтэй болно.
+                                </p>
+                            </div>
+                        )}
+                        {employee.status === 'releasing' && (
+                            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-center gap-3">
+                                <AlertTriangle className="w-5 h-5 text-orange-600 shrink-0" />
+                                <p className="text-sm font-medium text-orange-900">
+                                    Энэ ажилтан <strong>чөлөөлөгдөж буй</strong> төлөвтэй байна. Чөлөөлөх бичиг баримт баталгаажсан үед &quot;Ажлаас гарсан&quot; болно.
+                                </p>
+                            </div>
+                        )}
+                        {employee.status === 'terminated' && (
+                            <div className="bg-slate-100 border border-slate-200 rounded-xl p-4 flex items-center gap-3">
+                                <AlertTriangle className="w-5 h-5 text-slate-500 shrink-0" />
+                                <p className="text-sm font-medium text-slate-700">
+                                    Энэ ажилтан <strong>ажлаас гарсан</strong> төлөвтэй байна.
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Profile Card */}
+                        <div className="w-full overflow-visible rounded-lg bg-card">
+                            <div className="flex flex-col md:flex-row md:items-start">
+                                {/* Avatar column */}
+                                <div className="flex w-full shrink-0 flex-col items-center gap-3 border-border px-4 py-4 border-b md:w-[min(100%,180px)] md:border-b-0 md:border-r md:py-4 lg:w-[188px]">
+                                    {(() => {
+                                        const canEditPhoto = user?.uid === employeeId
+                                            || currentUserRole === 'super_admin'
+                                            || currentUserRole === 'company_super_admin'
+                                            || currentUserRole === 'admin';
+                                        return canEditPhoto ? (
+                                            <>
+                                                <input
+                                                    ref={photoInputRef}
+                                                    type="file"
+                                                    accept="image/jpeg,image/jpg,image/png,image/webp"
+                                                    className="hidden"
+                                                    onChange={handlePhotoSelected}
+                                                    disabled={isUploadingPhoto}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => photoInputRef.current?.click()}
+                                                    disabled={isUploadingPhoto}
+                                                    className="group relative h-20 w-20 focus:outline-none select-none"
+                                                    title="Зураг солих"
+                                                >
+                                                    <Avatar className="h-full w-full border-4 border-background shadow-md">
+                                                        <AvatarImage src={employee.photoURL} className="object-cover" />
+                                                        <AvatarFallback className="text-lg font-semibold bg-muted">
+                                                            {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
+                                                        </AvatarFallback>
+                                                    </Avatar>
+                                                    <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 transition-colors group-hover:bg-black/40">
+                                                        <Camera className="h-5 w-5 text-white opacity-0 transition-opacity group-hover:opacity-100" />
+                                                    </div>
+                                                    {isUploadingPhoto && (
+                                                        <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
+                                                            <Loader2 className="h-5 w-5 animate-spin text-white" />
+                                                        </div>
+                                                    )}
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <Avatar className="h-20 w-20 border-4 border-background shadow-md">
+                                                <AvatarImage src={employee.photoURL} className="object-cover" />
+                                                <AvatarFallback className="text-lg font-semibold bg-muted">
+                                                    {employee.firstName?.charAt(0)}{employee.lastName?.charAt(0)}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                        );
+                                    })()}
+
+                                    {/* Admin action */}
+                                    {currentUserRole &&
+                                    (currentUserRole === 'admin' || currentUserRole === 'company_super_admin') &&
+                                    user?.uid !== employeeId &&
+                                    employee.role !== 'company_super_admin' && (
+                                        <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            className="w-full h-7 text-caption gap-1.5 text-muted-foreground"
+                                            onClick={() => setMakeAdminOpen(true)}
+                                        >
+                                            {employee.role === 'admin'
+                                                ? <><ShieldAlert className="h-3.5 w-3.5" />Админ эрх цуцлах</>
+                                                : <><Crown className="h-3.5 w-3.5" />Админ болгох</>
+                                            }
+                                        </Button>
+                                    )}
+                                </div>
+
+                                {/* SettingRow inline editing */}
+                                <div className="flex-1 min-w-0 px-4 py-1 [&>div]:!border-b-0">
+                                    {employee.employeeCode && (
+                                        <div className="flex items-start gap-4 py-3">
+                                            <div className="w-28 shrink-0 pt-0.5 flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/50" /><span className="text-menu text-muted-foreground/60">Код</span></div>
+                                            <div className="flex-1 text-menu text-foreground">#{employee.employeeCode}</div>
+                                        </div>
+                                    )}
+                                    <div className="flex items-start gap-4 py-3">
+                                        <div className="w-28 shrink-0 pt-0.5 flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/50" /><span className="text-menu text-muted-foreground/60">Төлөв</span></div>
+                                        <div className="flex-1 text-menu text-foreground">{statusInfo.label}</div>
+                                    </div>
+                                    {employee.jobTitle && (
+                                        <div className="flex items-start gap-4 py-3">
+                                            <div className="w-28 shrink-0 pt-0.5 flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/50" /><span className="text-menu text-muted-foreground/60">Албан тушаал</span></div>
+                                            <div className="flex-1 text-menu text-foreground">{employee.jobTitle}</div>
+                                        </div>
+                                    )}
+                                    {departmentName && departmentName !== 'Тодорхойгүй' && (
+                                        <div className="flex items-start gap-4 py-3">
+                                            <div className="w-28 shrink-0 pt-0.5 flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/50" /><span className="text-menu text-muted-foreground/60">Хэлтэс</span></div>
+                                            <div className="flex-1 text-menu text-foreground">{departmentName}</div>
+                                        </div>
+                                    )}
+                                    {effectiveHireDate && (
+                                        <div className="flex items-start gap-4 py-3">
+                                            <div className="w-28 shrink-0 pt-0.5 flex items-center gap-1.5"><Lock className="h-3 w-3 text-muted-foreground/50" /><span className="text-menu text-muted-foreground/60">Орсон огноо</span></div>
+                                            <div className="flex-1 text-menu text-foreground">{new Date(effectiveHireDate).toLocaleDateString('mn-MN')}</div>
+                                        </div>
+                                    )}
+                                    <SettingRow
+                                        label="Овог"
+                                        value={employee.lastName || ''}
+                                        placeholder="Овог оруулах"
+                                        onSave={async (v) => {
+                                            if (!v.trim()) throw new Error('Овог хоосон байж болохгүй');
+                                            await saveEmployeeField({ lastName: v.trim() });
+                                        }}
+                                    />
+                                    <SettingRow
+                                        label="Нэр"
+                                        value={employee.firstName || ''}
+                                        placeholder="Нэр оруулах"
+                                        onSave={async (v) => {
+                                            if (!v.trim()) throw new Error('Нэр хоосон байж болохгүй');
+                                            await saveEmployeeField({ firstName: v.trim() });
+                                        }}
+                                    />
+                                    <SettingRow
+                                        label="Утас"
+                                        value={employee.phoneNumber || ''}
+                                        placeholder="+976 9911 1234"
+                                        hint={employee.phoneVerified
+                                            ? '✓ Баталгаажсан'
+                                            : employee.phoneNumber
+                                                ? undefined
+                                                : undefined
+                                        }
+                                        onSave={async (v) => {
+                                            const trimmed = v.trim();
+                                            if (!trimmed) {
+                                                await saveEmployeeField({ phoneNumber: '' });
+                                                return;
+                                            }
+                                            let normalized: string;
+                                            try {
+                                                normalized = normalizePhoneNumber(trimmed);
+                                            } catch (e) {
+                                                throw new Error(e instanceof Error ? e.message : 'Утасны дугаар буруу байна');
+                                            }
+                                            await saveEmployeeField({ phoneNumber: normalized });
+                                        }}
+                                    />
+                                    {employee.phoneNumber && !employee.phoneVerified && (
+                                        <div className="pb-2 -mt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenVerify('phone', employee.phoneNumber!)}
+                                                className="text-caption text-amber-600 hover:underline"
+                                            >
+                                                Утас баталгаажуулах
+                                            </button>
+                                        </div>
+                                    )}
+                                    <SettingRow
+                                        label="Имэйл"
+                                        value={employee.email || ''}
+                                        placeholder="email@example.com"
+                                        onSave={async (v) => {
+                                            if (v.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim())) {
+                                                throw new Error('Имэйл хаяг буруу байна');
+                                            }
+                                            await saveEmployeeField({ email: v.trim() });
+                                        }}
+                                    />
+                                    {employee.email && !employee.emailVerified && (
+                                        <div className="pb-2 -mt-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleOpenVerify('email', employee.email)}
+                                                className="text-caption text-amber-600 hover:underline"
+                                            >
+                                                Имэйл баталгаажуулах
+                                            </button>
+                                        </div>
+                                    )}
+                                    {/* Read-only info */}
+                                    <div className="flex items-start gap-4 py-3 border-b">
+                                        <div className="w-28 shrink-0 flex items-center gap-1.5">
+                                            <Lock className="h-3 w-3 text-muted-foreground/50" />
+                                            <span className="text-menu text-muted-foreground/60">Анкет</span>
+                                        </div>
+                                        <div className="flex-1 text-menu text-foreground">
+                                            {Math.round(employee.questionnaireCompletion || 0)}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Offboarding Progress */}
+                        {(offboardingProjects && offboardingProjects.length > 0) && (
+                            <div className="bg-white rounded-xl border p-4 ring-2 ring-amber-100">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-xs font-semibold text-amber-600 uppercase">Offboarding</h3>
+                                    <span className={cn('text-xs font-medium', offboardingProgress >= 100 ? 'text-emerald-600' : 'text-amber-600')}>{offboardingProgress}%</span>
+                                </div>
+                                <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                                    <div className={cn('h-full rounded-full transition-all', offboardingProgress >= 100 ? 'bg-emerald-500' : 'bg-amber-500')} style={{ width: `${offboardingProgress}%` }} />
+                                </div>
+                                <Button variant="ghost" size="sm" className="w-full mt-3 h-8 text-xs text-amber-700 hover:bg-amber-50" asChild>
+                                    <Link href={`/dashboard/offboarding/${employeeId}`}>Offboarding харах <ChevronRight className="h-3.5 w-3.5 ml-1" /></Link>
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* Probation Alert */}
+                        {employee && <ProbationAlert employee={employee} />}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="documents" className="mt-0 focus-visible:outline-none">
+                    <DocumentsTabContent employee={employee} />
+                </TabsContent>
+                <TabsContent value="history" className="mt-0 focus-visible:outline-none">
+                    <HistoryTabContent
+                        employeeId={employeeId || ''}
+                        employeeName={fullName}
+                        erDocuments={erDocuments}
+                        isLoading={isLoadingDocs}
+                    />
+                </TabsContent>
+                <TabsContent value="contracts" className="mt-0 focus-visible:outline-none">
+                    <EmployeeContractsTab employeeId={employeeId || ''} />
+                </TabsContent>
+                <TabsContent value="vacation" className="mt-0 focus-visible:outline-none">
+                    <VacationTabContent employee={employee} effectiveHireDate={effectiveHireDate || undefined} />
+                </TabsContent>
+                <TabsContent value="skills" className="mt-0 focus-visible:outline-none">
+                    <SkillsTabContent employeeId={employeeId || ''} />
+                </TabsContent>
+                <TabsContent value="time-off" className="mt-0 focus-visible:outline-none">
+                    <div className="bg-white rounded-xl border p-8 text-center">
+                        <Clock className="mx-auto h-10 w-10 text-slate-200 mb-3" />
+                        <p className="text-sm text-slate-500 font-medium">Тун удахгүй</p>
+                        <p className="text-xs text-slate-400 mt-1">Цаг бүртгэлийн модуль удахгүй нээгдэнэ</p>
+                    </div>
+                </TabsContent>
+                <TabsContent value="training" className="mt-0 focus-visible:outline-none">
+                    <div className="bg-white rounded-xl border p-8 text-center">
+                        <GraduationCap className="mx-auto h-10 w-10 text-slate-200 mb-3" />
+                        <p className="text-sm text-slate-500 font-medium">Тун удахгүй</p>
+                        <p className="text-xs text-slate-400 mt-1">Сургалт хөгжлийн модуль удахгүй нээгдэнэ</p>
+                    </div>
+                </TabsContent>
+                <TabsContent value="performance" className="mt-0 focus-visible:outline-none">
+                    <div className="bg-white rounded-xl border p-8 text-center">
+                        <TrendingUp className="mx-auto h-10 w-10 text-slate-200 mb-3" />
+                        <p className="text-sm text-slate-500 font-medium">Тун удахгүй</p>
+                        <p className="text-xs text-slate-400 mt-1">Гүйцэтгэлийн үнэлгээний модуль удахгүй нээгдэнэ</p>
+                    </div>
+                </TabsContent>
+                <TabsContent value="onboarding" className="mt-0 focus-visible:outline-none">
+                    <OnboardingTabContent employeeId={employeeId || ''} employee={employee} />
+                </TabsContent>
+                <TabsContent value="offboarding" className="mt-0 focus-visible:outline-none">
+                    <OffboardingTabContent employeeId={employeeId || ''} employee={employee} currentUserId={user?.uid} />
+                </TabsContent>
+                <TabsContent value="questionnaire" className="mt-0 focus-visible:outline-none">
+                    <QuestionnaireTabContent
+                        employeeId={employeeId || ''}
+                        isCVDialogOpen={isCVDialogOpen}
+                        onCVDialogChange={setIsCVDialogOpen}
+                    />
+                </TabsContent>
+                <TabsContent value="lifecycle" className="mt-0 focus-visible:outline-none">
+                    <LifecycleTabContent employeeId={employeeId || ''} />
+                </TabsContent>
+                <TabsContent value="ai-insight" className="mt-0 focus-visible:outline-none">
+                    <AiInsightWithAstrology
+                        employeeId={employee.id}
+                        employeeName={fullName}
+                        birthDate={questionnaireData?.birthDate}
+                    />
+                </TabsContent>
+                <TabsContent value="system-settings" className="mt-0 focus-visible:outline-none">
+                    <SystemSettingsTabContent
+                        employee={employee}
+                        currentUserId={user?.uid ?? ''}
+                        currentUserRole={currentUserRole}
+                        onVerifyEmail={(target) => handleOpenVerify('email', target)}
+                    />
+                </TabsContent>
+            </Tabs>
+        </DetailSidebarLayout>
+
+        <VerificationDialog
+            open={verifyDialogOpen}
+            onOpenChange={setVerifyDialogOpen}
+            type={verifyType}
+            target={verifyTarget}
+            employeeId={employeeId || ''}
+            onVerified={handleVerified}
+        />
+
+        {employee && (
+            <MakeAdminDialog
+                open={makeAdminOpen}
+                onOpenChange={setMakeAdminOpen}
+                employee={employee as any}
+                currentUserId={user?.uid ?? ''}
             />
+        )}
 
-            {/* News Access Dialog */}
-            <NewsAccessDialog
-                open={showNewsAccessDialog}
-                onOpenChange={setShowNewsAccessDialog}
-                employee={employee}
-            />
-
-            {/* CRM Access Dialog */}
-            <CrmAccessDialog
-                open={showCrmAccessDialog}
-                onOpenChange={setShowCrmAccessDialog}
-                employee={employee}
-            />
-
-            {/* Business Plan Access Dialog */}
-            <BusinessPlanAccessDialog
-                open={showBusinessPlanAccessDialog}
-                onOpenChange={setShowBusinessPlanAccessDialog}
-                employee={employee}
-            />
         </>
     )
 }

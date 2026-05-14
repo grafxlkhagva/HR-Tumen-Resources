@@ -1,8 +1,9 @@
-import { ActionType, DocumentStatus, StatusConfig, DOCUMENT_STATUSES } from './types';
-import { Timestamp, collection, getDocs } from 'firebase/firestore';
+import { ActionType, DocumentStatus, DOCUMENT_STATUSES } from './types';
+import { Timestamp } from 'firebase/firestore';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { ALL_DYNAMIC_FIELDS } from './data/field-dictionary';
+import { numberToMongolianWords, formatMoneyWithWords } from './lib/number-to-words-mn';
 
 export function getStatusConfig(status: DocumentStatus) {
     return DOCUMENT_STATUSES[status] || { label: status, color: 'bg-gray-100 text-gray-700' };
@@ -16,15 +17,41 @@ export function formatActionType(action: ActionType): string {
         'APPROVE': 'Зөвшөөрсөн',
         'SIGN': 'Гарын үсэг зурсан',
         'ARCHIVE': 'Архивласан',
-        'REJECT': 'Татгалзсан'
+        'REJECT': 'Татгалзсан',
+        'INSTANT_APPLY': 'Шууд хэрэгжүүлсэн',
     };
     return map[action] || action;
 }
 
-export function formatDateTime(date: any): string {
-    if (!date) return '-';
-    // Handle Firestore Timestamp
-    const d = date.toDate ? date.toDate() : new Date(date);
+/**
+ * Firestore Timestamp / Date / string / number / null/undefined → JS Date.
+ *
+ * Read-side helper. Утга буруу бол `null` буцаана. ER модулийн бүх "огноо
+ * үзүүлэх" callsite энэ helper-ыг ашигласнаар `any` хэрэглэхгүйгээр
+ * Timestamp narrowing-ийг нэг газар хийнэ.
+ */
+export function toJSDate(value: unknown): Date | null {
+    if (value == null) return null;
+    if (value instanceof Date) return value;
+    if (value instanceof Timestamp) return value.toDate();
+    if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate: unknown }).toDate === 'function') {
+        try {
+            const d = (value as { toDate: () => Date }).toDate();
+            return d instanceof Date ? d : null;
+        } catch {
+            return null;
+        }
+    }
+    if (typeof value === 'string' || typeof value === 'number') {
+        const d = new Date(value);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+}
+
+export function formatDateTime(date: unknown): string {
+    const d = toJSDate(date);
+    if (!d) return '-';
     return format(d, 'yyyy-MM-dd HH:mm', { locale: mn });
 }
 
@@ -56,55 +83,131 @@ export function parseDocCode(docCode: string): { prefix: string; year: number; s
     };
 }
 
+
 /**
- * Дараагийн баримтын дугаарыг тооцоолох
- * @param currentNumber - Одоогийн дугаар
- * @param lastYear - Сүүлд дугаар олгосон жил
- * @returns { nextNumber, currentYear }
+ * Free-form Firestore document context — `getReplacementMap` нь олон collection-оос
+ * (employee, position, department, company...) ирэх random shape-тай объектыг
+ * хүлээн авдаг тул tight type-аар бичихгүй. Энэ alias нь зориудаар loose байх
+ * шалтгаан болон хамрах хүрээг тэмдэглэнэ.
  */
-export function calculateNextDocNumber(currentNumber: number = 0, lastYear: number = 0): { nextNumber: number; currentYear: number } {
-    const currentYear = new Date().getFullYear();
-    
-    // Жил солигдсон бол 1-ээс эхэлнэ
-    if (lastYear !== currentYear) {
-        return { nextNumber: 1, currentYear };
-    }
-    
-    // Үргэлжлүүлэн дугаарлах
-    return { nextNumber: currentNumber + 1, currentYear };
-}
+type LooseFirestoreDoc = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
 // Helper to resolve deep paths like "position.compensation.salaryRange.min"
-function resolvePath(obj: any, path: string): any {
-    return path.split('.').reduce((prev, curr) => {
-        return prev ? prev[curr] : undefined;
+function resolvePath(obj: LooseFirestoreDoc | undefined, path: string): unknown {
+    return path.split('.').reduce<unknown>((prev, curr) => {
+        if (prev && typeof prev === 'object') {
+            return (prev as Record<string, unknown>)[curr];
+        }
+        return undefined;
     }, obj);
 }
 
 export function getReplacementMap(data: {
-    employee?: any,
-    position?: any,
-    department?: any,
-    questionnaire?: any,
-    system?: any,
-    company?: any,
-    appointment?: any,
-    customInputs?: Record<string, any>
+    employee?: LooseFirestoreDoc | null,
+    position?: LooseFirestoreDoc | null,
+    department?: LooseFirestoreDoc | null,
+    questionnaire?: LooseFirestoreDoc | null,
+    system?: LooseFirestoreDoc | null,
+    company?: LooseFirestoreDoc | null,
+    appointment?: LooseFirestoreDoc | null,
+    customInputs?: Record<string, unknown> | null,
+    /**
+     * Per-document placeholder overrides, keyed as `{{field.path}}` (same format
+     * as the map keys built below). Applied last so they win over source values.
+     */
+    fieldOverrides?: Record<string, string> | null,
 }): Record<string, string> {
     const map: Record<string, string> = {};
 
-    // Build virtual fields that don't exist directly in data
-    const enrichedEmployee = data.employee ? {
-        ...data.employee,
-        fullName: [data.employee.lastName, data.employee.firstName].filter(Boolean).join(' ').trim() || undefined,
-    } : data.employee;
+    // ── Virtual / computed field-үүд ────────────────────────────────────────
+    // employee.fullName — Firestore-д байхгүй, firstName+lastName-с тооцно
+    // employee.shortName — "Б. Баярцэцэг" (овгийн эхний үсэг + цэг + нэр)
+    const emp = data.employee || {};
+    const _lastName = String(emp.lastName || '').trim();
+    const _firstName = String(emp.firstName || '').trim();
+    const computedEmployee = {
+        ...emp,
+        fullName: [emp.lastName, emp.firstName].filter(Boolean).join(' ') || emp.fullName || '',
+        shortName: _lastName && _firstName
+            ? `${_lastName.charAt(0)}. ${_firstName}`
+            : (_firstName || _lastName || ''),
+    };
+
+    // company — компанийн profile field нэрийг normalize хийнэ
+    // Firestore-д contactEmail/email, phoneNumber/phone гэж хос байж болно
+    const cp = data.company || {};
+    const computedCompany = {
+        ...cp,
+        email: cp.email || cp.contactEmail || '',
+        phone: cp.phone || cp.phoneNumber || '',
+        legalName: cp.legalName || cp.name || '',
+        ceo: cp.ceo || cp.directorName || cp.directorFullName || '',
+        registrationNumber: cp.registrationNumber || cp.regNumber || '',
+        taxId: cp.taxId || cp.taxNumber || '',
+        website: cp.website || cp.websiteUrl || '',
+        address: cp.address || cp.fullAddress || '',
+        industry: cp.industry || cp.industryName || '',
+        mission: cp.mission || '',
+        vision: cp.vision || '',
+        introduction: cp.introduction || cp.description || '',
+        logoUrl: cp.logoUrl || '',
+        establishedDate: cp.establishedDate || cp.foundedDate || '',
+    };
+
+    // position — nested salary/benefits/experience path normalize
+    const pos = data.position || {};
+    // compensation.salaryRange эсвэл salaryRange хоёуланг дэмжинэ
+    const compSalary = pos.compensation?.salaryRange || pos.salaryRange || {};
+    // salarySteps-ийн идэвхтэй шатлал
+    const activeStep = pos.salarySteps?.items?.[pos.salarySteps?.activeIndex ?? -1];
+    const computedPosition = {
+        ...pos,
+        salaryRange: {
+            min: compSalary.min ?? 0,
+            mid: compSalary.mid ?? 0,
+            max: compSalary.max ?? 0,
+            currency: compSalary.currency || pos.salarySteps?.currency || 'MNT',
+            period: compSalary.period || 'monthly',
+        },
+        salaryStepName: activeStep?.name || '',
+        salaryStepValue: activeStep?.value ?? '',
+        // Virtual: үгээр илэрхийлсэн мөнгөн дүн + дугаартай хамт
+        salaryStepValueWords: activeStep?.value != null ? numberToMongolianWords(Number(activeStep.value)) : '',
+        salaryStepValueWithWords: activeStep?.value != null ? formatMoneyWithWords(Number(activeStep.value)) : '',
+        benefits: {
+            vacationDays: pos.benefits?.vacationDays ?? '',
+            isRemoteAllowed: pos.benefits?.isRemoteAllowed ? 'Тийм' : 'Үгүй',
+            flexibleHours: pos.benefits?.flexibleHours ? 'Тийм' : 'Үгүй',
+        },
+        budget: {
+            yearlyBudget: pos.budget?.yearlyBudget ?? '',
+            yearlyBudgetWords: pos.budget?.yearlyBudget != null ? numberToMongolianWords(Number(pos.budget.yearlyBudget)) : '',
+            yearlyBudgetWithWords: pos.budget?.yearlyBudget != null ? formatMoneyWithWords(Number(pos.budget.yearlyBudget)) : '',
+            currency: pos.budget?.currency || 'MNT',
+        },
+        experience: {
+            totalYears: pos.experience?.totalYears ?? '',
+            educationLevel: pos.experience?.educationLevel || '',
+            leadershipYears: pos.experience?.leadershipYears ?? '',
+        },
+    };
+
+    // department — managerId → managerName computed
+    const dept = data.department || {};
+    const computedDepartment = {
+        ...dept,
+        // managerName нь dept doc-д шууд хадгалагдвал ашиглана,
+        // үгүй бол managerId-аас tatах боломжгүй (async) тул хоосон
+        managerName: dept.managerName || dept.managerFullName || '',
+        managerPositionName: dept.managerPositionName || dept.managerPositionTitle || '',
+    };
 
     ALL_DYNAMIC_FIELDS.forEach(field => {
         const context = {
-            company: data.company,
-            employee: enrichedEmployee,
-            position: data.position,
-            department: data.department,
+            company: computedCompany,
+            employee: computedEmployee,
+            position: computedPosition,
+            department: computedDepartment,
             questionnaire: data.questionnaire,
             system: data.system,
             appointment: data.appointment,
@@ -112,12 +215,11 @@ export function getReplacementMap(data: {
 
         const rawValue = resolvePath(context, field.path);
 
-        let formattedValue = '________________';
+        let formattedValue = '________________'; // Default placeholder
 
         if (rawValue !== undefined && rawValue !== null && rawValue !== '') {
-            if (field.key === '{{company.logoUrl}}') {
-                formattedValue = `<img src="${String(rawValue)}" alt="Logo" style="max-height:60px;max-width:200px;object-fit:contain;" />`;
-            } else if (typeof rawValue === 'number') {
+            if (typeof rawValue === 'number') {
+                // Formatting for salary/money if key contains salary or min/max
                 if (field.key.includes('salary') || field.key.includes('Amount')) {
                     formattedValue = new Intl.NumberFormat('mn-MN').format(rawValue);
                 } else {
@@ -137,122 +239,37 @@ export function getReplacementMap(data: {
             const valStr = value !== undefined && value !== null && value !== '' ? String(value) : '________________';
             map[`{{${key}}}`] = valStr;
             map[`{{custom.${key}}}`] = valStr; // Handle the custom. prefix as well
+
+            // Мөнгөн дүн-д зориулсан үгэн хэлбэр. Тооны утга таньсан customInput
+            // бүрт `_words` болон `_withWords` companion placeholder нэмнэ.
+            //   {{amount_words}}      → "дөрвөн сая"
+            //   {{amount_withWords}}  → "4,000,000 (дөрвөн сая)"
+            if (valStr && valStr !== '________________') {
+                const n = Number(String(valStr).replace(/[\s,]/g, ''));
+                if (Number.isFinite(n) && !Number.isNaN(n) && String(valStr).match(/\d/)) {
+                    const words = numberToMongolianWords(n);
+                    const withWords = formatMoneyWithWords(n);
+                    if (words) {
+                        map[`{{${key}_words}}`] = words;
+                        map[`{{custom.${key}_words}}`] = words;
+                        map[`{{${key}_withWords}}`] = withWords;
+                        map[`{{custom.${key}_withWords}}`] = withWords;
+                    }
+                }
+            }
         });
     }
 
-    return map;
-}
-
-/**
- * Баримтын толгой HTML үүсгэх.
- * Template-ийн includeHeader=true, document type-ийн header тохиргоо,
- * компаний профайл дээр тулгуурлан толгойг үүсгэнэ.
- */
-export function generateDocumentHeader(opts: {
-    includeHeader?: boolean;
-    docTypeHeader?: {
-        title?: string;
-        showLogo?: boolean;
-        cityName?: string;
-        showDate?: boolean;
-        showNumber?: boolean;
-    };
-    companyProfile?: any;
-    headerCompanyKey?: string;
-}): string {
-    if (!opts.includeHeader) return '';
-
-    const header = opts.docTypeHeader;
-    const cp = opts.companyProfile;
-
-    // Resolve which company to use for header
-    let logoUrl = '';
-    let companyName = '';
-
-    const key = opts.headerCompanyKey ?? '__main__';
-    if (key === '__main__' || !cp?.subsidiaries) {
-        logoUrl = cp?.logoUrl || '';
-        companyName = header?.title || cp?.name || cp?.legalName || '';
-    } else {
-        const idx = parseInt(key, 10);
-        const subs: any[] = Array.isArray(cp.subsidiaries) ? cp.subsidiaries : [];
-        if (!isNaN(idx) && idx >= 0 && idx < subs.length) {
-            const sub = typeof subs[idx] === 'string' ? { name: subs[idx] } : subs[idx];
-            logoUrl = sub.logoUrl || '';
-            companyName = sub.name || '';
-        } else {
-            logoUrl = cp?.logoUrl || '';
-            companyName = header?.title || cp?.name || cp?.legalName || '';
+    // Per-document overrides win over everything above.
+    if (data.fieldOverrides) {
+        for (const [k, v] of Object.entries(data.fieldOverrides)) {
+            if (v !== undefined && v !== null && v !== '') {
+                map[k] = String(v);
+            }
         }
     }
 
-    const cityName = header?.cityName || 'Улаанбаатар';
-    const showLogo = header?.showLogo !== false;
-    const showDate = header?.showDate !== false;
-    const showNumber = header?.showNumber !== false;
-
-    const parts: string[] = [];
-
-    if (showLogo && logoUrl) {
-        parts.push(`<p style="text-align: center;"><img src="${logoUrl}" alt="Лого" style="width: 80px; display: block; margin: 0 auto;"></p>`);
-    }
-
-    if (companyName) {
-        parts.push(`<p style="text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 0.02em;">${companyName.toUpperCase()}</p>`);
-    }
-
-    parts.push(`<p></p>`);
-
-    const rowParts: string[] = [];
-    if (showDate) rowParts.push(`<span style="flex: 1;"><em>{{date.year}} оны {{date.month}} сарын {{date.day}}</em></span>`);
-    if (showNumber) rowParts.push(`<span style="flex: 1; text-align: center;">№ {{document.number}}</span>`);
-    rowParts.push(`<span style="flex: 1; text-align: right;">${cityName} хот</span>`);
-    parts.push(`<p style="display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; font-size: 12px; margin: 0;">${rowParts.join('')}</p>`);
-
-    parts.push(`<p></p>`);
-
-    return parts.join('');
-}
-
-/**
- * Гарын үсгийн блок HTML үүсгэх.
- * Template-ийн includeSignature=true бөгөөд document type-ийн signature
- * тохиргоо байвал баримтын төгсгөлд албан тушаал + нэр + гарын үсгийн мөрийг нэмнэ.
- */
-export function generateDocumentSignature(opts: {
-    includeSignature?: boolean;
-    docTypeSignature?: {
-        position?: string;
-        name?: string;
-        signatureImageUrl?: string;
-        showStamp?: boolean;
-        alignment?: 'left' | 'center' | 'right';
-    };
-}): string {
-    if (!opts.includeSignature) return '';
-    const sig = opts.docTypeSignature;
-    if (!sig || (!sig.position && !sig.name && !sig.signatureImageUrl)) return '';
-
-    const alignment = sig.alignment || 'left';
-    const position = sig.position || '';
-    const name = (sig.name || '').toUpperCase();
-    const logoImg = sig.signatureImageUrl
-        ? `<img src="${sig.signatureImageUrl}" alt="Гарын үсэг" style="max-height: 48px; display: block; margin: 4px 0;">`
-        : '';
-    const stampText = sig.showStamp ? `<span style="color:#64748b;"> (Тамга)</span>` : '';
-
-    const parts: string[] = [];
-    parts.push(`<p></p>`);
-    parts.push(`<p></p>`);
-    parts.push(
-        `<div style="text-align: ${alignment}; font-size: 12px; line-height: 1.6;">` +
-            (position ? `<div>${position}:</div>` : '') +
-            (logoImg || `<div style="margin: 6px 0;">.................................</div>`) +
-            (name ? `<div style="font-weight: 700;">${name}${stampText}</div>` : stampText) +
-        `</div>`
-    );
-
-    return parts.join('');
+    return map;
 }
 
 export function generateDocumentContent(

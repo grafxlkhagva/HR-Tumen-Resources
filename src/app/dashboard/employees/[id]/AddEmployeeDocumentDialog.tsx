@@ -40,8 +40,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Calendar as CalendarIcon, Loader2, Upload, File as FileIcon, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
-import { useFirebase, addDocumentNonBlocking, useMemoFirebase, useCollection } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import * as Sentry from '@sentry/nextjs';
+import { addDoc } from 'firebase/firestore';
+import { useFirebase, useMemoFirebase, useFetchCollection, tenantCollection, useTenantWrite } from '@/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,26 +57,29 @@ interface AddEmployeeDocumentDialogProps {
     employeeId: string;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    defaultDocumentType?: string;
 }
 
 export function AddEmployeeDocumentDialog({
     employeeId,
     open,
     onOpenChange,
+    defaultDocumentType,
 }: AddEmployeeDocumentDialogProps) {
-    const { firestore, storage } = useFirebase();
+    const { storage, auth } = useFirebase();
+    const { tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isUploading, setIsUploading] = React.useState(false);
     const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const docTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'er_document_types') : null), []);
-    const { data: documentTypes, isLoading: isLoadingDocTypes } = useCollection<any>(docTypesQuery);
+    const docTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'er_document_types') : null), []);
+    const { data: documentTypes, isLoading: isLoadingDocTypes } = useFetchCollection<any>(docTypesQuery);
 
     // Backward-compat: some admins used `/dashboard/settings/documents` which historically wrote to `documentTypes`.
     // Merge both lists by name so the dropdown always shows what was configured.
-    const legacyDocTypesQuery = useMemoFirebase(({ firestore }) => (firestore ? collection(firestore, 'documentTypes') : null), []);
-    const { data: legacyDocumentTypes, isLoading: isLoadingLegacyDocTypes } = useCollection<any>(legacyDocTypesQuery);
+    const legacyDocTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'documentTypes') : null), []);
+    const { data: legacyDocumentTypes, isLoading: isLoadingLegacyDocTypes } = useFetchCollection<any>(legacyDocTypesQuery);
 
     const mergedDocumentTypes = React.useMemo(() => {
         const map = new Map<string, any>();
@@ -94,11 +98,6 @@ export function AddEmployeeDocumentDialog({
 
     const isLoadingData = isLoadingDocTypes || isLoadingLegacyDocTypes;
 
-    const documentsCollectionRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'documents') : null),
-        [firestore]
-    );
-
     const form = useForm<DocumentFormValues>({
         resolver: zodResolver(documentSchema),
         defaultValues: {
@@ -113,8 +112,11 @@ export function AddEmployeeDocumentDialog({
         if (!open) {
             form.reset();
             setSelectedFile(null);
+        } else if (defaultDocumentType) {
+            form.setValue('documentType', defaultDocumentType);
+            form.setValue('title', `${defaultDocumentType} - `);
         }
-    }, [open, form]);
+    }, [open, form, defaultDocumentType]);
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -130,19 +132,26 @@ export function AddEmployeeDocumentDialog({
         }
     };
 
-    const uploadFile = async (): Promise<{ url: string, name: string } | null> => {
+    const uploadFile = async (): Promise<{ url: string; name: string; storagePath: string } | null> => {
         if (!selectedFile || !storage) return null;
-        setIsUploading(true);
 
-        const uniqueFileName = `${Date.now()}-${selectedFile.name}`;
-        const storageRef = ref(storage, `documents/${employeeId}/${uniqueFileName}`);
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+        if (selectedFile.size > MAX_FILE_SIZE) {
+            toast({ variant: 'destructive', title: 'Файл хэт том байна', description: 'Дээд хэмжээ 20MB байна.' });
+            return null;
+        }
+
+        setIsUploading(true);
+        const sanitizedName = selectedFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `documents/${employeeId}/${Date.now()}-${sanitizedName}`;
+        const storageRef = ref(storage, storagePath);
 
         try {
             await uploadBytes(storageRef, selectedFile);
             const downloadURL = await getDownloadURL(storageRef);
-            return { url: downloadURL, name: selectedFile.name };
+            return { url: downloadURL, name: selectedFile.name, storagePath };
         } catch (error) {
-            console.error("File upload error:", error);
+            Sentry.captureException(error, { tags: { module: 'employee-documents', action: 'upload-file' } });
             toast({
                 variant: "destructive",
                 title: "Файл хуулахад алдаа гарлаа",
@@ -155,7 +164,6 @@ export function AddEmployeeDocumentDialog({
     };
 
     const onSubmit = async (values: DocumentFormValues) => {
-        if (!documentsCollectionRef) return;
         if (!selectedFile) {
             toast({
                 variant: "destructive",
@@ -168,24 +176,54 @@ export function AddEmployeeDocumentDialog({
         const uploadedFile = await uploadFile();
         if (!uploadedFile) return;
 
-        await addDocumentNonBlocking(documentsCollectionRef, {
-            title: values.title,
-            description: `Ажилтны хувийн баримт бичиг`,
-            url: uploadedFile.url,
-            uploadDate: new Date().toISOString(),
-            documentType: values.documentType,
-            metadata: {
-                employeeId: employeeId,
-            }
-        });
+        try {
+            const newDocRef = await addDoc(tCollection('documents'), {
+                title: values.title,
+                description: `Ажилтны хувийн баримт бичиг`,
+                url: uploadedFile.url,
+                storagePath: uploadedFile.storagePath,
+                uploadDate: new Date().toISOString(),
+                documentType: values.documentType,
+                metadata: {
+                    employeeId: employeeId,
+                },
+            });
 
-        toast({
-            title: 'Амжилттай хадгаллаа',
-            description: 'Баримт бичиг амжилттай байршлаа.',
-        });
-        form.reset();
-        setSelectedFile(null);
-        onOpenChange(false);
+            // Background vectorize — fire-and-forget, алдаа гарсан ч UI-д нөлөөлөхгүй
+            if (newDocRef) {
+                const documentId = newDocRef.id;
+                const currentUser = auth?.currentUser;
+                if (currentUser) {
+                    currentUser.getIdToken().then((token) => {
+                        fetch('/api/documents/vectorize', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                Authorization: `Bearer ${token}`,
+                            },
+                            body: JSON.stringify({ documentId, employeeId }),
+                        }).catch((err) => {
+                            console.warn('[AddEmployeeDocumentDialog] Background vectorize failed:', err);
+                        });
+                    }).catch(() => { /* token error — vectorize алгасна */ });
+                }
+            }
+
+            toast({
+                title: 'Амжилттай хадгаллаа',
+                description: 'Баримт бичиг амжилттай байршлаа.',
+            });
+            form.reset();
+            setSelectedFile(null);
+            onOpenChange(false);
+        } catch (error) {
+            Sentry.captureException(error, { tags: { module: 'employee-documents', action: 'add-document' } });
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Баримт хадгалахад алдаа гарлаа.',
+            });
+        }
     };
 
     return (

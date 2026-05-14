@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import * as React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,15 +26,17 @@ import { Input } from '@/components/ui/input';
 import {
     useFirebase,
     useMemoFirebase,
-    useAuth,
-    useDoc,
+    useFetchDoc,
     useUser,
-    createUserWithSecondaryAuth,
+    tenantDoc,
+    useTenantWrite,
 } from '@/firebase';
-import { collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { getDoc, updateDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { Loader2, Save, Upload } from 'lucide-react';
+import { Loader2, Save, Upload, AlertTriangle, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useTenant } from '@/contexts/tenant-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
     buildInvitationEmailHtmlFromFields,
@@ -41,6 +44,11 @@ import {
     INVITATION_EMAIL_DEFAULT_SUBJECT,
     INVITATION_EMAIL_TEMPLATE_DOC_ID,
 } from '@/lib/invitation-email-template';
+import { notifyEmployeeAdded } from '@/lib/notify-client';
+import * as Sentry from '@sentry/nextjs';
+import { logAudit } from '@/lib/client/audit-client';
+import { buildInviteUrl } from '@/lib/invite-token';
+import { normalizePhoneNumber } from '@/lib/phone-utils';
 
 const employeeSchema = z.object({
     firstName: z.string().min(1, 'Нэр хоосон байж болохгүй.'),
@@ -51,16 +59,24 @@ const employeeSchema = z.object({
 
 type EmployeeFormValues = z.infer<typeof employeeSchema>;
 
-type EmployeeCodeConfig = {
-    id: string;
-    prefix: string;
-    digitCount: number;
-    nextNumber: number;
-}
-
 interface AddEmployeeDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    /**
+     * Ажилтан амжилттай үүссэний дараа дуудагдана. `AppointEmployeeDialog` зэрэг
+     * оронтой (nested) контекстэд шинээр үүссэн ажилтныг шууд сонгож авахад
+     * ашиглагдана.
+     */
+    onCreated?: (employee: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+        phoneNumber: string;
+        employeeCode: string;
+        photoURL?: string;
+        status: string;
+    }) => void;
 }
 
 function buildDefaultInvitationHtml(v: Record<string, string>): string {
@@ -114,8 +130,8 @@ function buildDefaultInvitationText(v: Record<string, string>): string {
         `Таныг ${v.companyName} байгууллагын HR системд бүртгэлээ.`,
         `Ажилтны код: ${v.employeeCode}`,
         `Нэвтрэх нэр: ${v.employeeCode}`,
-        `Нууц үг: ${v.password}`,
-        `Системд нэвтрэх: ${v.appUrl}/login`,
+        `Нууц үг тохируулах линк: ${v.inviteUrl}`,
+        `Линк 48 цагийн дотор хүчинтэй бөгөөд зөвхөн нэг удаа ашиглагдана.`,
         `Бүртгэсэн: ${v.adminName}`,
     ].join('\n\n');
 }
@@ -123,20 +139,24 @@ function buildDefaultInvitationText(v: Record<string, string>): string {
 export function AddEmployeeDialog({
     open,
     onOpenChange,
+    onCreated,
 }: AddEmployeeDialogProps) {
-    const { firestore, firebaseApp } = useFirebase();
-    const auth = useAuth();
+    const { firebaseApp } = useFirebase();
+    const { firestore, tDoc } = useTenantWrite();
     const { user: currentUser } = useUser();
     const { toast } = useToast();
+    const { company, companyId, isWithinLimit } = useTenant();
     const [photoPreview, setPhotoPreview] = React.useState<string | null>(null);
     const [photoFile, setPhotoFile] = React.useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
 
-    const codeConfigRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'employeeCodeConfig') : null), [firestore]) as any;
-    const { data: codeConfig } = useDoc<EmployeeCodeConfig>(codeConfigRef);
-    const companyProfileRef = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
-    const { data: companyProfile } = useDoc<any>(companyProfileRef);
+    const employeeCount = company?.employeeCount ?? 0;
+    const limitReached = !isWithinLimit('maxEmployees', employeeCount);
+    const maxEmployees = company?.limits?.maxEmployees ?? 0;
+
+    const companyProfileRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), []);
+    const { data: companyProfile } = useFetchDoc<any>(companyProfileRef);
 
     const form = useForm<EmployeeFormValues>({
         resolver: zodResolver(employeeSchema),
@@ -148,39 +168,38 @@ export function AddEmployeeDialog({
         }
     });
 
-    const employeesCollection = useMemoFirebase(
-        () => (firestore ? collection(firestore, 'employees') : null),
-        [firestore]
-    );
-
-    const generateEmployeeCode = async (): Promise<string> => {
-        if (!firestore || !codeConfigRef || !codeConfig) {
-            throw new Error("Кодчлолын тохиргоо олдсонгүй.");
-        }
-
-        const { prefix, digitCount, nextNumber } = codeConfig;
-        const codeNumber = nextNumber.toString().padStart(digitCount, '0');
-        const newCode = `${prefix}${codeNumber}`;
-
-        await setDoc(codeConfigRef, { nextNumber: nextNumber + 1 }, { merge: true });
-
-        return newCode;
-    };
-
     const handlePhotoSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (!file) return;
 
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ variant: 'destructive', title: 'Зураг хэт том байна', description: 'Дээд хэмжээ 5MB байна.' });
+            if (event.target) event.target.value = '';
+            return;
+        }
+
+        // Хуучин URL-г чөлөөлөх (memory leak запобіганню)
+        setPhotoPreview(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return URL.createObjectURL(file);
+        });
         setPhotoFile(file);
-        setPhotoPreview(URL.createObjectURL(file));
     };
+
+    // Component unmount-д object URL чөлөөлөх
+    React.useEffect(() => {
+        return () => {
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Email илгээх функц
     const sendEmployeeCredentialsEmail = async (
         employeeEmail: string,
         employeeName: string,
         loginEmail: string,
-        password: string,
+        inviteUrl: string,
         employeeCode: string
     ) => {
         try {
@@ -195,7 +214,7 @@ export function AddEmployeeDialog({
                 // Админы бүрэн мэдээлэл авах (employees collection-оос)
                 if (firestore && currentUser.uid) {
                     try {
-                        const adminDocRef = doc(firestore, 'employees', currentUser.uid);
+                        const adminDocRef = tDoc('employees', currentUser.uid);
                         const adminDoc = await getDoc(adminDocRef);
                         if (adminDoc.exists()) {
                             const adminData = adminDoc.data();
@@ -218,7 +237,7 @@ export function AddEmployeeDialog({
                 employeeName,
                 employeeCode,
                 loginEmail: employeeCode,
-                password,
+                inviteUrl,
                 appUrl,
                 adminName,
             };
@@ -230,7 +249,7 @@ export function AddEmployeeDialog({
             let emailText: string;
 
             if (firestore) {
-                const templateRef = doc(firestore, 'company', INVITATION_EMAIL_TEMPLATE_DOC_ID);
+                const templateRef = tDoc('company', INVITATION_EMAIL_TEMPLATE_DOC_ID);
                 const templateSnap = await getDoc(templateRef);
                 if (templateSnap.exists()) {
                     const t = templateSnap.data() as any;
@@ -261,137 +280,214 @@ export function AddEmployeeDialog({
                 emailText = buildDefaultInvitationText(vars);
             }
 
-            const response = await fetch('/api/email', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    to: employeeEmail,
-                    subject: emailSubject,
-                    html: emailHtml,
-                    text: emailText,
-                }),
-            });
+            // Layer E8: Retry x3 with exponential backoff. Final failure-ийг
+            // audit log-д тэмдэглэж админ-руу мэдэгдэх боломж олгоно. Email
+            // илгээхгүй болсон ч ажилтан нэмэх процессыг блоклохгүй.
+            const MAX_ATTEMPTS = 3;
+            let lastError: unknown = null;
+            let succeeded = false;
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                try {
+                    const response = await fetch('/api/email', {
+                        method: 'POST',
+                        headers: await getJsonAuthHeaders(),
+                        body: JSON.stringify({
+                            to: employeeEmail,
+                            subject: emailSubject,
+                            html: emailHtml,
+                            text: emailText,
+                        }),
+                    });
 
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                console.warn('[Email] Илгээхэд алдаа:', errorData?.details || errorData?.error || errorData);
-                // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй, зөвхөн warning log
-                return;
+                    if (!response.ok) {
+                        const errorData = await response
+                            .json()
+                            .catch(() => ({ error: 'Unknown error' }));
+                        lastError = errorData?.details || errorData?.error || errorData;
+                        console.warn(
+                            `[Email] Илгээхэд алдаа (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+                            lastError,
+                        );
+                    } else {
+                        const result = await response
+                            .json()
+                            .catch(() => ({ status: 'unknown' }));
+                        if (result.status === 'sent') {
+                            console.log('[Email] Амжилттай илгээгдлээ:', employeeEmail);
+                            succeeded = true;
+                            break;
+                        } else if (result.status === 'simulated_success') {
+                            console.warn(
+                                '[Email] Simulation mode - бодит email илгээгдээгүй',
+                            );
+                            succeeded = true;
+                            break;
+                        } else {
+                            lastError = `Unexpected status: ${result.status}`;
+                        }
+                    }
+                } catch (err: unknown) {
+                    lastError = err instanceof Error ? err.message : String(err);
+                    console.warn(
+                        `[Email] Fetch failed (attempt ${attempt}/${MAX_ATTEMPTS}):`,
+                        lastError,
+                    );
+                }
+
+                if (attempt < MAX_ATTEMPTS) {
+                    const delay = 500 * Math.pow(2, attempt - 1);
+                    await new Promise((resolve) => setTimeout(resolve, delay));
+                }
             }
-            
-            const result = await response.json().catch(() => ({ status: 'unknown' }));
-            if (result.status === 'sent') {
-                console.log('[Email] Амжилттай илгээгдлээ:', employeeEmail);
-            } else if (result.status === 'simulated_success') {
-                console.warn('[Email] Simulation mode - бодит email илгээгдээгүй');
+
+            if (!succeeded) {
+                // Audit final failure — admin Slack/notification руу зөөвөрлөж болно.
+                void logAudit({
+                    action: 'update',
+                    resource: 'employee',
+                    resourceName: employeeName,
+                    description: 'Ажилтны нэвтрэх мэдээлэл имэйлээр илгээгдсэнгүй',
+                    metadata: {
+                        kind: 'invitation_email_failed',
+                        employeeEmail,
+                        employeeCode,
+                        attempts: MAX_ATTEMPTS,
+                        lastError:
+                            lastError instanceof Error
+                                ? lastError.message
+                                : String(lastError),
+                    },
+                });
             }
-        } catch (err: any) {
+        } catch (err: unknown) {
             // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй
-            console.warn('[Email] Илгээхэд алдаа гарлаа:', err?.message || err);
+            console.warn('[Email] Илгээхэд алдаа гарлаа:', err instanceof Error ? err.message : err);
         }
     };
 
     const handleSave = async (values: EmployeeFormValues) => {
-        if (!employeesCollection || !auth || !firestore || !firebaseApp) return;
-
-        const originalUser = auth.currentUser;
-        if (!originalUser) {
-            toast({ variant: "destructive", title: "Алдаа", description: "Админ хэрэглэгч нэвтрээгүй байна." });
-            return;
-        }
+        if (!firestore || !firebaseApp || !companyId) return;
 
         setIsSubmitting(true);
 
         try {
-            const employeeCode = await generateEmployeeCode();
-            const authEmail = `${employeeCode}@example.com`;
+            const normalizedPhone = (() => {
+                try { return normalizePhoneNumber(values.phoneNumber); }
+                catch { return values.phoneNumber; }
+            })();
 
-            // Secondary Firebase App ашиглан хэрэглэгч үүсгэх
-            // Энэ нь админы session-д нөлөөлөхгүй!
-            const newUser = await createUserWithSecondaryAuth(authEmail, values.phoneNumber);
+            // Server endpoint-оор email lookup + (reuse | create) + employee doc +
+            // membership + claims бүгдийг атомоор гүйцэтгэнэ.
+            const res = await fetch('/api/admin/employees/create', {
+                method: 'POST',
+                headers: await getJsonAuthHeaders(),
+                body: JSON.stringify({
+                    companyId,
+                    firstName: values.firstName,
+                    lastName: values.lastName,
+                    email: values.email,
+                    phoneNumber: normalizedPhone,
+                }),
+            });
 
-            if (!newUser.uid) {
-                throw new Error("Хэрэглэгч үүсгэж чадсангүй.");
+            if (!res.ok) {
+                const errBody = await res.json().catch(() => ({}));
+                const code = errBody?.code as string | undefined;
+                let errorMessage = errBody?.error || 'Ажилтан үүсгэхэд алдаа гарлаа.';
+                if (code === 'ALREADY_MEMBER') {
+                    errorMessage = errBody.error;
+                } else if (code === 'EMPLOYEE_LIMIT_EXCEEDED') {
+                    errorMessage = errBody.error;
+                }
+                toast({ variant: 'destructive', title: 'Алдаа гарлаа', description: errorMessage });
+                return;
             }
 
+            const data = (await res.json()) as {
+                uid: string;
+                employeeCode: string;
+                existed: boolean;
+                authEmail: string;
+                inviteToken?: string;
+            };
+
+            // Зургийг одоо upload хийж, employee doc-ын photoURL-ийг шинэчилнэ
             let photoURL = '';
             if (photoFile) {
                 try {
                     const storage = getStorage(firebaseApp);
-                    const storageRef = ref(storage, `employee-photos/${newUser.uid}/${photoFile.name}`);
+                    const sanitizedPhotoName = photoFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                    const storageRef = ref(storage, `employee-photos/${companyId}/${data.uid}/${sanitizedPhotoName}`);
                     await uploadBytes(storageRef, photoFile);
                     photoURL = await getDownloadURL(storageRef);
-                    console.log('[Photo] Зураг амжилттай хадгалагдлаа:', photoURL);
-                } catch (photoError: any) {
-                    console.warn('[Photo] Зураг хадгалахад алдаа:', photoError?.message || photoError);
-                    // Зураг хадгалахад алдаа гарвал үргэлжлүүлэх
+                    await updateDoc(tDoc('employees', data.uid), { photoURL });
+                } catch (photoError: unknown) {
+                    console.warn('[Photo] Зураг хадгалахад алдаа:', photoError instanceof Error ? photoError.message : photoError);
                 }
             }
 
-            const employeeData = {
-                id: newUser.uid,
-                employeeCode: employeeCode,
-                role: 'employee',
-                firstName: values.firstName,
-                lastName: values.lastName,
-                email: values.email,
-                status: 'active',
-                phoneNumber: values.phoneNumber,
-                departmentId: null,
-                positionId: null,
-                hireDate: new Date().toISOString(),
-                jobTitle: null,
-                photoURL: photoURL,
-                lifecycleStage: 'recruitment',
-            };
+            // Invite email (зөвхөн шинэ Auth хэрэглэгч үүссэн тохиолдолд)
+            if (!data.existed && data.inviteToken) {
+                try {
+                    const appUrl = typeof window !== 'undefined'
+                        ? window.location.origin
+                        : (process.env.NEXT_PUBLIC_APP_URL || 'https://your-domain.com');
+                    const inviteUrl = buildInviteUrl(appUrl, data.inviteToken);
 
-            // Create employee document
-            const employeeDocRef = doc(firestore, 'employees', newUser.uid);
-            await setDoc(employeeDocRef, employeeData);
-
-            // Email илгээх - нэвтрэх мэдээлэл (алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй)
-            try {
-                await sendEmployeeCredentialsEmail(
-                    values.email,
-                    `${values.firstName} ${values.lastName}`,
-                    authEmail,
-                    values.phoneNumber,
-                    employeeCode
-                );
-            } catch (emailError: any) {
-                // Email алдаа гарвал ажилтан нэмэх үйлдлийг зогсоохгүй
-                console.warn('[Email] Илгээхэд алдаа:', emailError?.message || emailError);
+                    await sendEmployeeCredentialsEmail(
+                        values.email,
+                        `${values.firstName} ${values.lastName}`,
+                        data.authEmail,
+                        inviteUrl,
+                        data.employeeCode,
+                    );
+                } catch (emailError: unknown) {
+                    console.warn('[Email/Invite] Илгээхэд алдаа:', emailError instanceof Error ? emailError.message : emailError);
+                }
             }
 
             toast({
                 title: 'Амжилттай хадгаллаа',
-                description: `${values.lastName} ${values.firstName} нэртэй ажилтан системд нэмэгдлээ. Код: ${employeeCode}.`,
+                description: data.existed
+                    ? `${values.lastName} ${values.firstName} нь системд өмнө бүртгэлтэй байсан тул зөвхөн энэ байгууллагад нэмэгдлээ. Тэд одоогийн нууц үгээрээ нэвтэрнэ. Код: ${data.employeeCode}.`
+                    : `${values.lastName} ${values.firstName} нэртэй ажилтан системд нэмэгдлээ. Код: ${data.employeeCode}.`,
             });
-            
+
+            // Admin-уудад notification (fire-and-forget)
+            notifyEmployeeAdded({
+                employeeName: `${values.lastName} ${values.firstName}`,
+                employeeUid: data.uid,
+                employeeCode: data.employeeCode,
+                employeeEmail: values.email,
+                hireDate: new Date().toLocaleDateString('mn-MN'),
+                actorName: currentUser?.displayName || currentUser?.email || undefined,
+            });
+
             // Form-ийг цэвэрлэх
             form.reset();
+            if (photoPreview) URL.revokeObjectURL(photoPreview);
             setPhotoPreview(null);
             setPhotoFile(null);
             onOpenChange(false);
 
+            // Nested контекстэд auto-select хийхэд ашиглагдана
+            onCreated?.({
+                id: data.uid,
+                firstName: values.firstName,
+                lastName: values.lastName,
+                email: values.email,
+                phoneNumber: normalizedPhone,
+                employeeCode: data.employeeCode,
+                photoURL,
+                status: 'active_recruitment',
+            });
         } catch (error: any) {
-            console.warn("[handleSave] Ажилтан нэмэхэд алдаа гарлаа:", error?.message || error);
-
-            let errorMessage = "Ажилтан үүсгэхэд алдаа гарлаа.";
-            if (error?.code === 'auth/email-already-in-use') {
-                errorMessage = "Энэ имэйл хаягтай хэрэглэгч аль хэдийн бүртгэгдсэн байна.";
-            } else if (error?.code === 'auth/weak-password') {
-                errorMessage = "Нууц үг хэт богино байна. 6-аас дээш тэмдэгт оруулна уу.";
-            } else if (error?.message) {
-                errorMessage = error.message;
-            }
-
+            Sentry.captureException(error, { tags: { module: 'employees', action: 'add-employee' } });
+            console.warn('[handleSave] Ажилтан нэмэхэд алдаа гарлаа:', error?.message || error);
             toast({
-                variant: "destructive",
-                title: "Алдаа гарлаа",
-                description: errorMessage
+                variant: 'destructive',
+                title: 'Алдаа гарлаа',
+                description: error?.message || 'Ажилтан үүсгэхэд алдаа гарлаа.',
             });
         } finally {
             setIsSubmitting(false);
@@ -410,6 +506,19 @@ export function AddEmployeeDialog({
                             </AppDialogDescription>
                         </AppDialogHeader>
                         <div className="px-6 py-4 space-y-4">
+                            {limitReached && (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Ажилтны хязгаар хэтэрсэн</AlertTitle>
+                                    <AlertDescription>
+                                        Таны багцад хамгийн ихдээ {maxEmployees} ажилтан бүртгэх боломжтой (одоо: {employeeCount}).
+                                        Илүү олон ажилтан нэмэхийн тулд багцаа шинэчилнэ үү.
+                                        <a href="/dashboard/billing" className="ml-1 inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                                            <Sparkles className="h-3 w-3" />Багц сунгах
+                                        </a>
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             <div className="flex flex-col items-center gap-3">
                                 <Avatar className="h-20 w-20">
                                     <AvatarImage src={photoPreview || undefined} />
@@ -436,14 +545,14 @@ export function AddEmployeeDialog({
                                     <FormField control={form.control} name="firstName" render={({ field }) => (<FormItem><FormLabel>Нэр</FormLabel><FormControl><Input placeholder="Дорж" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                 </div>
                                 <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Имэйл</FormLabel><FormControl><Input type="email" placeholder="dorj@example.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Утас (Нууц үг болно)</FormLabel><FormControl><Input placeholder="9911-1234" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                <FormField control={form.control} name="phoneNumber" render={({ field }) => (<FormItem><FormLabel>Утасны дугаар</FormLabel><FormControl><Input placeholder="88001234" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
                         </div>
                         <AppDialogFooter>
                             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
                                 Цуцлах
                             </Button>
-                            <Button type="submit" disabled={isSubmitting}>
+                            <Button type="submit" disabled={isSubmitting || limitReached}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                                 Нэмэх
                             </Button>

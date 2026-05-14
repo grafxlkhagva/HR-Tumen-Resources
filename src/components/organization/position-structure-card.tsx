@@ -66,7 +66,7 @@ function AttendanceStatusPill({ status, isDarkBg }: { status: PositionAttendance
   );
 }
 
-function isColorDark(hex: string): boolean {
+export function isColorDark(hex: string): boolean {
   if (!hex) return false;
   const color = hex.startsWith('#') ? hex.substring(1) : hex;
   const rgb = parseInt(color, 16);
@@ -180,12 +180,15 @@ export function PositionStructureCard({
   departmentName,
   departmentColor,
   completionPct,
+  canApprove,
+  approvalHint,
   employee,
   actions,
   actionsVisibility = 'hover',
   bottomLeftMeta,
   footerMeta,
   footerActions,
+  variant = 'default',
   // Backward-compatible props (deprecated)
   topSlot,
   bottomSlot,
@@ -198,6 +201,10 @@ export function PositionStructureCard({
   departmentName?: string;
   departmentColor?: string;
   completionPct?: number;
+  /** true бол progress bar-ийн доор "Одоо батлах боломжтой" мэдэгдэл гаргана. */
+  canApprove?: boolean;
+  /** canApprove=true үед харагдах тайлбар (default бичвэр бий). */
+  approvalHint?: string;
   employee?: PositionCardEmployee | null;
   /** Rendered on hover in top-right */
   actions?: React.ReactNode;
@@ -209,6 +216,8 @@ export function PositionStructureCard({
   footerMeta?: React.ReactNode;
   /** Footer actions (buttons/controls) */
   footerActions?: React.ReactNode;
+  /** Card layout variant: 'default' (horizontal) or 'circular' (centered avatar) */
+  variant?: 'default' | 'circular';
   /** @deprecated use footerMeta */
   topSlot?: React.ReactNode;
   /** @deprecated use footerActions */
@@ -230,6 +239,144 @@ export function PositionStructureCard({
         : companyType === 'main'
           ? 'Үндсэн компани'
           : null;
+
+  // ── Circular variant ────────────────────────────────────────────────────────
+  if (variant === 'circular') {
+    const avatarSize = 72;
+    const ringSize = avatarSize + 12;
+    const quesProgress = employee?.questionnaireCompletion || 0;
+    const radius = (ringSize - 4) / 2;
+    const circumference = 2 * Math.PI * radius;
+    const progressOffset = circumference - (quesProgress / 100) * circumference;
+    const progressColor = quesProgress < 50 ? '#f43f5e' : quesProgress < 90 ? '#f59e0b' : '#10b981';
+
+    return (
+      <div
+        className={cn(
+          'relative flex flex-col items-center gap-2 rounded-2xl px-4 pt-4 pb-3 shadow-xl transition-all duration-300 group',
+          'hover:shadow-2xl hover:-translate-y-1',
+          isDarkBg ? 'text-white' : 'text-slate-800',
+          'w-[180px]'
+        )}
+        style={{ backgroundColor: cardColor }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none rounded-2xl" />
+
+        {/* Actions top-right */}
+        {actions ? (
+          <div
+            className={cn(
+              'absolute top-2 right-2 z-10 flex items-center gap-1 transition-opacity',
+              actionsVisibility === 'always' ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+            )}
+          >
+            {actions}
+          </div>
+        ) : null}
+
+        {/* Circular avatar with progress ring */}
+        <div className="relative" style={{ width: ringSize, height: ringSize }}>
+          <div className="absolute inset-0 flex items-center justify-center">
+            {employee?.id ? (
+              <Link href={`/dashboard/employees/${employee.id}`}>
+                <Avatar className="border-2 border-white/50" style={{ width: avatarSize, height: avatarSize }}>
+                  <AvatarImage src={employee?.photoURL} alt={employee?.firstName || ''} className="object-cover" />
+                  <AvatarFallback className="text-sm font-bold bg-gradient-to-br from-slate-100 to-slate-200 text-slate-600">
+                    {employee ? `${employee.firstName?.charAt(0) || ''}${employee.lastName?.charAt(0) || ''}` : <User className="h-5 w-5 text-slate-400" />}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
+            ) : (
+              <Avatar className="border-2 border-white/30" style={{ width: avatarSize, height: avatarSize }}>
+                <AvatarFallback
+                  className={cn(
+                    'text-sm font-bold',
+                    isDarkBg ? 'bg-white/10 text-white/60' : 'bg-slate-100 text-slate-400'
+                  )}
+                >
+                  <User className="h-5 w-5" />
+                </AvatarFallback>
+              </Avatar>
+            )}
+          </div>
+          {employee?.questionnaireCompletion !== undefined && (
+            <svg
+              className="absolute inset-0 pointer-events-none -rotate-90"
+              width={ringSize}
+              height={ringSize}
+              viewBox={`0 0 ${ringSize} ${ringSize}`}
+            >
+              <circle stroke="rgba(255,255,255,0.15)" strokeWidth="3" fill="transparent" r={radius} cx={ringSize / 2} cy={ringSize / 2} />
+              <circle
+                stroke={progressColor}
+                strokeWidth="3"
+                strokeDasharray={circumference}
+                strokeDashoffset={progressOffset}
+                strokeLinecap="round"
+                fill="transparent"
+                r={radius}
+                cx={ringSize / 2}
+                cy={ringSize / 2}
+                style={{ transition: 'stroke-dashoffset 0.6s ease-out' }}
+              />
+            </svg>
+          )}
+          {/* Attendance indicator dot */}
+          {employee?.attendanceStatus && (
+            <span
+              className={cn(
+                'absolute bottom-1 right-1 h-3 w-3 rounded-full border-2 border-white z-10',
+                employee.attendanceStatus.status === 'checked-in' ? 'bg-emerald-400' :
+                employee.attendanceStatus.status === 'checked-out' ? 'bg-rose-400' :
+                employee.attendanceStatus.status === 'on-leave' ? 'bg-sky-400' : 'bg-slate-400'
+              )}
+            />
+          )}
+        </div>
+
+        {/* Name / vacant label */}
+        <div className="text-center min-w-0 w-full space-y-0.5">
+          {employee ? (
+            <>
+              {employee.id ? (
+                <Link href={`/dashboard/employees/${employee.id}`} className="block">
+                  <p className={cn('text-[11px] font-semibold truncate leading-tight', isDarkBg ? 'text-white/70' : 'text-slate-600')}>
+                    {employee.lastName || ''}
+                  </p>
+                  <p className={cn('text-sm font-extrabold truncate leading-tight', isDarkBg ? 'text-white' : 'text-slate-900')}>
+                    {employee.firstName || ''}
+                  </p>
+                </Link>
+              ) : (
+                <>
+                  <p className={cn('text-[11px] font-semibold truncate leading-tight', isDarkBg ? 'text-white/70' : 'text-slate-600')}>
+                    {employee.lastName || ''}
+                  </p>
+                  <p className={cn('text-sm font-extrabold truncate leading-tight', isDarkBg ? 'text-white' : 'text-slate-900')}>
+                    {employee.firstName || ''}
+                  </p>
+                </>
+              )}
+            </>
+          ) : (
+            <p className={cn('text-[11px] font-semibold', isDarkBg ? 'text-white/50' : 'text-slate-400')}>Сул орон тоо</p>
+          )}
+
+          {/* Position title */}
+          <Link href={`/dashboard/organization/positions/${positionId}`} className="block">
+            <p className={cn('text-[11px] font-medium truncate', isDarkBg ? 'text-white/60' : 'text-slate-600')}>
+              {positionTitle}
+            </p>
+          </Link>
+        </div>
+
+        {/* Footer actions */}
+        {effectiveFooterActions ? (
+          <div className="w-full">{effectiveFooterActions}</div>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div
@@ -328,7 +475,7 @@ export function PositionStructureCard({
             {typeof completionPct === 'number' ? (
               <div className="space-y-2">
                 <div className={cn('flex items-center justify-between text-[10px] font-medium', isDarkBg ? 'text-white/70' : 'text-slate-600')}>
-                  <span>Бөглөлт</span>
+                  <span>Шаардлагтай мэдээлэл баталгаажуулалт</span>
                   <span>{Math.max(0, Math.min(100, Math.round(completionPct)))}%</span>
                 </div>
                 <div className={cn('h-1.5 w-full overflow-hidden rounded-full', isDarkBg ? 'bg-white/15' : 'bg-slate-200')}>
@@ -337,6 +484,17 @@ export function PositionStructureCard({
                     style={{ width: `${Math.max(0, Math.min(100, Math.round(completionPct)))}%` }}
                   />
                 </div>
+                {canApprove && Math.round(completionPct) < 100 ? (
+                  <div className={cn(
+                    'inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                    isDarkBg
+                      ? 'bg-emerald-500/20 text-emerald-200 ring-1 ring-emerald-300/30'
+                      : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                  )}>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    {approvalHint || 'Батлах боломжтой'}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 

@@ -1,152 +1,145 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useUser, useMemoFirebase, useDoc, useFirebase } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { useUser } from '@/firebase';
-import { signOut } from 'firebase/auth';
-import { useAuth } from '@/firebase';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Loader2, Home, Building, Newspaper, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Newspaper, LogOut, PenSquare, ShieldAlert, History } from 'lucide-react';
-import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { cn } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Skeleton } from '@/components/ui/skeleton';
+import { UserNav } from '@/components/user-nav';
 import { PortalSwitcher } from '@/components/portal-switcher';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 
-const navItems = [
-  { href: '/news/posts', label: 'Нийтлэлүүд', icon: Newspaper },
-  { href: '/news/posts/add', label: 'Шинэ нийтлэл', icon: PenSquare },
-  { href: '/news/history', label: 'Түүхэн үйл явдал', icon: History },
-] as const;
+interface CompanyProfile {
+    name?: string;
+    logoUrl?: string;
+}
 
 function NewsShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
-  const { employeeProfile } = useEmployeeProfile();
-  const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+    const { user, isUserLoading } = useUser();
+    const { employeeProfile, isProfileLoading } = useEmployeeProfile();
+    const router = useRouter();
+    const { firestore } = useFirebase();
 
-  React.useEffect(() => {
-    if (isUserLoading) return;
-    if (!user) {
-      router.replace('/login');
-      return;
-    }
-    if (employeeProfile && employeeProfile.role !== 'admin' && !employeeProfile.newsAccess) {
-      router.replace('/');
-    }
-  }, [user, isUserLoading, router, employeeProfile]);
-
-  const handleLogout = React.useCallback(async () => {
-    if (!auth || isLoggingOut) return;
-    setIsLoggingOut(true);
-    try {
-      await signOut(auth);
-      router.replace('/login');
-    } finally {
-      setIsLoggingOut(false);
-    }
-  }, [auth, isLoggingOut, router]);
-
-  if (isUserLoading || !user) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-muted/30">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
+    const companyProfileRef = useMemoFirebase(
+        () => (firestore ? doc(firestore, 'company', 'profile') : null),
+        [firestore],
     );
-  }
+    const { data: companyProfile, isLoading: isLoadingProfile } =
+        useDoc<CompanyProfile>(companyProfileRef);
 
-  if (employeeProfile && employeeProfile.role !== 'admin' && !employeeProfile.newsAccess) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-muted/30">
-        <div className="text-center space-y-4">
-          <div className="mx-auto h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
-            <ShieldAlert className="h-7 w-7 text-destructive" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">Хандах эрхгүй</h2>
-            <p className="text-sm text-muted-foreground mt-1">Мэдээлэл системд нэвтрэх эрх олгогдоогүй байна.</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => router.replace('/')}>
-            Нүүр хуудас руу буцах
-          </Button>
-        </div>
-      </div>
-    );
-  }
+    const hasAccess = React.useMemo(() => {
+        if (!employeeProfile) return null;
+        return employeeProfile.role === 'admin' || !!employeeProfile.newsAccess;
+    }, [employeeProfile]);
 
-  const displayName =
-    employeeProfile?.firstName && employeeProfile?.lastName
-      ? `${employeeProfile.firstName} ${employeeProfile.lastName}`
-      : user?.email ?? user?.displayName ?? 'Хэрэглэгч';
+    React.useEffect(() => {
+        if (isUserLoading) return;
+        if (!user) {
+            router.replace('/login');
+            return;
+        }
+        if (employeeProfile && hasAccess === false) {
+            router.replace('/');
+        }
+    }, [user, isUserLoading, router, employeeProfile, hasAccess]);
 
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <aside className="flex w-56 flex-col border-r bg-muted/30">
-        <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
-          <Link href="/news" className="flex items-center gap-2 font-semibold min-w-0">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-orange-500/10 shrink-0">
-              <Newspaper className="h-5 w-5 text-orange-600 dark:text-orange-400" />
+    if (isUserLoading || !user || isProfileLoading) {
+        return (
+            <div className="flex h-screen flex-col items-center justify-center gap-4">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <p className="text-caption text-muted-foreground">Ачаалж байна...</p>
             </div>
-            <span className="truncate">Мэдээлэл</span>
-          </Link>
-          <PortalSwitcher currentPortalId="news" />
-        </div>
-        <nav className="flex-1 space-y-0.5 p-3">
-          {navItems.map(({ href, label, icon: Icon }) => {
-            const isActive = pathname === href || (href === '/news/posts' && pathname.startsWith('/news/posts/edit')) || (href === '/news/history' && pathname.startsWith('/news/history'));
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-        <div className="border-t p-3">
-          <div className="mb-2 flex items-center gap-3 rounded-lg px-3 py-2">
-            <Avatar className="h-8 w-8 rounded-lg">
-              <AvatarImage src={user.photoURL ?? undefined} />
-              <AvatarFallback className="rounded-lg text-xs">
-                {displayName.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="truncate text-sm font-medium">{displayName}</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2 text-muted-foreground"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-          >
-            {isLoggingOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <LogOut className="h-4 w-4" />
-            )}
-            Гарах
-          </Button>
-        </div>
-      </aside>
+        );
+    }
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {children}
-      </main>
-    </div>
-  );
+    if (hasAccess === false) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-muted/30">
+                <div className="text-center space-y-4">
+                    <div className="mx-auto h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                        <ShieldAlert className="h-7 w-7 text-destructive" />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-semibold">Хандах эрхгүй</h2>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Мэдээлэл модулд нэвтрэх эрх олгогдоогүй байна.
+                        </p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => router.replace('/')}>
+                        Нүүр хуудас руу буцах
+                    </Button>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col h-screen overflow-hidden bg-background">
+            <header className="flex-none sticky top-0 z-40 w-full border-b bg-background">
+                <div className="flex h-14 items-center justify-between gap-4 px-page">
+                    <div className="flex items-center gap-3">
+                        <Button variant="ghost" size="icon-sm" asChild>
+                            <Link href="/">
+                                <Home className="h-4 w-4" />
+                                <span className="sr-only">Бүх портал</span>
+                            </Link>
+                        </Button>
+                        <div className="h-4 w-px bg-border" />
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            asChild
+                            className="text-sm font-medium px-2 h-8 gap-1.5"
+                        >
+                            <Link href="/news">
+                                <Newspaper className="h-3.5 w-3.5 text-orange-600" />
+                                Мэдээлэл
+                            </Link>
+                        </Button>
+                        <div className="h-4 w-px bg-border" />
+                        <div className="inline-flex items-center gap-2">
+                            {isLoadingProfile ? (
+                                <>
+                                    <Skeleton className="h-7 w-7 rounded-md" />
+                                    <Skeleton className="h-4 w-20" />
+                                </>
+                            ) : (
+                                <>
+                                    <Avatar className="h-7 w-7 rounded-md border">
+                                        <AvatarImage
+                                            src={companyProfile?.logoUrl}
+                                            className="object-contain"
+                                        />
+                                        <AvatarFallback className="rounded-md bg-muted text-micro">
+                                            <Building className="h-3.5 w-3.5" />
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-body-medium">
+                                        {companyProfile?.name || 'Компани'}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                        <PortalSwitcher currentPortalId="news" />
+                        <UserNav />
+                    </div>
+                </div>
+            </header>
+
+            <main className="flex-1 w-full max-w-[1920px] mx-auto flex flex-col overflow-y-auto">
+                {children}
+            </main>
+        </div>
+    );
 }
 
 export default function NewsLayout({ children }: { children: React.ReactNode }) {
-  return <NewsShell>{children}</NewsShell>;
+    return <NewsShell>{children}</NewsShell>;
 }

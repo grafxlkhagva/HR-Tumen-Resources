@@ -4,7 +4,11 @@ import React from 'react';
 import { Position, Department } from '../../types';
 import { Users } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
-import { PositionStructureFlowCanvas } from './flow/position-structure-flow-canvas';
+import dynamic from 'next/dynamic';
+const PositionStructureFlowCanvas = dynamic(
+    () => import('./flow/position-structure-flow-canvas').then(m => ({ default: m.PositionStructureFlowCanvas })),
+    { ssr: false }
+);
 
 interface PositionStructureChartProps {
     positions: Position[];

@@ -1,11 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import React from 'react';
-import { useSearchParams } from 'next/navigation';
-import { TemplateForm } from '../components/template-form';
-
-export default function NewTemplatePage() {
-    const searchParams = useSearchParams();
-    const cloneFromId = searchParams.get('cloneFrom') || undefined;
-    return <TemplateForm mode="create" cloneFromId={cloneFromId} />;
+export default function LegacyTemplateNewRedirect() {
+    redirect('/official-letters/templates/new');
 }

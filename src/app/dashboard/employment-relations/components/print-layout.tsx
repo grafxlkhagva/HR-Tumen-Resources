@@ -2,14 +2,17 @@
 import React, { forwardRef } from 'react';
 import { PrintSettings } from '../types';
 import { cn } from '@/lib/utils';
-import DOMPurify from 'isomorphic-dompurify';
+import { sanitizeHtml } from '@/lib/sanitize';
+import { DocumentQR } from './document-qr';
 
 interface PrintLayoutProps {
     content: string;
     settings?: PrintSettings;
+    documentId?: string | null;
+    companyId?: string | null;
 }
 
-export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ content, settings }, ref) => {
+export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ content, settings, documentId, companyId }, ref) => {
     // Default settings if not provided
     const {
         pageSize = 'A4',
@@ -19,12 +22,9 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
         footer,
         watermark,
         showQRCode,
-        companyName,
-        documentTitle,
-        showLogo
     } = settings || {};
 
-    const sanitizedContent = DOMPurify.sanitize(content);
+    const sanitizedContent = sanitizeHtml(content);
 
     return (
         <div className="hidden">
@@ -86,33 +86,14 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
                         </div>
                     )}
 
-                    {/* Header */}
-                    {(header || companyName || documentTitle) && (
+                    {/* Тэмдэглэл: Логo / байгууллагын нэр / баримтын гарчиг нь
+                        агуулгад `generateHeaderHtml`-р шингэсэн docType толгойгоор
+                        харагддаг тул энд printSettings-ийн masthead-ийг үзүүлэхгүй
+                        (давхардал болохгүйн тулд). Зөвхөн нэмэлт rich-text header
+                        текст үлдээв. */}
+                    {header && (
                         <div className="header-section text-center mb-8">
-                            {showLogo && (
-                                <div className="mb-2">
-                                    {/* Placeholder for Logo - In a real app, pass the logo URL */}
-                                    <div className="h-10 w-10 bg-slate-900 rounded-full mx-auto" />
-                                </div>
-                            )}
-
-                            {/* Professional Header Structure */}
-                            {companyName && (
-                                <h1 className="text-sm font-bold uppercase tracking-widest text-slate-900 mb-1">
-                                    {companyName}
-                                </h1>
-                            )}
-
-                            {documentTitle && (
-                                <h2 className="text-xl font-bold text-slate-800 mb-4 uppercase decoration-2 underline-offset-4 decoration-primary/20">
-                                    {documentTitle}
-                                </h2>
-                            )}
-
-                            {/* Custom or Rich Text Header */}
-                            {header && (
-                                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(header) }} />
-                            )}
+                            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(header) }} />
                         </div>
                     )}
 
@@ -125,18 +106,12 @@ export const PrintLayout = forwardRef<HTMLDivElement, PrintLayoutProps>(({ conte
                     {/* Footer */}
                     <div className="footer-section mt-8 pt-4 border-t border-slate-100 flex items-end justify-between">
                         <div className="flex-1 text-xs text-slate-500">
-                            {footer && <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(footer) }} />}
+                            {footer && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(footer) }} />}
                         </div>
 
                         {showQRCode && (
                             <div className="ml-4 shrink-0">
-                                {/* QR Code Placeholder */}
-                                <div className="h-16 w-16 bg-white border p-1">
-                                    <div className="h-full w-full bg-slate-900" style={{ maskImage: 'url(/qr-placeholder.png)', WebkitMaskImage: 'url(/qr-placeholder.png)' }} />
-                                    <div className="h-full w-full flex items-center justify-center text-[8px] text-center font-mono border bg-slate-50">
-                                        QR Code
-                                    </div>
-                                </div>
+                                <DocumentQR companyId={companyId} docId={documentId} size={72} />
                             </div>
                         )}
                     </div>

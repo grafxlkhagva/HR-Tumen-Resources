@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect } from 'react';
 import { X, Edit3, Save, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -7,8 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { useFirebase, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { useFirebase, updateDocumentNonBlocking, useFetchCollection, useMemoFirebase, tenantCollection, useTenantWrite } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { Department, DepartmentType } from '@/app/dashboard/organization/types';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import * as Sentry from '@sentry/nextjs';
 
 interface SettingsTabProps {
     department: Department;
@@ -41,6 +42,7 @@ function InfoItem({ label, value }: { label: string, value: React.ReactNode }) {
 
 export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTabProps) => {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -48,11 +50,11 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
     const [isGenerating, setIsGenerating] = useState(false);
 
     // Queries for dropdowns
-    const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
-    const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
-    const { data: allDepartments } = useCollection<Department>(deptsQuery);
+    const { data: departmentTypes } = useFetchCollection<DepartmentType>(typesQuery);
+    const { data: allDepartments } = useFetchCollection<Department>(deptsQuery);
 
     // Local state for form fields - initialize directly from prop
     const [formData, setFormData] = useState({
@@ -87,7 +89,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
 
         setIsLoading(true);
         try {
-            const docRef = doc(firestore, 'departments', department.id);
+            const docRef = tDoc('departments', department.id);
             const dataToSave = {
                 name: formData.name,
                 code: formData.code,
@@ -108,7 +110,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
             setIsEditing(false);
             onSuccess?.();
         } catch (error) {
-            console.error("Error updating department:", error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа гарлаа',
                 description: 'Мэдээллийг хадгалж чадсангүй.',
@@ -152,7 +154,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
 
             const response = await fetch('/api/generate-department-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     departmentName: formData.name,
                     departmentType: typeName,
@@ -178,7 +180,7 @@ export const SettingsTab = ({ department, onSuccess, hideBasicInfo }: SettingsTa
                 description: 'Зорилго болон чиг үүргийг шалгаад хадгалаарай'
             });
         } catch (error) {
-            console.error('AI generation error:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа',
                 description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',

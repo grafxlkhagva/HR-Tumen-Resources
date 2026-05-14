@@ -1,5 +1,6 @@
 'use client';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { AddActionButton } from '@/components/ui/add-action-button';
@@ -29,11 +30,12 @@ import {
 } from '@/components/ui/select';
 import { Position } from '../../../types';
 import { doc, collection, addDoc, query, orderBy } from 'firebase/firestore';
-import { useFirebase, updateDocumentNonBlocking, useCollection } from '@/firebase';
+import { useFirebase, updateDocumentNonBlocking, useCollection, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { format } from 'date-fns';
 import { FieldCard, LabeledInput } from '@/components/organization/field-card';
+import * as Sentry from '@sentry/nextjs';
 
 interface PositionCompetencyProps {
     position: Position;
@@ -72,6 +74,7 @@ export function PositionCompetency({
     levelName
 }: PositionCompetencyProps) {
     const { firestore, storage } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -153,7 +156,7 @@ export function PositionCompetency({
     // Save helpers
     const saveField = async (field: string, value: any) => {
         if (!firestore) return;
-        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+        await updateDocumentNonBlocking(tDoc('positions', position.id), {
             [field]: value,
             updatedAt: new Date().toISOString(),
         });
@@ -186,7 +189,7 @@ export function PositionCompetency({
         try {
             const response = await fetch('/api/generate-position-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     positionTitle: position.title,
                     departmentName,
@@ -226,19 +229,19 @@ export function PositionCompetency({
                     if (!existingNames.has(genNameLower)) {
                         existingNames.add(genNameLower);
                         try {
-                            await addDoc(collection(firestore, 'skills_inventory'), {
+                            await addDoc(tCollection('skills_inventory'), {
                                 name: genSkill.name,
                                 createdAt: new Date().toISOString(),
                             });
                         } catch (e) {
-                            console.error('Error adding AI skill to inventory:', e);
+                            Sentry.captureException(e, { tags: { module: 'organization' } });
                         }
                     }
                 }
             }
 
             // Save all generated content with reconciled skills
-            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            await updateDocumentNonBlocking(tDoc('positions', position.id), {
                 purpose: result.data.purpose || '',
                 responsibilities: result.data.responsibilities || [],
                 skills: reconciledSkills,
@@ -256,7 +259,7 @@ export function PositionCompetency({
                 description: `${reconciledSkills.length} ур чадвар (${reconciledSkills.length - generatedSkills.filter(g => !(skillsInventory || []).some((s: any) => s.name.toLowerCase().trim() === g.name.toLowerCase().trim())).length} сангаас, ${generatedSkills.filter(g => !(skillsInventory || []).some((s: any) => s.name.toLowerCase().trim() === g.name.toLowerCase().trim())).length} шинээр үүсгэсэн)`
             });
         } catch (error) {
-            console.error('AI generation error:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа',
                 description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
@@ -277,12 +280,12 @@ export function PositionCompetency({
             const exists = skillsInventory.some(s => s.name.toLowerCase() === name.toLowerCase());
             if (!exists) {
                 try {
-                    await addDoc(collection(firestore, 'skills_inventory'), {
+                    await addDoc(tCollection('skills_inventory'), {
                         name,
                         createdAt: new Date().toISOString(),
                     });
                 } catch (e) {
-                    console.error("Error adding to inventory:", e);
+                    Sentry.captureException(e, { tags: { module: 'organization' } });
                 }
             }
         }
@@ -295,11 +298,13 @@ export function PositionCompetency({
 
         setIsSaving(true);
         try {
-            const fileRef = ref(storage, `positions/${position.id}/jd/${file.name}`);
+            // Sanitize filename: зөвхөн үсэг, тоо, цэг, зураас
+            const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const fileRef = ref(storage, `positions/${position.id}/jd/${Date.now()}_${safeName}`);
             await uploadBytes(fileRef, file);
             const url = await getDownloadURL(fileRef);
 
-            await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+            await updateDocumentNonBlocking(tDoc('positions', position.id), {
                 jobDescriptionFile: {
                     name: file.name,
                     url,
@@ -308,8 +313,18 @@ export function PositionCompetency({
                 }
             });
             toast({ title: "JD Файл амжилттай хавсаргагдлаа" });
-        } catch (e) {
-            toast({ title: "Файл хуулахад алдаа гарлаа", variant: "destructive" });
+        } catch (err) {
+            console.error('File upload error:', err);
+            const msg = err instanceof Error ? err.message : '';
+            const isPermission = msg.includes('unauthorized') || msg.includes('permission') || msg.includes('403') || msg.includes('storage/unauthorized');
+            toast({
+                title: "Файл хуулахад алдаа гарлаа",
+                description: isPermission
+                    ? 'Файл байршуулах эрх байхгүй байна. Админ эрхтэй хэрэглэгчээр нэвтрэнэ үү.'
+                    : 'Дахин оролдоно уу.',
+                variant: "destructive",
+            });
+            Sentry.captureException(err, { tags: { module: 'organization', action: 'jd_file_upload' } });
         } finally {
             setIsSaving(false);
         }
@@ -582,7 +597,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.totalYears': editTotalYears,
                             updatedAt: new Date().toISOString(),
                         });
@@ -612,7 +627,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.leadershipYears': editLeadershipYears,
                             updatedAt: new Date().toISOString(),
                         });
@@ -648,7 +663,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.educationLevel': editEducationLevel === 'none' ? '' : editEducationLevel,
                             updatedAt: new Date().toISOString(),
                         });
@@ -656,10 +671,10 @@ export function PositionCompetency({
                     }}
                 />
 
-                {/* Мэргэжлүүд */}
+                {/* Мэргэжил */}
                 <FieldCard
                     icon={BookOpen}
-                    title="Мэргэжлүүд"
+                    title="Мэргэжил"
                     value={
                         position.experience?.professions?.length
                             ? `${position.experience.professions.length} мэргэжил`
@@ -724,7 +739,7 @@ export function PositionCompetency({
                     }
                     onSave={async () => {
                         if (!firestore) return;
-                        await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                        await updateDocumentNonBlocking(tDoc('positions', position.id), {
                             'experience.professions': editProfessions,
                             updatedAt: new Date().toISOString(),
                         });
@@ -779,7 +794,7 @@ export function PositionCompetency({
                                             className="rounded-lg text-destructive hover:text-destructive hover:bg-destructive/10"
                                             onClick={async () => {
                                                 if (!firestore) return;
-                                                await updateDocumentNonBlocking(doc(firestore, 'positions', position.id), {
+                                                await updateDocumentNonBlocking(tDoc('positions', position.id), {
                                                     jobDescriptionFile: null
                                                 });
                                                 toast({ title: "Файл устгагдлаа" });

@@ -3,18 +3,19 @@
 import * as React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ReferenceTable, type ReferenceItem } from "@/components/ui/reference-table";
-import { useCollection, useMemoFirebase, useFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase";
-import { collection, doc, getDoc } from "firebase/firestore";
+import { useFetchCollection, useMemoFirebase, useFirebase, tenantCollection, useTenantWrite } from "@/firebase";
+import { getDoc, updateDoc, addDoc } from "firebase/firestore";
 import { PageHeader } from '@/components/patterns/page-layout';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle, PenLine, User, Stamp } from 'lucide-react';
+import { Loader2, FileText, Hash, Info, Image, MapPin, Calendar, FileDigit, PlusCircle } from 'lucide-react';
 import { generateDocCode } from '../utils';
-import { DocumentHeader, DocumentSignature, NumberingConfig } from '../types';
+import { DocumentHeader, NumberingConfig } from '../types';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -28,7 +29,6 @@ type ERDocumentTypeReferenceItem = ReferenceItem & {
     lastNumberYear?: number;
     isMandatory?: boolean;
     header?: DocumentHeader;
-    signature?: DocumentSignature;
     numberingConfig?: NumberingConfig;
 };
 
@@ -39,14 +39,6 @@ const DEFAULT_HEADER: DocumentHeader = {
     cityName: 'Улаанбаатар',
     showDate: true,
     showNumber: true,
-};
-
-const DEFAULT_SIGNATURE: DocumentSignature = {
-    position: 'Гүйцэтгэх захирал',
-    name: '',
-    signatureImageUrl: '',
-    showStamp: true,
-    alignment: 'left',
 };
 
 const DEFAULT_NUMBERING: NumberingConfig = {
@@ -71,7 +63,8 @@ function generatePreviewNumber(prefix: string, config: NumberingConfig, sequence
     }
     
     if (config.includeYear) {
-        parts.push(now.getFullYear().toString());
+        const year = now.getFullYear();
+        parts.push(config.shortYear ? String(year % 100).padStart(2, '0') : year.toString());
     }
     
     if (config.includeMonth) {
@@ -102,21 +95,22 @@ const SUGGESTED_PREFIXES = [
 
 export default function ERDocumentTypesSettingsPage() {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const [dialogOpen, setDialogOpen] = React.useState(false);
     const [editingItem, setEditingItem] = React.useState<ERDocumentTypeReferenceItem | null>(null);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [companyProfile, setCompanyProfile] = React.useState<any>(null);
+    const [companyProfile, setCompanyProfile] = React.useState<Record<string, unknown> | null>(null);
 
     // Fetch company profile for logo
     React.useEffect(() => {
         if (!firestore) return;
-        const profileRef = doc(firestore, 'company', 'profile');
+        const profileRef = tDoc('company', 'profile');
         getDoc(profileRef).then(snap => {
             if (snap.exists()) {
                 setCompanyProfile(snap.data());
             }
         });
-    }, [firestore]);
+    }, [firestore, tDoc]);
 
     // Form state
     const [formData, setFormData] = React.useState({
@@ -125,15 +119,14 @@ export default function ERDocumentTypesSettingsPage() {
         category: '',
         isMandatory: false,
         header: { ...DEFAULT_HEADER } as DocumentHeader,
-        signature: { ...DEFAULT_SIGNATURE } as DocumentSignature,
         numberingConfig: { ...DEFAULT_NUMBERING } as NumberingConfig,
     });
 
     const documentTypesQuery = useMemoFirebase(
-        ({ firestore }) => firestore ? collection(firestore, 'er_process_document_types') : null,
+        ({ firestore, companyPath }) => firestore ? tenantCollection(firestore, companyPath, 'er_process_document_types') : null,
         []
     );
-    const { data: documentTypes, isLoading: loadingDocTypes } = useCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
+    const { data: documentTypes, isLoading: loadingDocTypes, refetch: refetchDocTypes } = useFetchCollection<ERDocumentTypeReferenceItem>(documentTypesQuery);
 
     // Reset form when dialog opens/closes
     React.useEffect(() => {
@@ -145,7 +138,6 @@ export default function ERDocumentTypesSettingsPage() {
                     category: editingItem.category || '',
                     isMandatory: editingItem.isMandatory || false,
                     header: editingItem.header || { ...DEFAULT_HEADER },
-                    signature: editingItem.signature || { ...DEFAULT_SIGNATURE },
                     numberingConfig: editingItem.numberingConfig || { ...DEFAULT_NUMBERING },
                 });
             } else {
@@ -155,7 +147,6 @@ export default function ERDocumentTypesSettingsPage() {
                     category: '',
                     isMandatory: false,
                     header: { ...DEFAULT_HEADER },
-                    signature: { ...DEFAULT_SIGNATURE },
                     numberingConfig: { ...DEFAULT_NUMBERING },
                 });
             }
@@ -180,21 +171,19 @@ export default function ERDocumentTypesSettingsPage() {
             category: formData.category || null,
             isMandatory: formData.isMandatory,
             header: formData.header,
-            signature: formData.signature,
             numberingConfig: formData.numberingConfig,
             updatedAt: new Date(),
         };
 
         try {
             if (editingItem) {
-                const docRef = doc(firestore, 'er_process_document_types', editingItem.id);
-                await updateDocumentNonBlocking(docRef, data);
+                await updateDoc(tDoc('er_process_document_types', editingItem.id), data);
             } else {
                 const startNumber = formData.numberingConfig?.startNumber || 1;
-                const colRef = collection(firestore, 'er_process_document_types');
-                await addDocumentNonBlocking(colRef, {
+                const colRef = tCollection('er_process_document_types');
+                await addDoc(colRef, {
                     ...data,
-                    currentNumber: startNumber - 1, // Will be incremented to startNumber on first use
+                    currentNumber: startNumber - 1,
                     lastNumberYear: new Date().getFullYear(),
                     lastNumberMonth: new Date().getMonth() + 1,
                     lastNumberDay: new Date().getDate(),
@@ -203,6 +192,7 @@ export default function ERDocumentTypesSettingsPage() {
             }
             setDialogOpen(false);
             setEditingItem(null);
+            refetchDocTypes();
         } finally {
             setIsSubmitting(false);
         }
@@ -219,9 +209,9 @@ export default function ERDocumentTypesSettingsPage() {
         {
             key: 'prefix',
             header: 'Код',
-            render: (val: any) => val ? (
+            render: (val: unknown) => val ? (
                 <Badge className="font-mono text-xs bg-primary/10 text-primary border-0">
-                    {val}
+                    {String(val)}
                 </Badge>
             ) : (
                 <span className="text-slate-300 text-xs">—</span>
@@ -231,9 +221,9 @@ export default function ERDocumentTypesSettingsPage() {
         {
             key: 'category',
             header: 'Ангилал',
-            render: (val: any) => val ? (
+            render: (val: unknown) => val ? (
                 <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-tighter px-2 h-5">
-                    {val}
+                    {String(val)}
                 </Badge>
             ) : (
                 <span className="text-slate-300 text-[9px]">—</span>
@@ -242,10 +232,10 @@ export default function ERDocumentTypesSettingsPage() {
         {
             key: 'currentNumber',
             header: 'Сүүлийн дугаар',
-            render: (val: any, item: ERDocumentTypeReferenceItem) => {
+            render: (val: unknown, item: ERDocumentTypeReferenceItem) => {
                 if (!item.prefix) return <span className="text-slate-300">—</span>;
                 const year = item.lastNumberYear || new Date().getFullYear();
-                const num = val || 0;
+                const num = typeof val === 'number' ? val : 0;
                 if (num === 0) {
                     return <span className="text-slate-400 text-xs">Дугаар олгоогүй</span>;
                 }
@@ -259,12 +249,16 @@ export default function ERDocumentTypesSettingsPage() {
     ];
 
     return (
-        <div className="p-6 md:p-8 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="flex flex-col h-full overflow-hidden bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 pb-32">
             <PageHeader
                 title="Баримтын төрлийн тохиргоо"
                 description="Баримтын төрөл бүрт үсгэн код оноож, автомат дугаарлалт тохируулна"
                 showBackButton={true}
-                backHref="/dashboard/employment-relations"
+                hideBreadcrumbs={true}
+                backButtonPlacement="inline"
+                backBehavior="history"
+                fallbackBackHref="/dashboard/employment-relations"
             />
 
             <Card className="border shadow-sm bg-white rounded-xl overflow-hidden">
@@ -346,7 +340,6 @@ export default function ERDocumentTypesSettingsPage() {
                                     { value: 'basic', label: 'Үндсэн' },
                                     { value: 'numbering', label: 'Дугаарлалт' },
                                     { value: 'header', label: 'Толгой' },
-                                    { value: 'signature', label: 'Гарын үсэг' },
                                 ]}
                             />
 
@@ -487,17 +480,36 @@ export default function ERDocumentTypesSettingsPage() {
                                     <div className="space-y-0.5">
                                         <Label className="cursor-pointer">Он оруулах</Label>
                                         <p className="text-xs text-muted-foreground">
-                                            Жнь: 2026
+                                            Жнь: {formData.numberingConfig?.shortYear ? String(new Date().getFullYear() % 100).padStart(2, '0') : new Date().getFullYear()}
                                         </p>
                                     </div>
                                     <Switch
                                         checked={formData.numberingConfig?.includeYear ?? true}
                                         onCheckedChange={(c) => setFormData(prev => ({ 
                                             ...prev, 
-                                            numberingConfig: { ...prev.numberingConfig, includeYear: c } 
+                                            numberingConfig: { ...prev.numberingConfig, includeYear: c, ...(!c && { shortYear: false }) } 
                                         }))}
                                     />
                                 </div>
+
+                                {/* Оныг богино (2 оронтой) */}
+                                {(formData.numberingConfig?.includeYear ?? true) && (
+                                    <div className="flex items-center justify-between rounded-lg border border-dashed p-3 ml-4">
+                                        <div className="space-y-0.5">
+                                            <Label className="cursor-pointer">Богино он (2 оронтой)</Label>
+                                            <p className="text-xs text-muted-foreground">
+                                                2026 → 26
+                                            </p>
+                                        </div>
+                                        <Switch
+                                            checked={formData.numberingConfig?.shortYear ?? false}
+                                            onCheckedChange={(c) => setFormData(prev => ({ 
+                                                ...prev, 
+                                                numberingConfig: { ...prev.numberingConfig, shortYear: c } 
+                                            }))}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Сар оруулах */}
                                 <div className="flex items-center justify-between rounded-lg border p-3">
@@ -600,9 +612,9 @@ export default function ERDocumentTypesSettingsPage() {
                                     <Label>Дугаар шинээр эхлэх үе</Label>
                                     <Select
                                         value={formData.numberingConfig?.resetPeriod || 'yearly'}
-                                        onValueChange={(v) => setFormData(prev => ({ 
-                                            ...prev, 
-                                            numberingConfig: { ...prev.numberingConfig, resetPeriod: v as any } 
+                                        onValueChange={(v) => setFormData(prev => ({
+                                            ...prev,
+                                            numberingConfig: { ...prev.numberingConfig, resetPeriod: v as 'yearly' | 'monthly' | 'daily' | 'never' }
                                         }))}
                                     >
                                         <SelectTrigger>
@@ -634,17 +646,23 @@ export default function ERDocumentTypesSettingsPage() {
                                 {/* Толгойн гарчиг */}
                                 <div className="space-y-2">
                                     <Label htmlFor="headerTitle">Толгойн гарчиг (байгууллагын нэр)</Label>
-                                    <Input
+                                    <Textarea
                                         id="headerTitle"
                                         placeholder="жнь: МИНИЙ КОМПАНИ ХХК"
+                                        rows={2}
                                         value={formData.header?.title || ''}
-                                        onChange={(e) => setFormData(prev => ({ 
-                                            ...prev, 
-                                            header: { ...prev.header, title: e.target.value } 
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            header: { ...prev.header, title: e.target.value }
                                         }))}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                            }
+                                        }}
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                        Хоосон үлдээвэл байгууллагын профайлаас авна
+                                        Хоосон үлдээвэл байгууллагын профайлаас авна. Догол мөр авахдаа <kbd className="px-1 py-0.5 rounded border bg-muted font-mono text-[10px]">Shift</kbd> + <kbd className="px-1 py-0.5 rounded border bg-muted font-mono text-[10px]">Enter</kbd> дарна уу.
                                     </p>
                                 </div>
 
@@ -654,15 +672,24 @@ export default function ERDocumentTypesSettingsPage() {
                                         <MapPin className="h-3.5 w-3.5" />
                                         Хотын нэр
                                     </Label>
-                                    <Input
+                                    <Textarea
                                         id="cityName"
                                         placeholder="жнь: Улаанбаатар"
+                                        rows={2}
                                         value={formData.header?.cityName || ''}
-                                        onChange={(e) => setFormData(prev => ({ 
-                                            ...prev, 
-                                            header: { ...prev.header, cityName: e.target.value } 
+                                        onChange={(e) => setFormData(prev => ({
+                                            ...prev,
+                                            header: { ...prev.header, cityName: e.target.value }
                                         }))}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                            }
+                                        }}
                                     />
+                                    <p className="text-xs text-muted-foreground">
+                                        Догол мөр авахдаа <kbd className="px-1 py-0.5 rounded border bg-muted font-mono text-[10px]">Shift</kbd> + <kbd className="px-1 py-0.5 rounded border bg-muted font-mono text-[10px]">Enter</kbd> дарна уу.
+                                    </p>
                                 </div>
 
                                 {/* Лого харуулах */}
@@ -726,16 +753,20 @@ export default function ERDocumentTypesSettingsPage() {
                                 </div>
 
                                 {/* Толгойн урьдчилсан харагдац */}
+                                {(() => {
+                                    const profileLogoUrl = typeof companyProfile?.logoUrl === 'string' ? companyProfile.logoUrl : '';
+                                    const profileName = typeof companyProfile?.name === 'string' ? companyProfile.name : '';
+                                    return (
                                 <div className="rounded-lg border bg-slate-50 p-4">
                                     <p className="text-xs text-muted-foreground mb-3">Толгойн урьдчилсан харагдац:</p>
                                     <div className="bg-white border rounded-lg p-4 text-xs">
                                         {/* Дээд хэсэг: Лого + Байгууллагын нэр (голд) */}
                                         <div className="text-center mb-4">
                                             {formData.header?.showLogo && (
-                                                companyProfile?.logoUrl ? (
-                                                    <img 
-                                                        src={companyProfile.logoUrl} 
-                                                        alt="Logo" 
+                                                profileLogoUrl ? (
+                                                    <img
+                                                        src={profileLogoUrl}
+                                                        alt="Logo"
                                                         className="w-12 h-12 object-contain mx-auto mb-2"
                                                     />
                                                 ) : (
@@ -744,8 +775,8 @@ export default function ERDocumentTypesSettingsPage() {
                                                     </div>
                                                 )
                                             )}
-                                            <div className="font-bold uppercase">
-                                                {formData.header?.title || companyProfile?.name || 'БАЙГУУЛЛАГЫН НЭР'}
+                                            <div className="font-bold uppercase whitespace-pre-line">
+                                                {formData.header?.title || profileName || 'БАЙГУУЛЛАГЫН НЭР'}
                                             </div>
                                         </div>
                                         
@@ -766,158 +797,13 @@ export default function ERDocumentTypesSettingsPage() {
                                                 )}
                                             </div>
                                             <div className="text-right">
-                                                <div>{formData.header?.cityName || 'Улаанбаатар'} хот</div>
+                                                <div className="whitespace-pre-line">{formData.header?.cityName || 'Улаанбаатар'} хот</div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            </TabsContent>
-
-                            <TabsContent value="signature" className="space-y-4 mt-4">
-                                <div className="rounded-lg bg-blue-50 border border-blue-200 p-3 text-xs text-blue-700">
-                                    <div className="flex gap-2">
-                                        <Info className="h-4 w-4 shrink-0 mt-0.5" />
-                                        <div>
-                                            Энд тохируулсан албан тушаал, нэр нь хөдөлмөрийн харилцааны албан бичгийн загвар үүсгэх үед баримтын доод хэсэгт автоматаар нэмэгдэнэ.
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Албан тушаал */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="sigPosition" className="flex items-center gap-2">
-                                        <User className="h-3.5 w-3.5" />
-                                        Албан тушаал
-                                    </Label>
-                                    <Input
-                                        id="sigPosition"
-                                        placeholder="жнь: Гүйцэтгэх захирал"
-                                        value={formData.signature?.position || ''}
-                                        onChange={(e) => setFormData(prev => ({
-                                            ...prev,
-                                            signature: { ...prev.signature, position: e.target.value }
-                                        }))}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Баримтад гарын үсэг зурах хүний албан тушаал
-                                    </p>
-                                </div>
-
-                                {/* Нэр */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="sigName" className="flex items-center gap-2">
-                                        <PenLine className="h-3.5 w-3.5" />
-                                        Нэр
-                                    </Label>
-                                    <Input
-                                        id="sigName"
-                                        placeholder="жнь: Б.БАТ"
-                                        value={formData.signature?.name || ''}
-                                        onChange={(e) => setFormData(prev => ({
-                                            ...prev,
-                                            signature: { ...prev.signature, name: e.target.value }
-                                        }))}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Томоохон үсгээр (жнь: Б.БАТ) бичих нь үр дүнтэй
-                                    </p>
-                                </div>
-
-                                {/* Гарын үсгийн зурагны URL */}
-                                <div className="space-y-2">
-                                    <Label htmlFor="sigImageUrl" className="flex items-center gap-2">
-                                        <Image className="h-3.5 w-3.5" />
-                                        Гарын үсгийн зургын URL (заавал биш)
-                                    </Label>
-                                    <Input
-                                        id="sigImageUrl"
-                                        placeholder="https://..."
-                                        value={formData.signature?.signatureImageUrl || ''}
-                                        onChange={(e) => setFormData(prev => ({
-                                            ...prev,
-                                            signature: { ...prev.signature, signatureImageUrl: e.target.value }
-                                        }))}
-                                    />
-                                    <p className="text-xs text-muted-foreground">
-                                        Хоосон үлдээвэл цэгтэй зураас (...........) гарч, хэвлэсний дараа гараар зурна
-                                    </p>
-                                </div>
-
-                                {/* Байрлал */}
-                                <div className="space-y-2">
-                                    <Label>Байрлал</Label>
-                                    <Select
-                                        value={formData.signature?.alignment || 'left'}
-                                        onValueChange={(v) => setFormData(prev => ({
-                                            ...prev,
-                                            signature: { ...prev.signature, alignment: v as 'left' | 'center' | 'right' }
-                                        }))}
-                                    >
-                                        <SelectTrigger>
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="left">Зүүн тал</SelectItem>
-                                            <SelectItem value="center">Гол</SelectItem>
-                                            <SelectItem value="right">Баруун тал</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* Тамга */}
-                                <div className="flex items-center justify-between rounded-lg border p-3">
-                                    <div className="space-y-0.5">
-                                        <Label className="cursor-pointer flex items-center gap-2">
-                                            <Stamp className="h-4 w-4" />
-                                            "(Тамга)" тэмдэглэгээ харуулах
-                                        </Label>
-                                        <p className="text-xs text-muted-foreground">
-                                            Нэрийн хажууд тамга дарах хэсгийг тэмдэглэнэ
-                                        </p>
-                                    </div>
-                                    <Switch
-                                        checked={formData.signature?.showStamp ?? true}
-                                        onCheckedChange={(c) => setFormData(prev => ({
-                                            ...prev,
-                                            signature: { ...prev.signature, showStamp: c }
-                                        }))}
-                                    />
-                                </div>
-
-                                {/* Гарын үсгийн урьдчилсан харагдац */}
-                                <div className="rounded-lg border bg-slate-50 p-4">
-                                    <p className="text-xs text-muted-foreground mb-3">Гарын үсгийн урьдчилсан харагдац:</p>
-                                    <div className="bg-white border rounded-lg p-6 text-xs">
-                                        <div
-                                            style={{ textAlign: formData.signature?.alignment || 'left' }}
-                                            className="space-y-1"
-                                        >
-                                            {formData.signature?.position && (
-                                                <div>{formData.signature.position}:</div>
-                                            )}
-                                            {formData.signature?.signatureImageUrl ? (
-                                                <img
-                                                    src={formData.signature.signatureImageUrl}
-                                                    alt="Гарын үсэг"
-                                                    style={{ maxHeight: 48, display: 'inline-block', margin: '4px 0' }}
-                                                />
-                                            ) : (
-                                                <div className="text-slate-400 my-2">.........................................</div>
-                                            )}
-                                            {formData.signature?.name && (
-                                                <div className="font-bold">
-                                                    {formData.signature.name.toUpperCase()}
-                                                    {formData.signature?.showStamp && (
-                                                        <span className="text-slate-500 font-normal"> (Тамга)</span>
-                                                    )}
-                                                </div>
-                                            )}
-                                            {!formData.signature?.name && formData.signature?.showStamp && (
-                                                <div className="text-slate-500">(Тамга)</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                    );
+                                })()}
                             </TabsContent>
                         </Tabs>
 
@@ -933,6 +819,7 @@ export default function ERDocumentTypesSettingsPage() {
                     </form>
                 </DialogContent>
             </Dialog>
+            </div>
         </div>
     );
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
     Select,
     SelectContent,
@@ -9,6 +9,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Switch } from '@/components/ui/switch';
 import {
     Briefcase,
@@ -22,11 +23,14 @@ import {
     CalendarCheck,
     CalendarX,
     Wallet,
-    User
+    User,
+    Search,
+    ChevronsUpDown,
+    Check,
 } from 'lucide-react';
 import { Position, Department, PositionLevel, JobCategory, EmploymentType, WorkSchedule, WorkingCondition } from '../../../types';
 import { doc, updateDoc } from 'firebase/firestore';
-import { useFirebase, useMemoFirebase, useDoc } from '@/firebase';
+import { useFirebase, useMemoFirebase, useDoc, tenantDoc, useTenantWrite } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { generateCode } from '@/lib/code-generator';
 import { Wand2 } from 'lucide-react';
@@ -64,6 +68,8 @@ interface PositionOverviewProps {
         hasReporting: boolean;
         hasAttributes: boolean;
         hasSettings: boolean;
+        hasSalary?: boolean;
+        isComplete?: boolean;
     };
 }
 
@@ -77,6 +83,7 @@ export function PositionOverview({
     schedules,
 }: PositionOverviewProps) {
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
     const { toast } = useToast();
 
     // Local edit state for each field
@@ -86,6 +93,9 @@ export function PositionOverview({
     const [editReportsToId, setEditReportsToId] = useState(position.reportsToId || '');
     const [editLevelId, setEditLevelId] = useState(position.levelId || '');
     const [editCategoryId, setEditCategoryId] = useState(position.jobCategoryId || '');
+    const [categorySearch, setCategorySearch] = useState('');
+    const [categoryOpen, setCategoryOpen] = useState(false);
+    const categorySearchRef = useRef<HTMLInputElement>(null);
     const [editEmploymentTypeId, setEditEmploymentTypeId] = useState(position.employmentTypeId || '');
     const [editScheduleId, setEditScheduleId] = useState(position.workScheduleId || '');
     const [editWorkingCondition, setEditWorkingCondition] = useState(position.workingCondition || '');
@@ -97,13 +107,13 @@ export function PositionOverview({
     const [editCurrency, setEditCurrency] = useState(position.budget?.currency || 'MNT');
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
     const { data: posCodeConfig } = useDoc<any>(posCodeConfigRef as any);
 
     const companyProfileRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null),
         []
     );
     const { data: companyProfile } = useDoc<CompanyProfile>(companyProfileRef as any);
@@ -143,13 +153,25 @@ export function PositionOverview({
     const supervisor = useMemo(() => allPositions.find(p => p.id === position.reportsToId), [allPositions, position.reportsToId]);
     const level = useMemo(() => levels.find(l => l.id === position.levelId), [levels, position.levelId]);
     const category = useMemo(() => categories.find(c => c.id === position.jobCategoryId), [categories, position.jobCategoryId]);
+
+    // Searchable job category list — filter by code or name, max 60 results for performance
+    const { filteredCategories, filteredTotal } = useMemo(() => {
+        const q = categorySearch.trim().toLowerCase();
+        const all = !q
+            ? categories
+            : categories.filter(c =>
+                (c.code?.toLowerCase().includes(q)) ||
+                (c.name?.toLowerCase().includes(q))
+            );
+        return { filteredCategories: all.slice(0, 60), filteredTotal: all.length };
+    }, [categories, categorySearch]);
     const employmentType = useMemo(() => employmentTypes.find(t => t.id === position.employmentTypeId), [employmentTypes, position.employmentTypeId]);
     const schedule = useMemo(() => schedules.find(s => s.id === position.workScheduleId), [schedules, position.workScheduleId]);
 
     // Generic save helper
     const saveField = async (field: string, value: any) => {
         if (!firestore) return;
-        await updateDoc(doc(firestore, 'positions', position.id), {
+        await updateDoc(tDoc('positions', position.id), {
             [field]: value,
             updatedAt: new Date().toISOString(),
         });
@@ -316,7 +338,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 companyType: editCompanyType,
                                 subsidiaryName: editCompanyType === 'subsidiary' ? editSubsidiaryName : '',
                                 updatedAt: new Date().toISOString(),
@@ -406,24 +428,92 @@ export function PositionOverview({
                         }}
                     />
 
-                    {/* Мэргэжлийн ангилал */}
+                    {/* Ажил мэргэжлийн код */}
                     <FieldCard
                         icon={FolderKanban}
-                        title="Мэргэжлийн ангилал"
-                        value={category?.name || 'Оноогоогүй'}
+                        title="Ажил мэргэжлийн код"
+                        value={category ? `${category.code} — ${category.name}` : 'Оноогоогүй'}
                         isEmpty={!category}
                         editContent={
-                            <LabeledInput label="Мэргэжлийн ангилал (ЯАМАТ)">
-                                <Select value={editCategoryId} onValueChange={setEditCategoryId}>
-                                    <SelectTrigger className="h-12 rounded-xl">
-                                        <SelectValue placeholder="Сонгох" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {categories.map(c => (
-                                            <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                            <LabeledInput label="Ажил мэргэжлийн код (ҮАМА)">
+                                <Popover open={categoryOpen} onOpenChange={(open) => {
+                                    setCategoryOpen(open);
+                                    if (open) {
+                                        setCategorySearch('');
+                                        setTimeout(() => categorySearchRef.current?.focus(), 50);
+                                    }
+                                }}>
+                                    <PopoverTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="w-full h-12 rounded-xl border border-input bg-background px-3 text-sm flex items-center justify-between gap-2 hover:bg-accent transition-colors text-left"
+                                        >
+                                            <span className={editCategoryId ? 'text-foreground' : 'text-muted-foreground'}>
+                                                {editCategoryId
+                                                    ? (() => {
+                                                        const found = categories.find(c => c.id === editCategoryId);
+                                                        return found ? `${found.code} — ${found.name}` : 'Сонгох...';
+                                                    })()
+                                                    : 'Сонгох...'}
+                                            </span>
+                                            <ChevronsUpDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-[480px] p-0" align="start">
+                                        {/* Search input */}
+                                        <div className="flex items-center gap-2 border-b px-3 py-2">
+                                            <Search className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                            <input
+                                                ref={categorySearchRef}
+                                                value={categorySearch}
+                                                onChange={e => setCategorySearch(e.target.value)}
+                                                placeholder="Код эсвэл нэрээр хайх..."
+                                                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                                            />
+                                            {categorySearch && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setCategorySearch('')}
+                                                    className="text-muted-foreground hover:text-foreground text-xs"
+                                                >
+                                                    ✕
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {/* Results list */}
+                                        <div className="max-h-64 overflow-y-auto py-1" onWheel={e => e.stopPropagation()}>
+                                            {filteredCategories.length === 0 ? (
+                                                <div className="px-3 py-6 text-center text-sm text-muted-foreground">
+                                                    Илэрц олдсонгүй
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    {filteredCategories.map(c => (
+                                                        <button
+                                                            key={c.id}
+                                                            type="button"
+                                                            onClick={() => {
+                                                                setEditCategoryId(c.id);
+                                                                setCategoryOpen(false);
+                                                            }}
+                                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent transition-colors text-left"
+                                                        >
+                                                            <Check className={`h-4 w-4 flex-shrink-0 ${editCategoryId === c.id ? 'text-primary' : 'text-transparent'}`} />
+                                                            <span className="font-mono text-xs text-muted-foreground w-16 flex-shrink-0">{c.code}</span>
+                                                            <span className="flex-1">{c.name}</span>
+                                                        </button>
+                                                    ))}
+                                                    {filteredTotal > 60 && (
+                                                        <div className="px-3 py-2 text-center text-xs text-muted-foreground border-t">
+                                                            Хайлтаа нарийвчлаарай — нийт {filteredTotal} илэрц
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    </PopoverContent>
+                                </Popover>
                             </LabeledInput>
                         }
                         onSave={async () => {
@@ -514,14 +604,14 @@ export function PositionOverview({
                         }}
                     />
 
-                    {/* Амралт батлах эрх */}
+                    {/* Ээлжийн амралтын хуваарь батлах эсэх */}
                     <FieldCard
                         icon={CalendarCheck}
-                        title="Амралт батлах эрх"
+                        title="Ээлжийн амралтын хуваарь батлах эсэх"
                         value={position.permissions?.canApproveVacation ? 'Тийм' : 'Үгүй'}
                         editContent={
                             <div className="flex items-center justify-between p-4 rounded-xl bg-slate-50 dark:bg-slate-800">
-                                <span className="text-sm font-medium">Амралт батлах эрхтэй эсэх</span>
+                                <span className="text-sm font-medium">Ээлжийн амралтын хуваарь батлах эсэх</span>
                                 <Switch
                                     checked={editCanApproveVacation}
                                     onCheckedChange={setEditCanApproveVacation}
@@ -530,7 +620,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 'permissions.canApproveVacation': editCanApproveVacation,
                                 updatedAt: new Date().toISOString(),
                             });
@@ -554,7 +644,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 'permissions.canApproveLeave': editCanApproveLeave,
                                 updatedAt: new Date().toISOString(),
                             });
@@ -562,10 +652,10 @@ export function PositionOverview({
                         }}
                     />
 
-                    {/* Жилийн төсөв */}
+                    {/* Point онооны төсөв */}
                     <FieldCard
                         icon={Wallet}
-                        title="Жилийн төсөв"
+                        title="Point онооны төсөв"
                         value={
                             position.budget?.yearlyBudget
                                 ? `${position.budget.yearlyBudget.toLocaleString()} ${position.budget.currency === 'MNT' ? '₮' : '$'}`
@@ -573,7 +663,7 @@ export function PositionOverview({
                         }
                         isEmpty={!position.budget?.yearlyBudget}
                         editContent={
-                            <LabeledInput label="Жилийн төсөв">
+                            <LabeledInput label="Point онооны төсөв">
                                 <div className="flex gap-2">
                                     <Input
                                         type="number"
@@ -596,7 +686,7 @@ export function PositionOverview({
                         }
                         onSave={async () => {
                             if (!firestore) return;
-                            await updateDoc(doc(firestore, 'positions', position.id), {
+                            await updateDoc(tDoc('positions', position.id), {
                                 budget: {
                                     yearlyBudget: editYearlyBudget,
                                     currency: editCurrency,

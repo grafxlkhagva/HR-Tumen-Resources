@@ -11,13 +11,17 @@ import {
     Newspaper,
     HeartHandshake,
     Target,
+    FolderKanban,
+    DoorOpen,
+    Building2,
+    Stamp,
     Lock,
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
 
 interface PortalModule {
-    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan';
+    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters';
     icon: React.ReactElement;
     label: string;
     description: string;
@@ -33,6 +37,10 @@ interface RoleChoiceOrbitProps {
     onChooseNews?: () => void;
     onChooseCrm?: () => void;
     onChooseBusinessPlan?: () => void;
+    onChooseProjects?: () => void;
+    onChooseMeetings?: () => void;
+    onChooseCompany?: () => void;
+    onChooseOfficialLetters?: () => void;
     companyName?: string;
     companyLogoUrl?: string;
 }
@@ -49,6 +57,10 @@ export function RoleChoiceOrbit({
     onChooseNews,
     onChooseCrm,
     onChooseBusinessPlan,
+    onChooseProjects,
+    onChooseMeetings,
+    onChooseCompany,
+    onChooseOfficialLetters,
     companyName = 'Систем',
     companyLogoUrl,
 }: RoleChoiceOrbitProps) {
@@ -120,8 +132,52 @@ export function RoleChoiceOrbit({
                 onChoose: onChooseBusinessPlan,
             });
         }
+        if (onChooseProjects) {
+            list.push({
+                id: 'projects',
+                icon: <FolderKanban />,
+                label: 'Төслүүд',
+                description: 'Төсөл, даалгавар, Gantt',
+                color: '#e11d48',
+                enabled: true,
+                onChoose: onChooseProjects,
+            });
+        }
+        if (onChooseMeetings) {
+            list.push({
+                id: 'meetings',
+                icon: <DoorOpen />,
+                label: 'Хурлын өрөө',
+                description: 'Хурлын өрөөний захиалга',
+                color: '#f97316',
+                enabled: true,
+                onChoose: onChooseMeetings,
+            });
+        }
+        if (onChooseCompany) {
+            list.push({
+                id: 'company',
+                icon: <Building2 />,
+                label: 'Компани',
+                description: 'Компанийн бүртгэл, бодлого, түүх',
+                color: '#64748b',
+                enabled: true,
+                onChoose: onChooseCompany,
+            });
+        }
+        if (onChooseOfficialLetters) {
+            list.push({
+                id: 'official_letters',
+                icon: <Stamp />,
+                label: 'Албан бичиг',
+                description: 'Албан бланк, загвар, нэгдсэн архив',
+                color: '#b45309',
+                enabled: true,
+                onChoose: onChooseOfficialLetters,
+            });
+        }
         return list;
-    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm, onChooseBusinessPlan]);
+    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm, onChooseBusinessPlan, onChooseProjects, onChooseMeetings, onChooseCompany, onChooseOfficialLetters]);
 
     const N = modules.length;
     const STEP = N > 0 ? 360 / N : 360;

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,10 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useDoc, useCollection, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { useDoc, useCollection, setDocumentNonBlocking, addDocumentNonBlocking, useMemoFirebase, tenantDoc, tenantCollection, useTenantWrite, useUser } from '@/firebase';
+import { query, where, setDoc } from 'firebase/firestore';
 import type { Employee } from '@/types';
+import type { Document as EmployeeDocument } from '@/app/dashboard/employee-documents/data';
 import { parseISO } from 'date-fns';
+import { resolveEffectiveTerminationDate } from '@/lib/hr/employee-dates';
 import {
     ArrowLeft,
     Calculator,
@@ -34,15 +37,35 @@ import {
     ChevronDown,
     ChevronRight,
     ChevronsUpDown,
+    ShieldCheck,
+    ExternalLink,
+    FileDown,
+    Plus,
+    Hand,
+    Wand2,
+    Trash2,
 } from 'lucide-react';
+import { NegeAiIcon } from '@/components/icons/nege-ai-icon';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface NDSHPayment {
     year: number;
     month: number;
     organization: string;
     paid: boolean;
+    source?: 'auto' | 'manual';
 }
 
 interface NDSHParsedData {
@@ -52,8 +75,9 @@ interface NDSHParsedData {
         registrationNumber?: string;
     };
     payments: NDSHPayment[];
-    abnormalMonths?: Record<number, number>; // year -> abnormal months count
-    baseVacationDays?: 15 | 20; // 15 for regular, 20 for disabled/under 18
+    manualPayments?: NDSHPayment[];
+    abnormalMonths?: Record<number, number>;
+    baseVacationDays?: 15 | 20;
     summary: {
         totalYears: number;
         totalMonths: number;
@@ -72,7 +96,8 @@ export default function WorkYearsPage() {
     const { id } = useParams();
     const router = useRouter();
     const { toast } = useToast();
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
+    const { user } = useUser();
     const employeeId = Array.isArray(id) ? id[0] : id;
 
     const [file, setFile] = React.useState<File | null>(null);
@@ -88,7 +113,30 @@ export default function WorkYearsPage() {
     const [abnormalMonths, setAbnormalMonths] = React.useState<Record<number, number>>({});
     const [baseVacationDays, setBaseVacationDays] = React.useState<15 | 20>(15);
     const [isReuploadMode, setIsReuploadMode] = React.useState(false);
+    const [manualPayments, setManualPayments] = React.useState<NDSHPayment[]>([]);
+    const [showAddManual, setShowAddManual] = React.useState(false);
+    const [manualYear, setManualYear] = React.useState<number>(new Date().getFullYear());
+    const [manualOrg, setManualOrg] = React.useState('');
+    const [manualMonths, setManualMonths] = React.useState<boolean[]>(Array(12).fill(false));
+    const [isProcessingExisting, setIsProcessingExisting] = React.useState(false);
+    const [showSaveDocConfirm, setShowSaveDocConfirm] = React.useState(false);
+    const [isSavingDoc, setIsSavingDoc] = React.useState(false);
+    const [savedDocId, setSavedDocId] = React.useState<string | null>(null);
     const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+    // Query NDSH docs assigned to this employee via metadata.employeeId
+    const ndshDocsQuery = useMemoFirebase(
+        ({ firestore, companyPath }) => {
+            if (!firestore || !employeeId) return null;
+            return query(
+                tenantCollection(firestore, companyPath, 'documents'),
+                where('isNdshCertificate', '==', true),
+                where('metadata.employeeId', '==', employeeId)
+            );
+        },
+        [employeeId]
+    );
+    const { data: existingNdshDocs, isLoading: isLoadingNdshDocs } = useCollection<EmployeeDocument>(ndshDocsQuery as any);
 
     // Update abnormal months for a year
     const updateAbnormalMonths = (year: number, value: number, maxMonths: number) => {
@@ -105,24 +153,24 @@ export default function WorkYearsPage() {
         return Object.values(abnormalMonths).reduce((sum, val) => sum + (val || 0), 0);
     }, [abnormalMonths]);
 
-    // Load saved NDSH data from Firebase
-    const ndshDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, `employees/${employeeId}/ndsh`, 'data') : null),
-        [firestore, employeeId]
+    // Load saved NDSH data from Firebase — use tDoc for correct tenant-scoped path
+    const ndshDocRef = React.useMemo(
+        () => (employeeId && tDoc ? tDoc('employees', employeeId, 'ndsh', 'data') : null),
+        [employeeId, tDoc]
     );
     const { data: savedNdshData, isLoading: isLoadingSaved } = useDoc<NDSHParsedData>(ndshDocRef);
 
     // Employee profile (for appointment/hire date)
     const employeeDocRef = useMemoFirebase(
-        () => (firestore && employeeId ? doc(firestore, 'employees', employeeId) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null),
+        [employeeId]
     );
     const { data: employeeProfile } = useDoc<Employee>(employeeDocRef as any);
 
     // ER documents (for appointment date extraction)
     const erDocsQuery = useMemoFirebase(
-        () => (firestore && employeeId ? query(collection(firestore, 'er_documents'), where('employeeId', '==', employeeId)) : null),
-        [firestore, employeeId]
+        ({ firestore, companyPath }) => (firestore && employeeId ? query(tenantCollection(firestore, companyPath, 'er_documents'), where('employeeId', '==', employeeId)) : null),
+        [employeeId]
     );
     const { data: erDocuments } = useCollection<any>(erDocsQuery as any);
 
@@ -136,28 +184,32 @@ export default function WorkYearsPage() {
             if (savedNdshData.baseVacationDays) {
                 setBaseVacationDays(savedNdshData.baseVacationDays);
             }
+            if (savedNdshData.manualPayments) {
+                setManualPayments(savedNdshData.manualPayments);
+            }
             setStep('complete');
         }
     }, [savedNdshData, parsedData, step, isReuploadMode]);
 
-    // Save NDSH data to Firebase
+    // Save NDSH data to Firebase (using setDoc directly to properly await + catch errors)
     const handleSave = async () => {
         if (!parsedData || !ndshDocRef || !firestore || !employeeId) return;
-        
+
         setIsSaving(true);
         try {
-            // Save NDSH data
-            await setDocumentNonBlocking(ndshDocRef, {
+            // Save NDSH data (including manual payments)
+            await setDoc(ndshDocRef, {
                 ...parsedData,
+                manualPayments,
                 abnormalMonths,
                 baseVacationDays,
                 calculatedVacationDays: vacationCalculation.total,
                 updatedAt: new Date().toISOString(),
             });
-            
+
             // Also save vacation days to employee document
-            const employeeDocRef = doc(firestore, 'employees', employeeId);
-            await setDocumentNonBlocking(employeeDocRef, {
+            const employeeDocRef = tDoc('employees', employeeId);
+            await setDoc(employeeDocRef, {
                 vacationConfig: {
                     baseDays: vacationCalculation.total,
                     calculatedAt: new Date().toISOString(),
@@ -170,16 +222,19 @@ export default function WorkYearsPage() {
                     }
                 }
             }, { merge: true });
-            
+
             toast({
                 title: 'Амжилттай хадгалагдлаа!',
                 description: `Амралтын хоног: ${vacationCalculation.total} өдөр`,
             });
         } catch (err) {
+            console.error('[NDSH Save Error]', err);
             toast({
                 variant: 'destructive',
-                title: 'Алдаа',
-                description: 'Хадгалахад алдаа гарлаа',
+                title: 'Хадгалахад алдаа гарлаа',
+                description: err instanceof Error && err.message.includes('permission')
+                    ? 'Эрхийн алдаа: Та энэ үйлдлийг хийх эрхгүй байна.'
+                    : 'Хадгалахад алдаа гарлаа. Дахин оролдоно уу.',
             });
         } finally {
             setIsSaving(false);
@@ -198,8 +253,11 @@ export default function WorkYearsPage() {
         // Check base vacation days
         const savedBaseDays = savedNdshData.baseVacationDays || 15;
         if (baseVacationDays !== savedBaseDays) return true;
+        // Check manual payments
+        const savedManual = savedNdshData.manualPayments || [];
+        if (JSON.stringify(manualPayments) !== JSON.stringify(savedManual)) return true;
         return false;
-    }, [parsedData, savedNdshData, abnormalMonths, baseVacationDays]);
+    }, [parsedData, savedNdshData, abnormalMonths, baseVacationDays, manualPayments]);
 
     const handleBack = () => {
         router.push(`/dashboard/employees/${employeeId}?tab=vacation`);
@@ -261,7 +319,7 @@ export default function WorkYearsPage() {
 
             const response = await fetch('/api/parse-ndsh', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     imageDataUrl: dataUrl,
                     mimeType: file.type,
@@ -319,6 +377,126 @@ export default function WorkYearsPage() {
         }
     };
 
+    const processExistingDoc = async (doc: EmployeeDocument) => {
+        if (!doc.url) {
+            toast({ variant: 'destructive', title: 'Алдаа', description: 'Баримт бичигт файл хавсаргаагүй байна.' });
+            return;
+        }
+        setIsProcessingExisting(true);
+        setStep('uploading');
+        setProgress(20);
+
+        try {
+            // If not assigned to this employee, assign now via metadata.employeeId
+            if (!(doc.metadata as any)?.employeeId && employeeId) {
+                try {
+                    const { updateDoc: fbUpdateDoc } = await import('firebase/firestore');
+                    const tDocRef = tDoc('documents', doc.id);
+                    await fbUpdateDoc(tDocRef, { 'metadata.employeeId': employeeId } as Record<string, unknown>);
+                } catch {
+                    // non-critical — continue with processing
+                }
+            }
+
+            setProgress(40);
+            setStep('analyzing');
+
+            // Send file URL to server — server fetches it (avoids CORS)
+            const mimeType = doc.mimeType || 'application/pdf';
+            const response = await fetch('/api/parse-ndsh', {
+                method: 'POST',
+                headers: await getJsonAuthHeaders(),
+                body: JSON.stringify({ fileUrl: doc.url, mimeType }),
+            });
+
+            setProgress(80);
+
+            let result;
+            try {
+                result = await response.json();
+            } catch {
+                throw new Error('Сервер хариу боловсруулахад алдаа гарлаа');
+            }
+
+            if (!response.ok) throw new Error(result?.error || 'Файл задлахад алдаа гарлаа');
+
+            setProgress(100);
+            if (!result.success || !result.data) throw new Error(result?.error || 'Өгөгдөл олдсонгүй');
+
+            setParsedData(result.data);
+            setStep('complete');
+            setIsReuploadMode(false);
+
+            const paymentCount = result.data.payments?.length || 0;
+            toast({
+                title: paymentCount > 0 ? 'Амжилттай!' : 'Анхааруулга',
+                description: paymentCount > 0
+                    ? `Баримт бичгээс ${paymentCount} бүртгэл олдлоо`
+                    : 'Файлаас НДШ төлөлтийн мэдээлэл олдсонгүй.',
+                variant: paymentCount > 0 ? 'default' : 'destructive',
+            });
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : 'Алдаа гарлаа';
+            setStep('error');
+            setError(msg);
+            toast({ variant: 'destructive', title: 'Алдаа', description: msg });
+        } finally {
+            setIsProcessingExisting(false);
+        }
+    };
+
+    const handleSaveAsDocument = async () => {
+        if (!file || !firestore || !employeeId || !tCollection) return;
+        setIsSavingDoc(true);
+        try {
+            const nowIso = new Date().toISOString();
+            const colRef = tCollection('documents');
+            const docData: Record<string, unknown> = {
+                title: `НД шимтгэл төлөлтын лавлагаа - ${employeeProfile?.lastName || ''} ${employeeProfile?.firstName || ''}`.trim(),
+                description: 'E-Mongolia-оос татсан НДШ шимтгэл төлөлтын тодорхойлолт',
+                url: '',
+                mimeType: file.type,
+                fileSize: file.size,
+                uploadDate: nowIso,
+                uploadedBy: user?.uid ?? null,
+                documentType: 'НДШ лавлагаа',
+                isNdshCertificate: true,
+                ndshVerifiedAt: nowIso,
+                ndshVerifiedBy: user?.uid ?? null,
+                metadata: { employeeId },
+            };
+
+            // Upload file to Firebase Storage first
+            const { getStorage, ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+            const storage = getStorage();
+            const storagePath = `documents/${employeeId}/ndsh_${Date.now()}_${file.name}`;
+            const storageRef = ref(storage, storagePath);
+            await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(storageRef);
+            docData.url = downloadURL;
+
+            const newDocRef = await addDocumentNonBlocking(colRef, docData);
+
+            if (newDocRef && typeof newDocRef === 'object' && 'id' in newDocRef) {
+                setSavedDocId((newDocRef as any).id);
+            }
+
+            toast({
+                title: 'Баримт хадгалагдлаа',
+                description: 'НД лавлагаа ажилтны бичиг баримтын хэсэгт амжилттай хадгалагдлаа.',
+            });
+        } catch (err) {
+            toast({
+                variant: 'destructive',
+                title: 'Алдаа',
+                description: 'Баримт хадгалахад алдаа гарлаа.',
+            });
+        } finally {
+            setIsSavingDoc(false);
+            setShowSaveDocConfirm(false);
+        }
+    };
+
     const resetState = () => {
         setFile(null);
         setStep('idle');
@@ -328,40 +506,65 @@ export default function WorkYearsPage() {
         setShowUpload(false);
     };
 
+    // Combine auto + manual payments
+    const allPayments = React.useMemo(() => {
+        const auto = (parsedData?.payments ?? []).map(p => ({ ...p, source: 'auto' as const }));
+        const manual = manualPayments.map(p => ({ ...p, source: 'manual' as const }));
+        return [...auto, ...manual];
+    }, [parsedData, manualPayments]);
+
+    // Track which payments are manual (for UI badges)
+    const manualMonthKeys = React.useMemo(() => {
+        const keys = new Set<string>();
+        manualPayments.forEach(p => {
+            if (p.paid) keys.add(`${p.year}-${p.month}-${p.organization}`);
+        });
+        return keys;
+    }, [manualPayments]);
+
     // Group payments by year
     const groupedByYear = React.useMemo(() => {
-        if (!parsedData) return {};
+        if (!parsedData && manualPayments.length === 0) return {};
         
-        const grouped: Record<number, Record<string, boolean[]>> = {};
+        const grouped: Record<number, Record<string, { months: boolean[]; source: ('auto' | 'manual')[] }>> = {};
         
-        parsedData.payments.forEach(payment => {
+        allPayments.forEach(payment => {
             if (!grouped[payment.year]) {
                 grouped[payment.year] = {};
             }
             if (!grouped[payment.year][payment.organization]) {
-                grouped[payment.year][payment.organization] = Array(12).fill(false);
+                grouped[payment.year][payment.organization] = {
+                    months: Array(12).fill(false),
+                    source: Array(12).fill('auto'),
+                };
             }
             if (payment.month >= 1 && payment.month <= 12) {
-                grouped[payment.year][payment.organization][payment.month - 1] = payment.paid;
+                grouped[payment.year][payment.organization].months[payment.month - 1] = payment.paid;
+                if (payment.source === 'manual') {
+                    grouped[payment.year][payment.organization].source[payment.month - 1] = 'manual';
+                }
             }
         });
         
         return grouped;
-    }, [parsedData]);
+    }, [allPayments, parsedData, manualPayments.length]);
 
     // Check if organization is voluntary insurance
     const isVoluntaryInsurance = (org: string) => {
-        return org.toLowerCase().includes('сайн дурын') || 
-               org.toLowerCase().includes('сайн дурын даатгал');
+        const normalized = (org || '').normalize('NFKC').toLowerCase().replace(/\s+/g, '');
+        return (
+            normalized.includes('сайндурын') ||
+            normalized.includes('voluntary')
+        );
     };
 
     // Separate voluntary insurance payments
     const voluntaryStats = React.useMemo(() => {
-        if (!parsedData) return { totalMonths: 0, uniqueMonths: new Set<string>() };
+        if (allPayments.length === 0) return { totalMonths: 0, uniqueMonths: new Set<string>() };
         
         const uniqueMonths = new Set<string>();
         
-        parsedData.payments.forEach(payment => {
+        allPayments.forEach(payment => {
             if (payment.paid && isVoluntaryInsurance(payment.organization)) {
                 uniqueMonths.add(`${payment.year}-${payment.month}`);
             }
@@ -371,7 +574,7 @@ export default function WorkYearsPage() {
             totalMonths: uniqueMonths.size,
             uniqueMonths
         };
-    }, [parsedData]);
+    }, [allPayments]);
 
     const companyStartDateStr = React.useMemo(() => {
         // 1) Try to extract from latest approved/signed appointment-related ER document (tomilgoo).
@@ -379,7 +582,7 @@ export default function WorkYearsPage() {
         const appointmentDocs = docs
             .filter((d: any) => {
                 const status = String(d?.status || '');
-                if (!['APPROVED', 'SIGNED'].includes(status)) return false;
+                if (!['APPROVED', 'SIGNED', 'SENT_TO_EMPLOYEE', 'ACKNOWLEDGED'].includes(status)) return false;
                 const actionId = String(d?.metadata?.actionId || '');
                 const templateId = String(d?.templateId || '');
                 return actionId.startsWith('appointment') || templateId.includes('appointment');
@@ -422,18 +625,42 @@ export default function WorkYearsPage() {
         return typeof hd === 'string' && hd ? hd : null;
     }, [erDocuments, employeeProfile]);
 
+    const effectiveTerminationDateStr = React.useMemo(
+        () => resolveEffectiveTerminationDate(
+            (employeeProfile as any)?.terminationDate ?? null,
+            (erDocuments as any) ?? null,
+            null,
+        ),
+        [employeeProfile, erDocuments]
+    );
+
     const companyMonths = React.useMemo(() => {
         const set = new Set<number>();
         if (!companyStartDateStr) return set;
         const d = parseISO(companyStartDateStr);
         if (Number.isNaN(d.getTime())) return set;
         const startIdx = d.getFullYear() * 12 + d.getMonth(); // month is 0-based
+
+        // End idx: min(now, terminationDate) — halagdsan ajiltnii sariig taslana
         const now = new Date();
-        const nowIdx = now.getFullYear() * 12 + now.getMonth();
-        if (nowIdx < startIdx) return set;
-        for (let idx = startIdx; idx <= nowIdx; idx++) set.add(idx);
+        let endIdx = now.getFullYear() * 12 + now.getMonth();
+
+        if (effectiveTerminationDateStr) {
+            const termDate = parseISO(effectiveTerminationDateStr);
+            if (!Number.isNaN(termDate.getTime())) {
+                const termIdx = termDate.getFullYear() * 12 + termDate.getMonth();
+                if (termIdx <= startIdx) {
+                    console.warn('[work-years] terminationDate <= hireDate — data inconsistency, ignoring termination cutoff');
+                } else if (termIdx < endIdx) {
+                    endIdx = termIdx;
+                }
+            }
+        }
+
+        if (endIdx < startIdx) return set;
+        for (let idx = startIdx; idx <= endIdx; idx++) set.add(idx);
         return set;
-    }, [companyStartDateStr]);
+    }, [companyStartDateStr, effectiveTerminationDateStr]);
 
     const companyMonthsByYear = React.useMemo(() => {
         const map: Record<number, boolean[]> = {};
@@ -461,7 +688,7 @@ export default function WorkYearsPage() {
 
     // Calculate unique paid months per year (multiple companies in same month = 1)
     const yearlyStats = React.useMemo(() => {
-        if (!parsedData) return {};
+        if (allPayments.length === 0) return {};
         
         const stats: Record<number, { 
             paidMonths: number; 
@@ -470,7 +697,7 @@ export default function WorkYearsPage() {
             regularMonths: Set<number>;
         }> = {};
         
-        parsedData.payments.forEach(payment => {
+        allPayments.forEach(payment => {
             if (!stats[payment.year]) {
                 stats[payment.year] = { 
                     paidMonths: 0, 
@@ -490,21 +717,19 @@ export default function WorkYearsPage() {
             }
         });
         
-        // Convert sets to counts
         Object.keys(stats).forEach(year => {
             const yearNum = Number(year);
-            // Calculate effective paid months based on includeVoluntary setting
             stats[yearNum].paidMonths = stats[yearNum].uniqueMonths.size;
         });
         
         return stats;
-    }, [parsedData]);
+    }, [allPayments]);
 
     // Calculate total months as: other organizations (NDSH paid months) + our company months (from appointment date)
     const totalStats = React.useMemo(() => {
-        // Build month meta from NDSH payments
+        // Build month meta from all payments (auto + manual)
         const monthMeta = new Map<number, { hasRegular: boolean; hasVoluntary: boolean }>();
-        const payments = parsedData?.payments || [];
+        const payments = allPayments;
         payments.forEach((p) => {
             if (!p?.paid) return;
             if (!(p.month >= 1 && p.month <= 12) || !p.year) return;
@@ -546,7 +771,7 @@ export default function WorkYearsPage() {
             ourMonths: ourMonthsCount,
             otherMonths: otherMonthsCount,
         };
-    }, [parsedData?.payments, includeVoluntary, companyStartDateStr, companyMonths]);
+    }, [allPayments, includeVoluntary, companyStartDateStr, companyMonths]);
 
     const sortedYears = Object.keys(groupedByYear).map(Number).sort((a, b) => b - a);
 
@@ -594,6 +819,34 @@ export default function WorkYearsPage() {
         }
     };
 
+    // Add manual entry
+    const handleAddManualEntry = () => {
+        if (!manualOrg.trim()) return;
+        const newPayments: NDSHPayment[] = [];
+        manualMonths.forEach((checked, idx) => {
+            if (checked) {
+                newPayments.push({
+                    year: manualYear,
+                    month: idx + 1,
+                    organization: manualOrg.trim(),
+                    paid: true,
+                    source: 'manual',
+                });
+            }
+        });
+        if (newPayments.length === 0) return;
+        setManualPayments(prev => [...prev, ...newPayments]);
+        setManualOrg('');
+        setManualMonths(Array(12).fill(false));
+        setShowAddManual(false);
+        toast({ title: 'Нэмэгдлээ', description: `${manualYear} он, ${newPayments.length} сар нэмэгдлээ` });
+    };
+
+    // Remove all manual entries for a specific year + org
+    const removeManualEntries = (year: number, org: string) => {
+        setManualPayments(prev => prev.filter(p => !(p.year === year && p.organization === org)));
+    };
+
     // Abnormal interval definitions
     const ABNORMAL_INTERVALS = [
         { days: 5, min: 61, max: 120, label: '6–10 жил' },
@@ -639,19 +892,21 @@ export default function WorkYearsPage() {
     };
 
     // Calculate total vacation days
+    // NOTE: HR-ийн шийдвэрээр abnormal интервалын доод хилээр (min) тооцдог.
+    // Интервалаас илүү гарсан сар нь "хэвийн" ангилал руу шилжинэ (excess → normal).
+    // Жишээ: 300 abnormal сар → 241 сар abnormal-аар тооцогдож, 59 сар normal-д нэмэгдэнэ.
     const vacationCalculation = React.useMemo(() => {
-        // Find which interval the abnormal months qualify for
-        const matchedInterval = getAbnormalInterval(totalAbnormalMonths);
+        // Clamp abnormal input so it never exceeds total work months (avoids negative normalMonths)
+        const clampedAbnormalInput = Math.min(totalAbnormalMonths, totalStats.totalMonths);
+
+        const matchedInterval = getAbnormalInterval(clampedAbnormalInput);
         const abnormalQualifies = matchedInterval !== null;
-        
-        // Only use the minimum of the matched interval
-        // Excess months go back to normal
+
         const effectiveAbnormalMonths = abnormalQualifies ? matchedInterval.min : 0;
-        const excessAbnormalMonths = abnormalQualifies ? totalAbnormalMonths - matchedInterval.min : totalAbnormalMonths;
-        
-        // Normal months = (Total - Abnormal input) + Excess from abnormal
-        // Simplified: Total - Effective abnormal
-        const normalMonths = totalStats.totalMonths - effectiveAbnormalMonths;
+        const excessAbnormalMonths = abnormalQualifies ? clampedAbnormalInput - matchedInterval.min : clampedAbnormalInput;
+
+        // Normal months = Total - Effective abnormal (guaranteed non-negative by clamp above)
+        const normalMonths = Math.max(0, totalStats.totalMonths - effectiveAbnormalMonths);
         
         const normalAdditional = getAdditionalDays(normalMonths, false);
         const abnormalAdditional = getAdditionalDays(effectiveAbnormalMonths, true);
@@ -678,7 +933,7 @@ export default function WorkYearsPage() {
             <div className="bg-white border-b sticky top-0 z-10">
                 <div className="px-6 md:px-8 py-4">
                     <PageHeader
-                        title="Ажилсан жил тооцоолох"
+                        title="Ажилласан жил тооцоолох"
                         description="НДШ төлөлтийн лавлагаагаар ажилласан жил тооцоолох"
                         showBackButton
                         hideBreadcrumbs
@@ -703,12 +958,79 @@ export default function WorkYearsPage() {
                     </Card>
                 )}
 
+                {/* Existing NDSH Document Found */}
+                {!isLoadingSaved && !isLoadingNdshDocs && existingNdshDocs && existingNdshDocs.length > 0 && step === 'idle' && !showUpload && !parsedData && (
+                    <Card className="border-none shadow-lg bg-gradient-to-r from-emerald-50 to-teal-50 rounded-2xl overflow-hidden mb-6">
+                        <CardHeader className="border-b border-emerald-200/50 px-6 py-4">
+                            <CardTitle className="text-sm font-bold text-emerald-700 flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-emerald-600" />
+                                НД шимтгэл лавлагаа бичиг баримтаас олдлоо
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-3">
+                            <p className="text-sm text-slate-600">
+                                Тухайн ажилтны бичиг баримтын хэсэгт НД шимтгэлийн лавлагаа бүртгэгдсэн байна. Шууд ашиглах уу?
+                            </p>
+                            {existingNdshDocs.map((doc) => (
+                                <div key={doc.id} className="flex items-center justify-between gap-4 bg-white rounded-xl border border-emerald-200 p-4">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="h-10 w-10 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                                            <FileText className="h-5 w-5 text-emerald-600" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-medium text-slate-800 truncate">{doc.title}</p>
+                                            <p className="text-xs text-slate-500">
+                                                {doc.uploadDate ? new Date(doc.uploadDate).toLocaleDateString('mn-MN') : ''}
+                                                {doc.mimeType && <span className="ml-2 uppercase">{doc.mimeType.split('/').pop()}</span>}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => window.open(`/dashboard/employee-documents/${doc.id}`, '_blank')}
+                                        >
+                                            <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                                            Харах
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            className="bg-emerald-600 hover:bg-emerald-700"
+                                            onClick={() => processExistingDoc(doc)}
+                                            disabled={isProcessingExisting}
+                                        >
+                                            {isProcessingExisting ? (
+                                                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                            ) : (
+                                                <Brain className="h-3.5 w-3.5 mr-1.5" />
+                                            )}
+                                            AI-аар шинжлэх
+                                        </Button>
+                                    </div>
+                                </div>
+                            ))}
+                            <div className="pt-2 border-t border-emerald-200/50">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-xs text-slate-500"
+                                    onClick={() => setShowUpload(true)}
+                                >
+                                    <Upload className="h-3.5 w-3.5 mr-1.5" />
+                                    Шинэ лавлагаа оруулах
+                                </Button>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
+
                 {/* Upload Section */}
-                {!isLoadingSaved && (step === 'idle' || step === 'uploading' || step === 'analyzing' || step === 'error' || showUpload) && (
+                {!isLoadingSaved && (step === 'idle' || step === 'uploading' || step === 'analyzing' || step === 'error' || showUpload) && !(existingNdshDocs && existingNdshDocs.length > 0 && step === 'idle' && !showUpload && !parsedData) && (
                     <Card className="border-none shadow-lg bg-white rounded-2xl overflow-hidden mb-6">
-                        <CardHeader className="border-b bg-gradient-to-r from-indigo-50 to-purple-50 px-6 py-4">
+                        <CardHeader className="border-b bg-gradient-to-r from-rose-50 to-red-50 px-6 py-4">
                             <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                <Sparkles className="h-4 w-4 text-indigo-500" />
+                                <NegeAiIcon size={18} />
                                 НДШ төлөлтийн лавлагаа оруулах
                             </CardTitle>
                         </CardHeader>
@@ -801,9 +1123,7 @@ export default function WorkYearsPage() {
                                 <div className="py-8 space-y-4">
                                     <div className="flex items-center justify-center">
                                         <div className="relative">
-                                            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center animate-pulse">
-                                                <Brain className="h-10 w-10 text-white" />
-                                            </div>
+                                            <NegeAiIcon size={80} mood="thinking" />
                                             <div className="absolute -bottom-1 -right-1 w-8 h-8 rounded-xl bg-white shadow-lg flex items-center justify-center">
                                                 <Loader2 className="h-5 w-5 text-indigo-600 animate-spin" />
                                             </div>
@@ -1423,6 +1743,101 @@ export default function WorkYearsPage() {
                             </Card>
                         )}
 
+                        {/* Manual Entry Section */}
+                        <Card className="border-none shadow-sm bg-gradient-to-r from-amber-50 to-yellow-50 rounded-2xl overflow-hidden">
+                            <CardContent className="p-4">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center">
+                                            <Hand className="h-5 w-5 text-amber-600" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs font-bold text-amber-700">Гараар он нэмэх</p>
+                                            <p className="text-[10px] text-amber-600">
+                                                НДШТ лавлагаанд ороогүй он/сарыг гараар нэмэх
+                                                {manualPayments.length > 0 && (
+                                                    <span className="ml-1 font-semibold">({manualPayments.length} бүртгэл)</span>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant={showAddManual ? "secondary" : "outline"}
+                                        onClick={() => setShowAddManual(!showAddManual)}
+                                        className="border-amber-200 text-amber-700 hover:bg-amber-100"
+                                    >
+                                        <Plus className="h-3.5 w-3.5 mr-1" />
+                                        {showAddManual ? 'Хаах' : 'Нэмэх'}
+                                    </Button>
+                                </div>
+
+                                {showAddManual && (
+                                    <div className="mt-4 space-y-3 border-t border-amber-200/50 pt-4">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <Label className="text-xs text-amber-700">Он</Label>
+                                                <Input
+                                                    type="number"
+                                                    value={manualYear}
+                                                    onChange={(e) => setManualYear(parseInt(e.target.value) || new Date().getFullYear())}
+                                                    min={1990}
+                                                    max={new Date().getFullYear()}
+                                                    className="h-9"
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <Label className="text-xs text-amber-700">Байгууллага</Label>
+                                                <Input
+                                                    value={manualOrg}
+                                                    onChange={(e) => setManualOrg(e.target.value)}
+                                                    placeholder="Байгууллагын нэр"
+                                                    className="h-9"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label className="text-xs text-amber-700">Сарууд сонгох</Label>
+                                            <div className="flex flex-wrap gap-1.5">
+                                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                                                    <button
+                                                        key={m}
+                                                        onClick={() => setManualMonths(prev => {
+                                                            const next = [...prev];
+                                                            next[m - 1] = !next[m - 1];
+                                                            return next;
+                                                        })}
+                                                        className={`w-9 h-8 rounded-lg text-xs font-bold transition-all ${
+                                                            manualMonths[m - 1]
+                                                                ? 'bg-amber-600 text-white shadow-sm'
+                                                                : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'
+                                                        }`}
+                                                    >
+                                                        {m}
+                                                    </button>
+                                                ))}
+                                                <button
+                                                    onClick={() => setManualMonths(prev => prev.every(Boolean) ? Array(12).fill(false) : Array(12).fill(true))}
+                                                    className="px-2 h-8 rounded-lg text-[10px] font-medium bg-white text-amber-600 border border-amber-200 hover:bg-amber-50"
+                                                >
+                                                    {manualMonths.every(Boolean) ? 'Бүгдийг арилгах' : 'Бүгд'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            onClick={handleAddManualEntry}
+                                            disabled={!manualOrg.trim() || !manualMonths.some(Boolean)}
+                                            className="bg-amber-600 hover:bg-amber-700"
+                                        >
+                                            <Plus className="h-3.5 w-3.5 mr-1" />
+                                            Нэмэх ({manualMonths.filter(Boolean).length} сар)
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         {/* Expand/Collapse All Button */}
                         <div className="flex justify-end mb-2">
                             <Button
@@ -1444,11 +1859,12 @@ export default function WorkYearsPage() {
                             const isExpanded = expandedYears.has(year);
                             const orgCount = Object.keys(groupedByYear[year] || {}).length;
                             const yearAbnormal = abnormalMonths[year] || 0;
+                            const hasManualInYear = manualPayments.some(p => p.year === year);
                             
                             return (
-                            <Card key={year} className="border-none shadow-sm bg-white rounded-2xl overflow-hidden">
+                            <Card key={year} className={`border-none shadow-sm rounded-2xl overflow-hidden ${hasManualInYear ? 'bg-amber-50/30 ring-1 ring-amber-200/50' : 'bg-white'}`}>
                                 <CardHeader 
-                                    className="border-b bg-slate-50 px-6 py-3 cursor-pointer hover:bg-slate-100 transition-colors"
+                                    className={`border-b px-6 py-3 cursor-pointer transition-colors ${hasManualInYear ? 'bg-amber-50/50 hover:bg-amber-100/50' : 'bg-slate-50 hover:bg-slate-100'}`}
                                     onClick={() => toggleYear(year)}
                                 >
                                     <CardTitle className="text-sm font-bold text-slate-700 flex items-center justify-between">
@@ -1462,6 +1878,11 @@ export default function WorkYearsPage() {
                                             <span className="text-xs font-normal text-slate-400">
                                                 ({orgCount} байгууллага)
                                             </span>
+                                            {hasManualInYear && (
+                                                <Badge className="text-[9px] px-1.5 py-0 h-4 bg-amber-100 text-amber-600 hover:bg-amber-100">
+                                                    <Hand className="h-2.5 w-2.5 mr-0.5" />Гар
+                                                </Badge>
+                                            )}
                                         </span>
                                         <div className="flex items-center gap-3">
                                             {/* Abnormal months input */}
@@ -1510,10 +1931,11 @@ export default function WorkYearsPage() {
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {Object.entries(groupedByYear[year]).map(([org, months], idx) => {
+                                                {Object.entries(groupedByYear[year]).map(([org, data], idx) => {
                                                     const isVoluntary = isVoluntaryInsurance(org);
+                                                    const isManualRow = data.source.some(s => s === 'manual');
                                                     return (
-                                                    <tr key={`${year}-${org}-${idx}`} className={`border-b last:border-b-0 hover:bg-slate-50/50 ${isVoluntary && !includeVoluntary ? 'opacity-40' : ''}`}>
+                                                    <tr key={`${year}-${org}-${idx}`} className={`border-b last:border-b-0 hover:bg-slate-50/50 ${isVoluntary && !includeVoluntary ? 'opacity-40' : ''} ${isManualRow ? 'bg-amber-50/30' : ''}`}>
                                                         <td className="px-4 py-2 font-medium text-slate-700 text-xs max-w-[200px]" title={org}>
                                                             <div className="flex items-center gap-2">
                                                                 <span className="truncate">{org}</span>
@@ -1522,12 +1944,34 @@ export default function WorkYearsPage() {
                                                                         СД
                                                                     </Badge>
                                                                 )}
+                                                                {isManualRow && !data.source.some(s => s === 'auto') ? (
+                                                                    <div className="flex items-center gap-1">
+                                                                        <Badge className="shrink-0 text-[9px] px-1.5 py-0 h-4 bg-amber-100 text-amber-600 hover:bg-amber-100">
+                                                                            <Hand className="h-2.5 w-2.5 mr-0.5" />Гар
+                                                                        </Badge>
+                                                                        <button
+                                                                            onClick={() => removeManualEntries(year, org)}
+                                                                            className="text-rose-400 hover:text-rose-600 p-0.5"
+                                                                            title="Устгах"
+                                                                        >
+                                                                            <Trash2 className="h-3 w-3" />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : isManualRow ? (
+                                                                    <Badge className="shrink-0 text-[9px] px-1.5 py-0 h-4 bg-blue-100 text-blue-600 hover:bg-blue-100">
+                                                                        <Wand2 className="h-2.5 w-2.5 mr-0.5" />Авто+Гар
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge className="shrink-0 text-[9px] px-1.5 py-0 h-4 bg-indigo-100 text-indigo-600 hover:bg-indigo-100">
+                                                                        <Wand2 className="h-2.5 w-2.5 mr-0.5" />Авто
+                                                                    </Badge>
+                                                                )}
                                                             </div>
                                                         </td>
-                                                        {months.map((paid, monthIdx) => (
+                                                        {data.months.map((paid, monthIdx) => (
                                                             <td key={monthIdx} className="text-center px-1 py-2">
-                                                                <span className={`text-base ${paid ? '' : 'opacity-30'}`}>
-                                                                    {paid ? '✅' : '⬜'}
+                                                                <span className={`text-base ${paid ? '' : 'opacity-30'}`} title={data.source[monthIdx] === 'manual' && paid ? 'Гараар нэмсэн' : ''}>
+                                                                    {paid ? (data.source[monthIdx] === 'manual' ? '🟡' : '✅') : '⬜'}
                                                                 </span>
                                                             </td>
                                                         ))}
@@ -1563,18 +2007,48 @@ export default function WorkYearsPage() {
                                     Хадгалагдсан
                                 </Badge>
                             )}
-                            <Button 
-                                variant="outline" 
+                            {file && !savedDocId && !(existingNdshDocs && existingNdshDocs.length > 0) && (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowSaveDocConfirm(true)}
+                                    disabled={isSavingDoc}
+                                    className="h-10 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                                >
+                                    <FileDown className="h-4 w-4 mr-2" />
+                                    Бичиг баримт руу хадгалах
+                                </Button>
+                            )}
+                            {savedDocId && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-10 border-emerald-200 text-emerald-700 bg-emerald-50"
+                                    onClick={() => window.open(`/dashboard/employee-documents/${savedDocId}`, '_blank')}
+                                >
+                                    <ShieldCheck className="h-4 w-4 mr-2" />
+                                    Хадгалсан баримт харах
+                                </Button>
+                            )}
+                            <Button
+                                variant="outline"
                                 onClick={() => {
                                     setIsReuploadMode(true);
                                     resetState();
-                                    setShowUpload(true);
-                                    fileInputRef.current && (fileInputRef.current.value = '');
-                                }} 
+                                    // Хадгалсан НДШ баримт байгаа бол upload UI-г шууд
+                                    // нээхгүй — хэрэглэгчийг "AI-аар шинжлэх" сонголттой
+                                    // existing-docs карт руу буцаана. Зөвхөн хадгалсан
+                                    // баримт байхгүй үед л upload card-г нээнэ.
+                                    if (!(existingNdshDocs && existingNdshDocs.length > 0)) {
+                                        setShowUpload(true);
+                                    }
+                                    if (fileInputRef.current) {
+                                        fileInputRef.current.value = '';
+                                    }
+                                }}
                                 className="h-10"
                             >
                                 <RefreshCw className="h-4 w-4 mr-2" />
-                                Дахин лавлагаа оруулах
+                                Дахин тооцоолох
                             </Button>
                             <Button onClick={handleBack} className="h-10 bg-indigo-600 hover:bg-indigo-700">
                                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -1584,6 +2058,32 @@ export default function WorkYearsPage() {
                     </div>
                 )}
             </div>
+
+            {/* Save to Documents Confirmation Dialog */}
+            <AlertDialog open={showSaveDocConfirm} onOpenChange={setShowSaveDocConfirm}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>НД лавлагааг бичиг баримтанд хадгалах уу?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Тооцоолол хийхэд ашигласан НД шимтгэл төлөлтын лавлагааг тухайн ажилтны бичиг баримтын хэсэгт хадгалах бөгөөд дараагийн тооцоололд дахин upload хийх шаардлагагүй болно.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isSavingDoc}>Болих</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleSaveAsDocument}
+                            disabled={isSavingDoc}
+                            className="bg-emerald-600 hover:bg-emerald-700"
+                        >
+                            {isSavingDoc ? (
+                                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Хадгалж байна...</>
+                            ) : (
+                                <><FileDown className="h-4 w-4 mr-2" />Хадгалах</>
+                            )}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

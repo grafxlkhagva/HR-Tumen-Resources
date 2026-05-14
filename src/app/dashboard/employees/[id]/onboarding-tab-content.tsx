@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, Circle, Clock, Loader2, Info, CheckCircle, FileText, UserCircle2, ExternalLink, FolderKanban } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { useCollection, useMemoFirebase, updateDocumentNonBlocking, tenantCollection, useTenantWrite, tenantDoc } from '@/firebase';
+import { query, where, getDocs, Timestamp, increment, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Employee } from '../data';
 import { cn } from '@/lib/utils';
@@ -15,6 +15,7 @@ import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import Link from 'next/link';
 import { Project, Task, TaskStatus, PROJECT_STATUS_LABELS, PROJECT_STATUS_COLORS } from '@/types/project';
+import { StartOnboardingWizardDialog } from '@/app/dashboard/onboarding/components/start-onboarding-wizard-dialog';
 
 // Stage order for display
 const STAGE_ORDER = ['pre-onboarding', 'orientation', 'integration', 'productivity'];
@@ -32,19 +33,20 @@ interface ProjectWithTasks extends Project {
 }
 
 export function OnboardingTabContent({ employeeId, employee }: { employeeId: string; employee: Employee }) {
-    const { firestore } = useFirebase();
+    const { firestore, tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
+    const [showWizard, setShowWizard] = useState(false);
 
     // Fetch onboarding projects for this employee
-    const projectsQuery = useMemoFirebase(() =>
+    const projectsQuery = useMemoFirebase(({ firestore, companyPath }) =>
         firestore && employeeId
             ? query(
-                collection(firestore, 'projects'),
+                tenantCollection(firestore, companyPath, 'projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', employeeId)
             )
             : null
-        , [firestore, employeeId]);
+        , [employeeId]);
     const { data: projects, isLoading: isLoadingProjects } = useCollection<Project>(projectsQuery as any);
 
     const [projectsWithTasks, setProjectsWithTasks] = useState<ProjectWithTasks[]>([]);
@@ -53,18 +55,21 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
     // Fetch tasks for all projects
     useEffect(() => {
+        let cancelled = false;
+
         async function fetchTasks() {
             if (!firestore || !projects || projects.length === 0) {
-                setProjectsWithTasks([]);
+                if (!cancelled) setProjectsWithTasks([]);
                 return;
             }
 
-            setIsLoadingTasks(true);
+            if (!cancelled) setIsLoadingTasks(true);
             try {
                 const withTasks: ProjectWithTasks[] = [];
 
                 for (const project of projects) {
-                    const tasksSnap = await getDocs(collection(firestore, 'projects', project.id, 'tasks'));
+                    if (cancelled) return;
+                    const tasksSnap = await getDocs(tCollection('projects', project.id, 'tasks'));
                     const tasks = tasksSnap.docs.map(d => ({ ...d.data(), id: d.id } as Task));
                     const completed = tasks.filter(t => t.status === 'DONE').length;
                     const total = tasks.length;
@@ -79,15 +84,16 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
 
                 // Sort by stageOrder
                 withTasks.sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
-                setProjectsWithTasks(withTasks);
+                if (!cancelled) setProjectsWithTasks(withTasks);
             } catch (e) {
                 console.error('Failed to fetch tasks:', e);
             } finally {
-                setIsLoadingTasks(false);
+                if (!cancelled) setIsLoadingTasks(false);
             }
         }
 
         fetchTasks();
+        return () => { cancelled = true; };
     }, [firestore, projects]);
 
     // Calculate overall progress
@@ -112,12 +118,19 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
         setIsTogglingTask(task.id);
         try {
             const newStatus: TaskStatus = task.status === 'DONE' ? 'TODO' : 'DONE';
-            const taskRef = doc(firestore, 'projects', projectId, 'tasks', task.id);
+            const isDone = newStatus === 'DONE';
+            const taskRef = tDoc('projects', projectId, 'tasks', task.id);
 
-            await updateDocumentNonBlocking(taskRef, {
+            await updateDoc(taskRef, {
                 status: newStatus,
-                completedAt: newStatus === 'DONE' ? Timestamp.now() : null,
+                completedAt: isDone ? Timestamp.now() : null,
                 updatedAt: Timestamp.now(),
+            });
+
+            // Denormalized count: project-ийн completedTaskCount атомикаар шинэчилнэ
+            const projectRef = tDoc('projects', projectId);
+            await updateDoc(projectRef, {
+                completedTaskCount: increment(isDone ? 1 : -1),
             });
 
             // Update local state
@@ -136,7 +149,6 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
                 };
             }));
 
-            // Check if all tasks are done - update employee lifecycle
             const allProjectsProgress = projectsWithTasks.map(p => {
                 if (p.id === projectId) {
                     const newCompleted = task.status === 'DONE'
@@ -148,13 +160,7 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
             });
 
             if (allProjectsProgress.every(p => p === 100)) {
-                // All onboarding complete
-                // Only update lifecycleStage; the active sub-status (туршилт/үндсэн)
-                // was already set by the appointment document and should not be overwritten.
-                await updateDocumentNonBlocking(doc(firestore, 'employees', employeeId), {
-                    lifecycleStage: 'development',
-                });
-                toast({ title: 'Onboarding дууслаа!', description: 'Ажилтан development шатанд шилжлээ.' });
+                toast({ title: 'Onboarding дууслаа!', description: 'Бүх даалгавар гүйцэтгэгдлээ.' });
             }
         } catch (e) {
             console.error('Failed to toggle task:', e);
@@ -173,210 +179,156 @@ export function OnboardingTabContent({ employeeId, employee }: { employeeId: str
     }
 
     if (!projects || projects.length === 0) {
+        const employeeAsType = {
+            ...employee,
+            id: employeeId,
+        } as any;
+
         return (
-            <Card className="border-none shadow-sm bg-white rounded-[2.5rem] overflow-hidden">
-                <CardContent className="p-12 text-center space-y-6">
-                    <div className="h-20 w-20 bg-indigo-50 rounded-full flex items-center justify-center mx-auto text-indigo-500">
-                        <UserCircle2 className="h-10 w-10" />
-                    </div>
-                    <div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">Onboarding төсөл олдсонгүй</h3>
-                        <p className="text-slate-500 text-sm max-w-sm mx-auto">
-                            Энэ ажилтны хувьд onboarding төсөл үүсээгүй байна. Ажилтан томилохдоо onboarding идэвхжүүлсэн эсэхийг шалгана уу.
+            <>
+                <Card className="rounded-lg border bg-card">
+                    <CardContent className="py-8 flex flex-col items-center gap-2 text-center">
+                        <p className="text-caption-medium text-foreground">Onboarding эхлээгүй байна</p>
+                        <p className="text-micro text-muted-foreground max-w-sm">
+                            {employee.firstName} {employee.lastName} ажилтны onboarding хөтөлбөр эхлээгүй байна.
                         </p>
-                    </div>
-                    <Button asChild variant="outline" className="rounded-2xl">
-                        <Link href="/dashboard/onboarding/settings">
-                            Onboarding тохиргоо
-                        </Link>
-                    </Button>
-                </CardContent>
-            </Card>
+                        <Button size="sm" variant="outline" onClick={() => setShowWizard(true)} className="h-8 text-caption mt-1">
+                            Onboarding эхлүүлэх
+                        </Button>
+                    </CardContent>
+                </Card>
+                <StartOnboardingWizardDialog
+                    open={showWizard}
+                    onOpenChange={setShowWizard}
+                    preselectedEmployee={employeeAsType}
+                />
+            </>
         );
     }
 
     return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Progress Overview Card */}
-            <Card className="border-none shadow-md bg-white rounded-[2.5rem] overflow-hidden">
-                <CardHeader className="p-8 border-b border-slate-50">
-                    <div className="flex items-center justify-between gap-4">
+        <div className="space-y-4">
+            {/* Progress Overview */}
+            <Card className="rounded-lg border bg-card">
+                <CardContent className="p-4">
+                    <div className="flex items-center justify-between gap-4 mb-3">
                         <div>
-                            <div className="flex items-center gap-3">
-                                <CardTitle className="text-xl font-black text-slate-800">Onboarding явц</CardTitle>
-                                <Badge variant="secondary" className="text-[10px]">
-                                    {totalTaskStats.completed}/{totalTaskStats.total} таск
+                            <div className="flex items-center gap-2">
+                                <h3 className="text-caption-medium text-foreground">Onboarding явц</h3>
+                                <span className="text-micro text-muted-foreground">{totalTaskStats.completed}/{totalTaskStats.total} таск</span>
+                            </div>
+                            <p className="text-micro text-muted-foreground">{projectsWithTasks.length} төсөл</p>
+                        </div>
+                        <p className="text-xl font-semibold text-primary leading-none">{overallProgress}%</p>
+                    </div>
+                    <Progress value={overallProgress} className="h-1.5 bg-muted" />
+                </CardContent>
+            </Card>
+
+            {/* Stage list */}
+            <Card className="rounded-lg border bg-card">
+                <CardContent className="p-4 space-y-1">
+                    {projectsWithTasks.map((project, idx) => (
+                        <Link
+                            key={project.id}
+                            href={`/projects/${project.id}`}
+                            className="flex items-center gap-3 px-2 py-2 -mx-2 rounded-md hover:bg-muted/40 transition-colors"
+                        >
+                            {project.progress === 100 ? (
+                                <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+                            ) : project.status === 'ACTIVE' ? (
+                                <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin shrink-0" />
+                            ) : (
+                                <Circle className="h-4 w-4 text-muted-foreground/50 shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                                <p className="text-caption-medium text-foreground truncate">
+                                    {idx + 1}. {STAGE_LABELS[project.onboardingStageId || ''] || project.name}
+                                </p>
+                                <p className="text-micro text-muted-foreground">
+                                    {project.taskStats.completed}/{project.taskStats.total} таск · {project.progress}%
+                                </p>
+                            </div>
+                            <ExternalLink className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                        </Link>
+                    ))}
+                </CardContent>
+            </Card>
+
+            {/* Tasks per stage */}
+            <Card className="rounded-lg border bg-card">
+                <Tabs defaultValue={projectsWithTasks[0]?.id} className="w-full">
+                    <div className="px-4 pt-3 border-b border-border overflow-x-auto scrollbar-hide">
+                        <VerticalTabMenu
+                            orientation="horizontal"
+                            className="flex-nowrap gap-2"
+                            triggerClassName="text-caption"
+                            items={projectsWithTasks.map((project) => ({
+                                value: project.id,
+                                label: STAGE_LABELS[project.onboardingStageId || ''] || project.name.split(' - ').pop(),
+                            }))}
+                        />
+                    </div>
+
+                    {projectsWithTasks.map(project => (
+                        <TabsContent key={project.id} value={project.id} className="p-4 focus-visible:outline-none">
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                                <div>
+                                    <h4 className="text-caption-medium text-foreground">{project.name}</h4>
+                                    {project.goal && <p className="text-micro text-muted-foreground mt-0.5">{project.goal}</p>}
+                                    {project.endDate && <p className="text-micro text-muted-foreground mt-0.5">Дуусах: {project.endDate}</p>}
+                                </div>
+                                <Badge variant="outline" className={cn("shrink-0 text-micro h-5", PROJECT_STATUS_COLORS[project.status])}>
+                                    {PROJECT_STATUS_LABELS[project.status]}
                                 </Badge>
                             </div>
-                            <CardDescription className="text-slate-400">
-                                Төслийн системээр удирдагдаж байна
-                            </CardDescription>
-                        </div>
-                        <div className="text-right">
-                            <p className="text-2xl font-black text-indigo-600 leading-none">{overallProgress}%</p>
-                            <p className="text-[10px] font-bold text-slate-300 uppercase mt-1">Нийт явц</p>
-                        </div>
-                    </div>
-                    <div className="mt-6">
-                        <Progress value={overallProgress} className="h-2 bg-slate-100" />
-                    </div>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="grid grid-cols-1 lg:grid-cols-10 divide-y lg:divide-y-0 lg:divide-x divide-slate-50">
-                        {/* Stages Sidebar */}
-                        <div className="lg:col-span-3 p-6 space-y-4 bg-slate-50/30">
-                            <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-2 text-center lg:text-left">
-                                Үе шатууд ({projectsWithTasks.length} төсөл)
-                            </h4>
+
                             <div className="space-y-1">
-                                {projectsWithTasks.map((project, idx) => (
-                                    <div
-                                        key={project.id}
-                                        className={cn(
-                                            "flex items-start gap-3 p-3 rounded-2xl transition-all",
-                                            project.progress === 100 ? "bg-emerald-50 text-emerald-700" : "text-slate-600"
-                                        )}
-                                    >
-                                        <div className="mt-0.5 shrink-0">
-                                            {project.progress === 100 ? (
-                                                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                                            ) : project.status === 'ACTIVE' ? (
-                                                <div className="h-5 w-5 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
-                                            ) : (
-                                                <Circle className="h-5 w-5 text-slate-300" />
+                                {project.tasks.map(task => {
+                                    const isCompleted = task.status === 'DONE';
+                                    const isToggling = isTogglingTask === task.id;
+                                    return (
+                                        <div
+                                            key={task.id}
+                                            onClick={() => !isToggling && toggleTask(project.id, task)}
+                                            className={cn(
+                                                "group flex items-center gap-3 px-2 py-2 -mx-2 rounded-md cursor-pointer transition-colors",
+                                                isCompleted ? "opacity-60 hover:bg-muted/30" : "hover:bg-muted/40"
                                             )}
+                                        >
+                                            <div className={cn(
+                                                "h-4 w-4 rounded-full flex items-center justify-center shrink-0 transition-all",
+                                                isCompleted
+                                                    ? "bg-success text-primary-foreground"
+                                                    : "border border-muted-foreground/30 group-hover:border-primary"
+                                            )}>
+                                                {isToggling ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : isCompleted ? <CheckCircle className="h-3 w-3" /> : null}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <p className={cn("text-caption text-foreground", isCompleted && "line-through")}>
+                                                    {task.title}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                {!isCompleted && task.dueDate && (
+                                                    <span className="text-micro text-muted-foreground">{task.dueDate}</span>
+                                                )}
+                                                {!isCompleted && task.policyId && (
+                                                    <span className="text-micro text-primary">Журам</span>
+                                                )}
+                                                {isCompleted && task.completedAt && (
+                                                    <span className="text-micro text-success">
+                                                        {task.completedAt.toDate?.().toLocaleDateString?.() || 'Дууссан'}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold leading-tight break-words">
-                                                {idx + 1}. {STAGE_LABELS[project.onboardingStageId || ''] || project.name}
-                                            </p>
-                                            <p className="text-[10px] opacity-70 mt-1">
-                                                {project.taskStats.completed}/{project.taskStats.total} таск ({project.progress}%)
-                                            </p>
-                                            <Link
-                                                href={`/dashboard/projects/${project.id}`}
-                                                className="inline-flex items-center gap-1 text-[9px] text-indigo-600 hover:underline mt-1"
-                                            >
-                                                <FolderKanban className="h-3 w-3" />
-                                                Төсөл харах
-                                            </Link>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
-                        </div>
-
-                        {/* Tasks Flow */}
-                        <div className="lg:col-span-7">
-                            <Tabs defaultValue={projectsWithTasks[0]?.id} className="w-full">
-                                <div className="px-6 py-4 border-b border-slate-50 overflow-x-auto scrollbar-hide">
-                                    <VerticalTabMenu
-                                        orientation="horizontal"
-                                        className="flex-nowrap gap-2"
-                                        triggerClassName="text-sm"
-                                        items={projectsWithTasks.map((project) => ({
-                                            value: project.id,
-                                            label: STAGE_LABELS[project.onboardingStageId || ''] || project.name.split(' - ').pop(),
-                                        }))}
-                                    />
-                                </div>
-
-                                {projectsWithTasks.map(project => (
-                                    <TabsContent key={project.id} value={project.id} className="p-6 focus-visible:outline-none">
-                                        {/* Project Info */}
-                                        <div className="mb-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div>
-                                                    <h4 className="text-sm font-bold text-slate-800">{project.name}</h4>
-                                                    <p className="text-xs text-slate-500 mt-1">{project.goal}</p>
-                                                </div>
-                                                <Badge className={cn("shrink-0", PROJECT_STATUS_COLORS[project.status])}>
-                                                    {PROJECT_STATUS_LABELS[project.status]}
-                                                </Badge>
-                                            </div>
-                                            <div className="flex items-center gap-4 mt-3 text-[10px] text-slate-400">
-                                                <span>Дуусах: {project.endDate}</span>
-                                                <Button asChild variant="ghost" size="sm" className="h-6 text-[10px] text-indigo-600">
-                                                    <Link href={`/dashboard/projects/${project.id}`}>
-                                                        <ExternalLink className="h-3 w-3 mr-1" />
-                                                        Төсөлд очих
-                                                    </Link>
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        {/* Tasks Grid */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {project.tasks.map(task => {
-                                                const isCompleted = task.status === 'DONE';
-                                                const isToggling = isTogglingTask === task.id;
-
-                                                return (
-                                                    <div
-                                                        key={task.id}
-                                                        onClick={() => !isToggling && toggleTask(project.id, task)}
-                                                        className={cn(
-                                                            "group flex items-start gap-4 p-5 rounded-3xl border transition-all cursor-pointer",
-                                                            isCompleted
-                                                                ? "bg-emerald-50 border-emerald-100 shadow-sm shadow-emerald-100/20"
-                                                                : "bg-white border-slate-100 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-100/10"
-                                                        )}
-                                                    >
-                                                        <div className={cn(
-                                                            "h-6 w-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 transition-all",
-                                                            isToggling && "animate-pulse",
-                                                            isCompleted
-                                                                ? "bg-emerald-500 text-white"
-                                                                : "border-2 border-slate-100 bg-slate-50 group-hover:border-indigo-500 group-hover:bg-white"
-                                                        )}>
-                                                            {isToggling ? (
-                                                                <Loader2 className="h-3 w-3 animate-spin" />
-                                                            ) : isCompleted ? (
-                                                                <CheckCircle className="h-4 w-4" />
-                                                            ) : null}
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <h5 className={cn(
-                                                                "text-sm font-bold transition-all",
-                                                                isCompleted ? "text-emerald-800 line-through opacity-60" : "text-slate-700"
-                                                            )}>
-                                                                {task.title}
-                                                            </h5>
-
-                                                            {isCompleted && task.completedAt && (
-                                                                <div className="mt-3 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-emerald-100/50 text-[9px] font-bold text-emerald-600">
-                                                                    <Clock className="h-3 w-3" />
-                                                                    {task.completedAt.toDate?.().toLocaleDateString?.() || 'Дууссан'}
-                                                                </div>
-                                                            )}
-
-                                                            {!isCompleted && (
-                                                                <div className="flex flex-wrap gap-2 mt-3">
-                                                                    {task.dueDate && (
-                                                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-slate-50 text-[10px] font-bold text-slate-500 border border-slate-100">
-                                                                            <Clock className="h-3 w-3" />
-                                                                            {task.dueDate}
-                                                                        </div>
-                                                                    )}
-                                                                    {task.policyId && (
-                                                                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-indigo-50 text-[10px] font-bold text-indigo-700 border border-indigo-100">
-                                                                            <FileText className="h-3 w-3" />
-                                                                            Журам
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </TabsContent>
-                                ))}
-                            </Tabs>
-                        </div>
-                    </div>
-                </CardContent>
+                        </TabsContent>
+                    ))}
+                </Tabs>
             </Card>
         </div>
     );

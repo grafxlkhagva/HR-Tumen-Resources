@@ -321,7 +321,7 @@ export function OkrTab({
                                                         return (
                                                             <Link
                                                                 key={p.id}
-                                                                href={`/dashboard/hr/projects/${p.id}`}
+                                                                href={`/projects/${p.id}`}
                                                                 className="flex items-center justify-between px-3 py-2 rounded-lg bg-violet-50/50 border border-violet-100 hover:bg-violet-50 transition-colors group"
                                                             >
                                                                 <div className="flex items-center gap-2 min-w-0">

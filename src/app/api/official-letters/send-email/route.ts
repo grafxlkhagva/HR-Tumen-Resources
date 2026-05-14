@@ -3,7 +3,7 @@ import { Resend } from 'resend';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { firebaseConfig } from '@/firebase/config';
-import type { OfficialLetterConfig } from '@/app/dashboard/official-letters/types';
+import type { OfficialLetterConfig } from '@/app/official-letters/types';
 
 export const maxDuration = 60;
 

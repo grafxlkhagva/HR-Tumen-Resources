@@ -18,6 +18,10 @@ import {
     Newspaper,
     HeartHandshake,
     Target,
+    FolderKanban,
+    DoorOpen,
+    Building2,
+    Stamp,
     Grid3x3,
     Check,
     Orbit,
@@ -25,7 +29,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useEmployeeProfile, type EmployeeProfile } from '@/hooks/use-employee-profile';
 
-export type PortalId = 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan';
+export type PortalId = 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters';
 
 interface PortalDef {
     id: PortalId;
@@ -92,6 +96,42 @@ const PORTALS: PortalDef[] = [
         href: '/business-plan',
         color: '#6366f1',
         visible: (p) => p.role === 'admin' || !!p.businessPlanAccess,
+    },
+    {
+        id: 'projects',
+        label: 'Төслүүд',
+        description: 'Төсөл, даалгавар, Gantt',
+        icon: FolderKanban,
+        href: '/projects',
+        color: '#e11d48',
+        visible: (p) => p.role === 'admin' || !!p.projectsAccess,
+    },
+    {
+        id: 'meetings',
+        label: 'Хурлын өрөө',
+        description: 'Хурлын өрөөний захиалга',
+        icon: DoorOpen,
+        href: '/meetings',
+        color: '#f97316',
+        visible: (p) => p.role === 'admin' || !!p.meetingsAccess,
+    },
+    {
+        id: 'company',
+        label: 'Компани',
+        description: 'Компанийн бүртгэл, бодлого, түүх',
+        icon: Building2,
+        href: '/company',
+        color: '#64748b',
+        visible: (p) => p.role === 'admin' || !!p.companyAccess,
+    },
+    {
+        id: 'official_letters',
+        label: 'Албан бичиг',
+        description: 'Албан бланк, загвар',
+        icon: Stamp,
+        href: '/official-letters',
+        color: '#b45309',
+        visible: (p) => p.role === 'admin' || !!p.officialLettersAccess,
     },
 ];
 

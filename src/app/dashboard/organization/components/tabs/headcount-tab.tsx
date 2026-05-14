@@ -2,6 +2,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { isSystemUser } from '@/lib/employee-utils';
 import {
     Card,
     CardContent,
@@ -35,8 +36,8 @@ import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
-import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { useCollection, useFetchCollection, useFirebase, useMemoFirebase, tenantCollection } from '@/firebase';
+import { query, limit } from 'firebase/firestore';
 
 import { Department, Position } from '../../types';
 import type { Employee } from '../../../employees/data';
@@ -53,13 +54,13 @@ export const HeadcountTab = () => {
     const [selectedDeptName, setSelectedDeptName] = useState("");
     const [openRows, setOpenRows] = useState<Set<string>>(new Set());
 
-    const positionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const employeesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employees') : null), [firestore]);
-    const departmentsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
+    const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? query(tenantCollection(firestore, companyPath, 'employees'), limit(2000)) : null), [firestore]);
+    const departmentsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
 
-    const { data: positions, isLoading: isLoadingPos } = useCollection<Position>(positionsQuery);
+    const { data: positions, isLoading: isLoadingPos } = useFetchCollection<Position>(positionsQuery);
     const { data: employees, isLoading: isLoadingEmp } = useCollection<Employee>(employeesQuery);
-    const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(departmentsQuery);
+    const { data: departments, isLoading: isLoadingDepts } = useFetchCollection<Department>(departmentsQuery);
 
     const { departmentsWithHeadcount, totalFilled } = useMemo(() => {
         if (!positions || !employees || !departments) {
@@ -72,7 +73,7 @@ export const HeadcountTab = () => {
         const employeeCountByPosition = new Map<string, number>();
         employees.forEach(emp => {
             if (!emp.positionId) return;
-            const hireDate = new Date(emp.hireDate);
+            const hireDate = new Date(emp.hireDate || '');
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
             const isActiveInPeriod =
                 (!periodStart || !termDate || termDate >= periodStart) &&
@@ -121,9 +122,10 @@ export const HeadcountTab = () => {
         const endDate = date?.to ? endOfDay(date.to) : null;
 
         const filteredEmployees = employees.filter(emp => {
+            if (isSystemUser(emp as any)) return false;
             if (emp.departmentId !== departmentId) return false;
 
-            const hireDate = new Date(emp.hireDate);
+            const hireDate = new Date(emp.hireDate || '');
             const termDate = emp.terminationDate ? new Date(emp.terminationDate) : null;
 
             const isActiveInPeriod =
@@ -159,7 +161,7 @@ export const HeadcountTab = () => {
                     <DialogHeader>
                         <DialogTitle>{selectedDeptName} хэлтсийн ажилтнууд</DialogTitle>
                         <DialogDescription>
-                            {date?.from && date.to && `${format(date.from, "yyyy/MM/dd")} - ${format(date.to, "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
+                            {date?.from && date?.to && `${format(date.from ?? new Date(), "yyyy/MM/dd")} - ${format(date.to ?? new Date(), "yyyy/MM/dd")} хооронд ажиллаж байсан.`}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="max-h-[60vh] overflow-y-auto">
@@ -178,13 +180,13 @@ export const HeadcountTab = () => {
                                             <div className="flex items-center gap-3">
                                                 <Avatar className="h-9 w-9">
                                                     <AvatarImage src={emp.photoURL} />
-                                                    <AvatarFallback>{emp.firstName.charAt(0)}</AvatarFallback>
+                                                    <AvatarFallback>{(emp.firstName || '').charAt(0)}</AvatarFallback>
                                                 </Avatar>
                                                 <div className="font-medium">{emp.firstName} {emp.lastName}</div>
                                             </div>
                                         </TableCell>
                                         <TableCell>{emp.jobTitle}</TableCell>
-                                        <TableCell>{format(new Date(emp.hireDate), 'yyyy-MM-dd')}</TableCell>
+                                        <TableCell>{format(new Date(emp.hireDate || ''), 'yyyy-MM-dd')}</TableCell>
                                     </TableRow>
                                 ))}
                                 {selectedDeptEmployees.length === 0 && (

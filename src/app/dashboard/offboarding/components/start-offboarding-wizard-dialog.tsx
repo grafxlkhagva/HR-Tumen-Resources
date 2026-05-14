@@ -226,7 +226,7 @@ export function StartOffboardingWizardDialog({ open, onOpenChange }: StartOffboa
       });
 
       onOpenChange(false);
-      if (result.projectIds?.[0]) router.push(`/dashboard/projects/${result.projectIds[0]}`);
+      if (result.projectIds?.[0]) router.push(`/projects/${result.projectIds[0]}`);
     } catch (e: any) {
       console.error(e);
       toast({

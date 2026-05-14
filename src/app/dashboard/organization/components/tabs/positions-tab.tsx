@@ -40,18 +40,23 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase';
+import { useFirebase, useMemoFirebase, updateDocumentNonBlocking, addDocumentNonBlocking, tenantDoc, useTenantWrite } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { generateNextPositionCode } from '@/lib/code-generator';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-import { AddPositionDialog } from '../../add-position-dialog';
+import dynamic from 'next/dynamic';
+const AddPositionDialog = dynamic(
+    () => import('../../add-position-dialog').then(m => ({ default: m.AddPositionDialog })),
+    { ssr: false }
+);
 import { StructureConfigDialog } from '../../structure-config-dialog';
 import { Department, DepartmentType, Position, PositionLevel, EmploymentType, JobCategory, WorkSchedule } from '../../types';
 import { OrganizationFilters } from '@/hooks/use-organization-filters';
 import { EmptyState } from '@/components/organization/empty-state';
+import * as Sentry from '@sentry/nextjs';
 
 interface PositionsTabProps {
     departmentTypes: DepartmentType[] | null;
@@ -79,6 +84,7 @@ export const PositionsTab = ({
     onClearFilters
 }: PositionsTabProps) => {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const [activePositionsCount, setActivePositionsCount] = useState(0);
     const [inactivePositionsCount, setInactivePositionsCount] = useState(0);
@@ -158,7 +164,7 @@ export const PositionsTab = ({
 
     const handleToggleActive = (pos: Position) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'positions', pos.id);
+        const docRef = tDoc('positions', pos.id);
         updateDocumentNonBlocking(docRef, { isActive: false });
         toast({
             title: 'Амжилттай идэвхгүй боллоо.',
@@ -168,7 +174,7 @@ export const PositionsTab = ({
 
     const handleReactivate = (pos: Position) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'positions', pos.id);
+        const docRef = tDoc('positions', pos.id);
         updateDocumentNonBlocking(docRef, { isActive: true });
         toast({
             title: 'Амжилттай идэвхжүүллээ.',
@@ -177,18 +183,34 @@ export const PositionsTab = ({
     }
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
 
     const handleDuplicatePosition = async (pos: Position) => {
         if (!firestore || !posCodeConfigRef) return;
 
-        const { id, filled, code: _code, ...clonedData } = pos as any;
+        const {
+            id,
+            filled,
+            code: _code,
+            approvalHistory: _history,
+            approvedAt: _approvedAt,
+            approvedBy: _approvedBy,
+            disapprovedAt: _disapprovedAt,
+            disapprovedBy: _disapprovedBy,
+            ...clonedData
+        } = pos as any;
         const cleanData = Object.entries(clonedData).reduce((acc, [key, value]) => {
             if (value !== undefined && typeof value !== 'function') acc[key] = value;
             return acc;
         }, {} as any);
+
+        delete cleanData.approvalHistory;
+        delete cleanData.approvedAt;
+        delete cleanData.approvedBy;
+        delete cleanData.disapprovedAt;
+        delete cleanData.disapprovedBy;
 
         try {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
@@ -198,14 +220,16 @@ export const PositionsTab = ({
                 title: `${pos.title} (Хуулбар)`,
                 filled: 0,
                 isActive: true,
+                isApproved: false,
+                createdAt: new Date().toISOString(),
             };
-            addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            addDocumentNonBlocking(tCollection('positions'), newPositionData);
             toast({
                 title: "Амжилттай хувиллаа",
                 description: `"${pos.title}" ажлын байрыг хувилж, "${newPositionData.title}"-г үүсгэлээ.`,
             });
         } catch (e) {
-            console.error('Хуулбарлах алдаа:', e);
+            Sentry.captureException(e, { tags: { module: 'organization' } });
             toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
         }
     };

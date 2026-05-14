@@ -181,7 +181,7 @@ export function PlansTab({ plans, themes, employees, companyProfile, coreValues,
                             </CardDescription>
                         </div>
                         <Button variant="outline" size="sm" asChild className="gap-1.5">
-                            <Link href="/dashboard/company">
+                            <Link href="/company">
                                 <ExternalLink className="h-3.5 w-3.5" />Компани
                             </Link>
                         </Button>

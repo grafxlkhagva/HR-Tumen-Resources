@@ -6,35 +6,31 @@ import {
     useFirebase,
     useCollection,
     useMemoFirebase,
+    tenantCollection,
 } from '@/firebase';
 import { collection, query, orderBy } from 'firebase/firestore';
 import { DepartmentHistory } from '../types';
 import { format } from 'date-fns';
 import { mn } from 'date-fns/locale';
 import {
-    History,
     Building2,
     Users,
     Clock,
     ChevronDown,
     AlertCircle,
     FileText,
-    ChevronLeft
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useRouter } from 'next/navigation';
 
 export default function OrganizationHistoryPage() {
     const { firestore } = useFirebase();
-    const router = useRouter();
     const [expandedIds, setExpandedIds] = useState<string[]>([]);
 
-    const historyQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'departmentHistory'), orderBy('approvedAt', 'desc')) : null
+    const historyQuery = useMemoFirebase(({ firestore, companyPath }) =>
+        firestore ? query(tenantCollection(firestore, companyPath, 'departmentHistory'), orderBy('approvedAt', 'desc')) : null
         , [firestore]);
 
     const { data: history, isLoading } = useCollection<DepartmentHistory>(historyQuery);
@@ -46,13 +42,16 @@ export default function OrganizationHistoryPage() {
     };
 
     return (
-        <div className="flex flex-col h-full bg-slate-50/50">
-            <div className="p-6 md:p-8 space-y-6 max-w-5xl mx-auto w-full">
+        <div className="flex flex-col h-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto px-6 py-6 md:p-8 space-y-6 pb-32">
                 <PageHeader
                     title="Бүтцийн өөрчлөлтийн түүх"
                     description="Байгууллагын бүтэц, нэгжүүдийн түүхэн өөрчлөлтүүд болон татан буугдсан нэгжүүд."
                     showBackButton
-                    backHref="/dashboard/organization"
+                    hideBreadcrumbs
+                    backButtonPlacement="inline"
+                    backBehavior="history"
+                    fallbackBackHref="/dashboard/organization"
                 />
 
                 <div className="space-y-4 pb-20">
@@ -163,8 +162,8 @@ export default function OrganizationHistoryPage() {
                                                             Бүтэц ба Ажилтнууд
                                                         </h4>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                            {snapshot?.positions?.length > 0 ? (
-                                                                snapshot.positions.map((pos: any, idx: number) => (
+                                                            {(snapshot?.positions?.length ?? 0) > 0 ? (
+                                                                snapshot?.positions?.map((pos: any, idx: number) => (
                                                                     <div key={idx} className="p-5 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-4 group/pos hover:border-primary/20 hover:shadow-md transition-all">
                                                                         <div className="flex items-center justify-between gap-3">
                                                                             <span className="text-sm font-black text-slate-900 leading-tight">{pos.title}</span>

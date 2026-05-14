@@ -8,10 +8,16 @@ import {
     useMemoFirebase,
     useCollection,
     updateDocumentNonBlocking,
-    deleteDocumentNonBlocking
+    deleteDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite
 } from '@/firebase';
 import { doc, collection, arrayUnion, query, where } from 'firebase/firestore';
-import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog, PositionActionLog } from '../../types';
+import { ALL_APPOINTMENT_ACTION_IDS } from '@/lib/services/employee-lifecycle-docs';
+import { Position, PositionLevel, JobCategory, EmploymentType, WorkSchedule, Department, ApprovalLog } from '../../types';
+import { addDepartmentHistoryEvent } from '../../department-history-log';
+import { useGlobalReferenceData } from '@/hooks/use-global-reference-data';
 import { ERDocument } from '../../../employment-relations/types';
 import { isActiveStatus } from '@/types';
 import { Badge } from '@/components/ui/badge';
@@ -34,12 +40,18 @@ import {
     MoreVertical,
     Trash2,
     ExternalLink,
-    ArrowRightLeft
+    Zap
 } from 'lucide-react';
 import { writeBatch, increment as firestoreIncrement, getDocs } from 'firebase/firestore';
-import { AppointEmployeeDialog } from '../../[departmentId]/components/flow/appoint-employee-dialog';
-import { ReleaseEmployeeDialog } from '../../[departmentId]/components/flow/release-employee-dialog';
-import { TransferEmployeeDialog } from '../../[departmentId]/components/flow/transfer-employee-dialog';
+import dynamic from 'next/dynamic';
+const AppointEmployeeDialog = dynamic(
+    () => import('../../[departmentId]/components/flow/appoint-employee-dialog').then(m => ({ default: m.AppointEmployeeDialog })),
+    { ssr: false }
+);
+const ReleaseEmployeeDialog = dynamic(
+    () => import('../../[departmentId]/components/flow/release-employee-dialog').then(m => ({ default: m.ReleaseEmployeeDialog })),
+    { ssr: false }
+);
 import { format } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -81,13 +93,19 @@ import { PositionOverview } from './components/position-overview';
 import { PositionCompetency } from './components/position-competency';
 import { PositionCompensation } from './components/position-compensation';
 import { PositionBenefits } from './components/position-benefits';
-import { StartPositionPreparationWizardDialog } from './components/start-position-preparation-wizard-dialog';
+const StartPositionPreparationWizardDialog = dynamic(
+    () => import('./components/start-position-preparation-wizard-dialog').then(m => ({ default: m.StartPositionPreparationWizardDialog })),
+    { ssr: false }
+);
 import type { Project, Task } from '@/types/project';
+import * as Sentry from '@sentry/nextjs';
+import { usePositionPreparationStatus } from '../hooks/use-position-preparation-status';
 
 export default function PositionDetailPage() {
     const params = useParams<{ positionId?: string | string[] }>();
     const positionId = Array.isArray(params?.positionId) ? params.positionId[0] : params?.positionId;
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const router = useRouter();
     const { toast } = useToast();
 
@@ -106,26 +124,26 @@ export default function PositionDetailPage() {
     const [isActionLoading, setIsActionLoading] = useState(false);
     const [isDocStatusOpen, setIsDocStatusOpen] = useState(false);
     const [isReleaseDialogOpen, setIsReleaseDialogOpen] = useState(false);
-    const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
     const [isPrepWizardOpen, setIsPrepWizardOpen] = useState(false);
+    const [isQuickAppointDialogOpen, setIsQuickAppointDialogOpen] = useState(false);
+    const [isQuickAppointConfirmOpen, setIsQuickAppointConfirmOpen] = useState(false);
 
     // Data Fetching
-    const positionRef = useMemoFirebase(() => (firestore && positionId ? doc(firestore, 'positions', positionId) : null), [firestore, positionId]);
+    const positionRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && positionId ? tenantDoc(firestore, companyPath, 'positions', positionId) : null), [firestore, positionId]);
     const { data: position, isLoading: isPositionLoading } = useDoc<Position>(positionRef as any);
 
-    const deptRef = useMemoFirebase(() => (firestore && position?.departmentId ? doc(firestore, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
+    const deptRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && position?.departmentId ? tenantDoc(firestore, companyPath, 'departments', position.departmentId) : null), [firestore, position?.departmentId]);
     const { data: department } = useDoc<Department>(deptRef as any);
 
     // Lookups
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const categoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
-    const allDeptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const allPositionsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const schedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
+    const allDeptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
+    const allPositionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
 
     const { data: levels } = useCollection<PositionLevel>(levelsQuery);
-    const { data: categories } = useCollection<JobCategory>(categoriesQuery);
+    const { data: categories } = useGlobalReferenceData<JobCategory>('jobCategories');
     const { data: empTypes } = useCollection<EmploymentType>(empTypesQuery);
     const { data: schedules } = useCollection<WorkSchedule>(schedulesQuery);
     const { data: allDepartments } = useCollection<any>(allDeptsQuery);
@@ -133,9 +151,9 @@ export default function PositionDetailPage() {
 
     // Fetch assigned employee
     const employeeQuery = useMemoFirebase(
-        () => (firestore
+        ({ firestore, companyPath }) => (firestore
             ? query(
-                collection(firestore, 'employees'),
+                tenantCollection(firestore, companyPath, 'employees'),
                 where('positionId', '==', positionId),
                 where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing'])
             )
@@ -146,10 +164,10 @@ export default function PositionDetailPage() {
     const assignedEmployee = employees?.[0];
 
     // Fetch Appointment Document if "Appointing"
-    const docQuery = useMemoFirebase(() => {
+    const docQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !assignedEmployee || assignedEmployee.status !== 'appointing') return null;
         return query(
-            collection(firestore, 'er_documents'),
+            tenantCollection(firestore, companyPath, 'er_documents'),
             where('employeeId', '==', assignedEmployee.id),
             where('positionId', '==', positionId)
         );
@@ -157,56 +175,17 @@ export default function PositionDetailPage() {
     const { data: appointmentDocs } = useCollection<ERDocument>(docQuery);
     const appointmentDoc = appointmentDocs?.[0];
 
-    // Position preparation projects (before appointment)
-    const prepProjectsQuery = useMemoFirebase(() => {
-        if (!firestore || !positionId) return null;
-        return query(
-            collection(firestore, 'projects'),
-            where('type', '==', 'position_preparation'),
-            where('positionPreparationPositionId', '==', positionId)
-        );
-    }, [firestore, positionId]);
-    const { data: prepProjects } = useCollection<Project>(prepProjectsQuery as any);
-    const [prepTaskSummary, setPrepTaskSummary] = useState<{ total: number; done: number; projectId: string | null } | null>(null);
-
-    useEffect(() => {
-        let cancelled = false;
-        const run = async () => {
-            if (!firestore) return;
-            if (!prepProjects || prepProjects.length === 0) {
-                if (!cancelled) setPrepTaskSummary(null);
-                return;
-            }
-            const sorted = [...prepProjects].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
-            let total = 0;
-            let done = 0;
-            const p = sorted[0];
-            const tasksSnap = await getDocs(collection(firestore, 'projects', p.id, 'tasks'));
-            tasksSnap.forEach((d) => {
-                const t = d.data() as Task;
-                total += 1;
-                if (t.status === 'DONE') done += 1;
-            });
-            if (!cancelled) {
-                setPrepTaskSummary({ total, done, projectId: p?.id || null });
-            }
-        };
-        run();
-        return () => { cancelled = true; };
-    }, [firestore, prepProjects]);
-
+    // Position preparation status (before appointment)
+    const { status: prepStatus } = usePositionPreparationStatus(positionId);
+    const prepTaskSummary = prepStatus.prepProjectId
+        ? { total: prepStatus.total, done: prepStatus.done, projectId: prepStatus.prepProjectId }
+        : null;
+    const hasPrepProjects = prepStatus.state !== 'none';
     const prepProgressPct = useMemo(() => {
         if (!prepTaskSummary || prepTaskSummary.total === 0) return 0;
         return Math.round((prepTaskSummary.done / prepTaskSummary.total) * 100);
     }, [prepTaskSummary]);
-
-    const isPrepCompleted = useMemo(() => {
-        if (!prepProjects || prepProjects.length === 0) return false;
-        const allProjectsCompleted = prepProjects.every((p) => p.status === 'COMPLETED');
-        if (allProjectsCompleted) return true;
-        if (!prepTaskSummary) return false;
-        return prepTaskSummary.total === 0 ? true : prepTaskSummary.done === prepTaskSummary.total;
-    }, [prepProjects, prepTaskSummary]);
+    const isPrepCompleted = prepStatus.state === 'completed';
 
     // Auto-confirm appointment when ER doc is approved/signed
     // Sets employee to 'Идэвхтэй' (Active) status
@@ -225,18 +204,16 @@ export default function PositionDetailPage() {
                 const aId = appointmentDoc?.metadata?.actionId || '';
                 const autoStatus =
                     aId === 'appointment_probation' ? 'active_probation' :
-                    aId === 'appointment_contract' ? 'active_contract' :
                     aId === 'appointment_permanent' ? 'active_permanent' :
                     'active_permanent';
                 await writeBatch(firestore)
-                    .update(doc(firestore, 'employees', assignedEmployee.id), { 
+                    .update(tDoc('employees', assignedEmployee.id), {
                         status: autoStatus,
-                        lifecycleStage: 'active'
                     })
                     .commit();
                 toast({ title: "Томилгоо баталгаажлаа" });
             } catch (e) {
-                console.error(e);
+                Sentry.captureException(e, { tags: { module: 'organization' } });
                 didAutoConfirmRef.current = false;
                 toast({ variant: 'destructive', title: 'Алдаа', description: 'Томилгоог автоматаар баталгаажуулахад алдаа гарлаа.' });
             } finally {
@@ -246,14 +223,33 @@ export default function PositionDetailPage() {
     }, [firestore, assignedEmployee, appointmentDoc, toast]);
 
     const validationChecklist = useMemo(() => {
-        if (!position) return { hasBasicInfo: false, hasReporting: false, hasAttributes: false, hasSettings: false, isComplete: false };
+        if (!position) return { hasBasicInfo: false, hasReporting: false, hasAttributes: false, hasSettings: false, hasSalary: false, isComplete: false };
+
+        // Үндсэн цалин — дараах эх сурвалжуудын аль нэгд тоон утгатай байвал хангагдана:
+        // compensation.salaryRange.mid, идэвхтэй salaryStep, salaryRange.min/max
+        const activeSalaryStepValue = (() => {
+            const steps = position.salarySteps?.items;
+            const idx = position.salarySteps?.activeIndex ?? 0;
+            const v = Array.isArray(steps) ? steps[idx]?.value : undefined;
+            return typeof v === 'number' ? v : 0;
+        })();
+        const hasSalary =
+            (typeof position.compensation?.salaryRange?.mid === 'number' && position.compensation.salaryRange.mid > 0) ||
+            activeSalaryStepValue > 0 ||
+            (typeof position.salaryRange?.min === 'number' && position.salaryRange.min > 0) ||
+            (typeof position.salaryRange?.max === 'number' && position.salaryRange.max > 0);
+
         const checks = {
             hasBasicInfo: !!position.title?.trim() && !!position.code?.trim(),
             hasReporting: !!position.departmentId && !!position.reportsToId,
+            // Доорх талбарууд байсан ч батлагдахад заавал биш — нэмэлт бөглөөхийг зөвлөмж болгон үлдээв
             hasAttributes: !!position.levelId && !!position.jobCategoryId && !!position.employmentTypeId && !!position.workScheduleId && !!position.workingCondition,
-            hasSettings: !!position.budget?.yearlyBudget && position.budget.yearlyBudget > 0,
+            hasSettings: true,
+            hasSalary,
         };
-        return { ...checks, isComplete: Object.values(checks).every(Boolean) };
+        // Заавал хангагдах 3 нөхцөл: basic info, reporting (нэгж + шууд удирдлага), salary (үндсэн цалин)
+        const isComplete = checks.hasBasicInfo && checks.hasReporting && checks.hasSalary;
+        return { ...checks, isComplete };
     }, [position]);
 
     /**
@@ -318,29 +314,41 @@ export default function PositionDetailPage() {
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
 
-    const actionHistory = [...(position.actionHistory || [])].sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
-
     // Actions
     const handleDisapprove = async () => {
         if (!firestore || !user) return;
         setIsApproving(true);
+        const performedByName = user.displayName || user.email || 'Систем';
+        const effectiveDate = disapproveDate.toISOString();
         const logEntry: ApprovalLog = {
             action: 'disapprove',
             userId: user.uid,
-            userName: user.displayName || user.email || 'Систем',
-            timestamp: disapproveDate.toISOString(),
+            userName: performedByName,
+            timestamp: new Date().toISOString(),
+            effectiveDate,
             note: disapproveNote || 'Батламжийг цуцаллаа'
         };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+            await updateDocumentNonBlocking(tDoc('positions', positionId), {
                 isApproved: false,
                 isActive: false, // Цуцлах үед идэвхгүй болгоно
-                disapprovedAt: disapproveDate.toISOString(),
+                disapprovedAt: effectiveDate,
                 disapprovedBy: user.uid,
+                disapprovedByName: performedByName,
                 approvalHistory: arrayUnion(logEntry)
             });
+            if (position?.departmentId) {
+                addDepartmentHistoryEvent({
+                    firestore,
+                    companyPath,
+                    departmentId: position.departmentId,
+                    eventType: 'position_disapproved',
+                    positionId,
+                    positionTitle: position.title || '',
+                    performedBy: user.uid,
+                    performedByName,
+                }).catch(() => {});
+            }
             toast({ title: "Батламж цуцлагдлаа" });
             setIsDisapproveConfirmOpen(false);
             setDisapproveNote('');
@@ -351,30 +359,60 @@ export default function PositionDetailPage() {
     const handleDelete = async () => {
         if (!firestore) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'positions', positionId));
+            await deleteDocumentNonBlocking(tDoc('positions', positionId));
             toast({ title: "Устгагдлаа" });
             router.push(`/dashboard/organization/${position.departmentId}`);
         } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }
     };
 
     const runApproval = async () => {
-        if (!firestore || !user) return;
+        if (!firestore || !user || !position) return;
+
+        // Parent gate: эцэг ажлын байр батлагдаагүй бол хүү-г батлах боломжгүй
+        if (position.reportsToId) {
+            const parent = (allPositions || []).find(p => p.id === position.reportsToId);
+            if (parent && parent.isApproved !== true) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Батлах боломжгүй',
+                    description: `Эцэг ажлын байр "${parent.title || 'Нэргүй'}" батлагдаагүй байна. Эхлээд эцэг байр-ыг батална уу.`,
+                });
+                return;
+            }
+        }
+
         setIsApproving(true);
+        const performedByName = user.displayName || user.email || 'Систем';
+        const effectiveDate = approvalDate.toISOString();
         const logEntry: ApprovalLog = {
             action: 'approve',
             userId: user.uid,
-            userName: user.displayName || user.email || 'Систем',
-            timestamp: approvalDate.toISOString(),
+            userName: performedByName,
+            timestamp: new Date().toISOString(),
+            effectiveDate,
             note: approvalNote || 'Ажлын байрыг баталлаа'
         };
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'positions', positionId), {
+            await updateDocumentNonBlocking(tDoc('positions', positionId), {
                 isApproved: true,
                 isActive: true, // Батлах үед идэвхтэй болгоно
-                approvedAt: approvalDate.toISOString(),
+                approvedAt: effectiveDate,
                 approvedBy: user.uid,
+                approvedByName: performedByName,
                 approvalHistory: arrayUnion(logEntry)
             });
+            if (position.departmentId) {
+                addDepartmentHistoryEvent({
+                    firestore,
+                    companyPath,
+                    departmentId: position.departmentId,
+                    eventType: 'position_approved',
+                    positionId,
+                    positionTitle: position.title || '',
+                    performedBy: user.uid,
+                    performedByName,
+                }).catch(() => {});
+            }
             toast({ title: "Батлагдлаа" });
             setIsApproveConfirmOpen(false);
             setApprovalNote('');
@@ -395,7 +433,7 @@ export default function PositionDetailPage() {
             
             // 1. Delete ER documents (drafts only) - query by employeeId AND positionId
             const docsQuery = query(
-                collection(firestore, 'er_documents'), 
+                tCollection('er_documents'), 
                 where('employeeId', '==', assignedEmployee.id), 
                 where('positionId', '==', positionId)
             );
@@ -411,9 +449,9 @@ export default function PositionDetailPage() {
             
             // 2. Also try to delete by metadata.actionId (appointment documents)
             const appointmentDocsQuery = query(
-                collection(firestore, 'er_documents'),
+                tCollection('er_documents'),
                 where('employeeId', '==', assignedEmployee.id),
-                where('metadata.actionId', 'in', ['appointment_permanent', 'appointment_probation', 'appointment_contract', 'appointment_reappoint'])
+                where('metadata.actionId', 'in', [...ALL_APPOINTMENT_ACTION_IDS])
             );
             try {
                 const appointmentDocsSnap = await getDocs(appointmentDocsQuery);
@@ -425,16 +463,16 @@ export default function PositionDetailPage() {
                     }
                 });
             } catch (e) {
-                console.warn('Appointment docs query failed (index may be missing):', e);
+                Sentry.captureMessage('Appointment docs query failed (index may be missing):', { level: 'warning', tags: { module: 'organization' }, extra: { error: e } });
             }
             
             // 3. Delete onboarding process (if exists)
-            const onboardingRef = doc(firestore, 'onboarding_processes', assignedEmployee.id);
+            const onboardingRef = tDoc('onboarding_processes', assignedEmployee.id);
             batch.delete(onboardingRef);
             
             // 4. Delete onboarding projects (if any)
             const onboardingProjectsQuery = query(
-                collection(firestore, 'projects'),
+                tCollection('projects'),
                 where('type', '==', 'onboarding'),
                 where('onboardingEmployeeId', '==', assignedEmployee.id)
             );
@@ -444,20 +482,19 @@ export default function PositionDetailPage() {
                     batch.delete(projectDoc.ref);
                 });
             } catch (e) {
-                console.warn('Onboarding projects query failed:', e);
+                Sentry.captureMessage('Onboarding projects query failed:', { level: 'warning', tags: { module: 'organization' }, extra: { error: e } });
             }
             
             // 5. Update employee - clear position data and reset to recruitment status
-            batch.update(doc(firestore, 'employees', assignedEmployee.id), { 
-                positionId: null, 
-                jobTitle: null, 
-                departmentId: null, 
-                status: 'active_recruitment', // Back to recruitment pool
-                lifecycleStage: 'recruitment' // Reset lifecycle stage to recruitment
+            batch.update(tDoc('employees', assignedEmployee.id), { 
+                positionId: null,
+                jobTitle: null,
+                departmentId: null,
+                status: 'active_recruitment',
             });
             
             // 6. Update position filled count
-            batch.update(doc(firestore, 'positions', positionId), { filled: firestoreIncrement(-1) });
+            batch.update(tDoc('positions', positionId), { filled: firestoreIncrement(-1) });
             
             await batch.commit();
             toast({ 
@@ -468,7 +505,7 @@ export default function PositionDetailPage() {
             });
             setIsCancelAppointmentConfirmOpen(false);
         } catch (e) { 
-            console.error('Cancel appointment error:', e);
+            Sentry.captureException(e, { tags: { module: 'organization' } });
             toast({ variant: 'destructive', title: 'Алдаа' });
         }
         finally { setIsActionLoading(false); }
@@ -485,10 +522,9 @@ export default function PositionDetailPage() {
             const confirmActionId = appointmentDoc?.metadata?.actionId || '';
             const confirmStatus =
                 confirmActionId === 'appointment_probation' ? 'active_probation' :
-                confirmActionId === 'appointment_contract' ? 'active_contract' :
                 confirmActionId === 'appointment_permanent' ? 'active_permanent' :
                 'active_permanent';
-            await writeBatch(firestore).update(doc(firestore, 'employees', assignedEmployee.id), { status: confirmStatus }).commit();
+            await writeBatch(firestore).update(tDoc('employees', assignedEmployee.id), { status: confirmStatus }).commit();
             toast({ title: "Томилгоо баталгаажлаа" });
             setIsConfirmAppointmentConfirmOpen(false);
         } catch { toast({ variant: 'destructive', title: 'Алдаа' }) }
@@ -531,6 +567,8 @@ export default function PositionDetailPage() {
                                     departmentName={department?.name || ''}
                                     departmentColor={department?.color}
                                     completionPct={completionPercentage}
+                                    canApprove={!position.isApproved && validationChecklist.isComplete}
+                                    approvalHint="Батлах боломжтой"
                                     actionsVisibility="always"
                                     employee={
                                         assignedEmployee
@@ -624,7 +662,14 @@ export default function PositionDetailPage() {
                                                         <div className="space-y-0.5">
                                                             <div className="text-xs font-semibold">Батлах</div>
                                                             {!validationChecklist.isComplete ? (
-                                                                <div className="text-xs text-muted-foreground">Мэдээлэл дутуу</div>
+                                                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                                                    <div>Доорх заавал шаардлагатай:</div>
+                                                                    <ul className="pl-3 list-disc">
+                                                                        {!validationChecklist.hasBasicInfo && <li>Нэр + код</li>}
+                                                                        {!validationChecklist.hasReporting && <li>Нэгж + шууд удирдлага</li>}
+                                                                        {!validationChecklist.hasSalary && <li>Үндсэн цалин</li>}
+                                                                    </ul>
+                                                                </div>
                                                             ) : null}
                                                         </div>
                                                     </TooltipContent>
@@ -721,36 +766,20 @@ export default function PositionDetailPage() {
                                                         })()}
                                                     </>
                                                 ) : (
-                                                    <>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <button
-                                                                    type="button"
-                                                                    className="h-8 w-8 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 text-white flex items-center justify-center"
-                                                                    onClick={() => setIsTransferDialogOpen(true)}
-                                                                >
-                                                                    <ArrowRightLeft className="h-4 w-4" />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <div className="text-xs font-semibold">Шилжүүлэн томилох</div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <button
-                                                                    type="button"
-                                                                    className="h-8 w-8 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white flex items-center justify-center"
-                                                                    onClick={() => setIsReleaseDialogOpen(true)}
-                                                                >
-                                                                    <UserMinus className="h-4 w-4" />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <div className="text-xs font-semibold">Чөлөөлөх</div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
-                                                    </>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <button
+                                                                type="button"
+                                                                className="h-8 w-8 rounded-lg bg-rose-500/30 hover:bg-rose-500/40 text-white flex items-center justify-center"
+                                                                onClick={() => setIsReleaseDialogOpen(true)}
+                                                            >
+                                                                <UserMinus className="h-4 w-4" />
+                                                            </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                            <div className="text-xs font-semibold">Чөлөөлөх</div>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 )
                                             ) : (
                                                 position.isApproved && (
@@ -769,36 +798,55 @@ export default function PositionDetailPage() {
                                                                 <div className="text-xs font-semibold">Томилох</div>
                                                             </TooltipContent>
                                                         </Tooltip>
-                                                    ) : (prepProjects && prepProjects.length > 0 && prepTaskSummary?.projectId) ? (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <button
-                                                                    type="button"
-                                                                    className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
-                                                                    onClick={() => router.push(`/dashboard/projects/${prepTaskSummary.projectId}`)}
-                                                                >
-                                                                    <Briefcase className="h-4 w-4" />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <div className="text-xs font-semibold">Бэлтгэл үргэлжлүүлэх</div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
                                                     ) : (
-                                                        <Tooltip>
-                                                            <TooltipTrigger asChild>
-                                                                <button
-                                                                    type="button"
-                                                                    className="h-8 w-8 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 text-white flex items-center justify-center"
-                                                                    onClick={() => setIsPrepWizardOpen(true)}
-                                                                >
-                                                                    <Briefcase className="h-4 w-4" />
-                                                                </button>
-                                                            </TooltipTrigger>
-                                                            <TooltipContent>
-                                                                <div className="text-xs font-semibold">Ажлын байр бэлтгэх</div>
-                                                            </TooltipContent>
-                                                        </Tooltip>
+                                                        <>
+                                                            {(hasPrepProjects && prepTaskSummary?.projectId) ? (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="h-8 w-8 rounded-lg bg-white/20 hover:bg-white/30 text-white flex items-center justify-center"
+                                                                            onClick={() => router.push(`/projects/${prepTaskSummary.projectId}`)}
+                                                                        >
+                                                                            <Briefcase className="h-4 w-4" />
+                                                                        </button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <div className="text-xs font-semibold">Бэлтгэл үргэлжлүүлэх</div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            ) : (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="h-8 w-8 rounded-lg bg-indigo-500/30 hover:bg-indigo-500/40 text-white flex items-center justify-center"
+                                                                            onClick={() => setIsPrepWizardOpen(true)}
+                                                                        >
+                                                                            <Briefcase className="h-4 w-4" />
+                                                                        </button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent>
+                                                                        <div className="text-xs font-semibold">Ажлын байр бэлтгэх</div>
+                                                                    </TooltipContent>
+                                                                </Tooltip>
+                                                            )}
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="h-8 w-8 rounded-lg bg-amber-400/30 hover:bg-amber-400/40 text-white flex items-center justify-center"
+                                                                        onClick={() => setIsQuickAppointConfirmOpen(true)}
+                                                                    >
+                                                                        <Zap className="h-4 w-4" />
+                                                                    </button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <div className="text-xs font-semibold">Шуурхай томилгоо</div>
+                                                                    <div className="text-[10px] opacity-80">Бэлтгэлгүйгээр шууд томилно</div>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </>
                                                     )
                                                 )
                                             )}
@@ -853,74 +901,35 @@ export default function PositionDetailPage() {
                                     </TabsContent>
 
                                     <TabsContent value="history" className="mt-0">
-                                        <div className="space-y-6">
-                                            {actionHistory.length > 0 && (
-                                                <div className="space-y-4">
-                                                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Үйлдлийн түүх</p>
-                                                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                                                        {actionHistory.map((log, idx) => {
-                                                            const actionConfig: Record<string, { label: string; iconClass: string; bgClass: string }> = {
-                                                                appoint: { label: 'Томилсон', iconClass: 'text-emerald-600', bgClass: 'bg-emerald-100' },
-                                                                release: { label: 'Чөлөөлсөн', iconClass: 'text-rose-600', bgClass: 'bg-rose-100' },
-                                                                transfer_out: { label: 'Шилжүүлсэн', iconClass: 'text-amber-600', bgClass: 'bg-amber-100' },
-                                                                transfer_in: { label: 'Шилжиж ирсэн', iconClass: 'text-indigo-600', bgClass: 'bg-indigo-100' },
-                                                            };
-                                                            const cfg = actionConfig[log.action] || { label: log.action, iconClass: 'text-slate-600', bgClass: 'bg-slate-100' };
-                                                            return (
-                                                                <div key={`action-${idx}`} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
-                                                                    <div className={cn("h-8 w-8 rounded-full flex items-center justify-center shrink-0", cfg.bgClass)}>
-                                                                        {log.action === 'appoint' && <UserPlus className={cn("w-4 h-4", cfg.iconClass)} />}
-                                                                        {log.action === 'release' && <UserMinus className={cn("w-4 h-4", cfg.iconClass)} />}
-                                                                        {log.action === 'transfer_out' && <ArrowRightLeft className={cn("w-4 h-4", cfg.iconClass)} />}
-                                                                        {log.action === 'transfer_in' && <ArrowRightLeft className={cn("w-4 h-4", cfg.iconClass)} />}
-                                                                    </div>
-                                                                    <div className="flex-1 min-w-0">
-                                                                        <div className="flex items-center justify-between mb-1 gap-3">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <span className="font-medium text-sm">{cfg.label}</span>
-                                                                                <span className="text-xs text-muted-foreground">• {log.employeeName}</span>
-                                                                            </div>
-                                                                            <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.date), 'yyyy/MM/dd HH:mm')}</span>
-                                                                        </div>
-                                                                        {log.note && <p className="text-sm text-muted-foreground">{log.note}</p>}
-                                                                    </div>
+                                        <div className="space-y-4">
+                                            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Өөрчлөлтийн түүх</p>
+
+                                            {!history.length ? (
+                                                <div className="rounded-xl border bg-muted/30 text-center py-16 text-muted-foreground">
+                                                    <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
+                                                    <p>Түүх байхгүй</p>
+                                                </div>
+                                            ) : (
+                                                <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
+                                                    {history.map((log, idx) => (
+                                                        <div key={idx} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
+                                                            <div className={cn(
+                                                                "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
+                                                                log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
+                                                            )}>
+                                                                {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center justify-between mb-1 gap-3">
+                                                                    <span className="font-medium truncate">{log.userName}</span>
+                                                                    <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
                                                                 </div>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                                <p className="text-sm text-muted-foreground">{log.note}</p>
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
-
-                                            <div className="space-y-4">
-                                                <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-tight">Батлах/Цуцлах түүх</p>
-
-                                                {!history.length ? (
-                                                    <div className="rounded-xl border bg-muted/30 text-center py-16 text-muted-foreground">
-                                                        <HistoryIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                                                        <p>Түүх байхгүй</p>
-                                                    </div>
-                                                ) : (
-                                                    <div className="rounded-xl border bg-muted/30 p-4 space-y-3">
-                                                        {history.map((log, idx) => (
-                                                            <div key={idx} className="flex items-start gap-4 p-4 bg-background/80 rounded-lg border">
-                                                                <div className={cn(
-                                                                    "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                                                                    log.action === 'approve' ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                                                                )}>
-                                                                    {log.action === 'approve' ? <CheckCircle2 className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                                                                </div>
-                                                                <div className="flex-1 min-w-0">
-                                                                    <div className="flex items-center justify-between mb-1 gap-3">
-                                                                        <span className="font-medium truncate">{log.userName}</span>
-                                                                        <span className="text-xs text-muted-foreground shrink-0">{format(new Date(log.timestamp), 'yyyy/MM/dd HH:mm')}</span>
-                                                                    </div>
-                                                                    <p className="text-sm text-muted-foreground">{log.note}</p>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
                                         </div>
                                     </TabsContent>
                                 </div>
@@ -1047,7 +1056,7 @@ export default function PositionDetailPage() {
                         <div className="py-4 space-y-3">
                             <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                                 <span className="text-sm text-muted-foreground">Баримт</span>
-                                <span className="font-medium">{appointmentDoc.metadata?.templateName || '-'}</span>
+                                <span className="font-medium">{(typeof appointmentDoc.metadata?.templateName === 'string' ? appointmentDoc.metadata.templateName : '') || '-'}</span>
                             </div>
                             <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                                 <span className="text-sm text-muted-foreground">Төлөв</span>
@@ -1055,7 +1064,7 @@ export default function PositionDetailPage() {
                             </div>
                             <div className="flex justify-between items-center p-3 bg-muted/50 rounded-lg">
                                 <span className="text-sm text-muted-foreground">Үүсгэсэн</span>
-                                <span className="text-sm">{format(appointmentDoc.createdAt.toDate(), 'yyyy/MM/dd')}</span>
+                                <span className="text-sm">{appointmentDoc.createdAt ? format(appointmentDoc.createdAt.toDate(), 'yyyy/MM/dd') : '-'}</span>
                             </div>
                         </div>
                     ) : (
@@ -1072,15 +1081,39 @@ export default function PositionDetailPage() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            <AppointEmployeeDialog open={isAppointDialogOpen} onOpenChange={setIsAppointDialogOpen} position={position} />
+            <AppointEmployeeDialog open={isAppointDialogOpen} onOpenChange={setIsAppointDialogOpen} position={position} appointmentPath="prepared" />
+            <AppointEmployeeDialog open={isQuickAppointDialogOpen} onOpenChange={setIsQuickAppointDialogOpen} position={position} appointmentPath="quick" />
             <ReleaseEmployeeDialog open={isReleaseDialogOpen} onOpenChange={setIsReleaseDialogOpen} employee={assignedEmployee} position={position} />
-            <TransferEmployeeDialog open={isTransferDialogOpen} onOpenChange={setIsTransferDialogOpen} employee={assignedEmployee} position={position} />
             <StartPositionPreparationWizardDialog
                 open={isPrepWizardOpen}
                 onOpenChange={setIsPrepWizardOpen}
                 positionId={positionId}
                 positionTitle={position.title}
             />
+            <AlertDialog open={isQuickAppointConfirmOpen} onOpenChange={setIsQuickAppointConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Шуурхай томилгоо хийх үү?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Ажлын байрны бэлтгэлийг алгасаж томилгоо хийх гэж байна.
+                            Ажлын орчин, эрх нэвтрэлт, баримт бичиг зэрэг бэлтгэлийн таскууд дутуу
+                            байж болно — дараа нь гараар нөхөх шаардлагатай.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Болих</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="bg-amber-500 hover:bg-amber-600"
+                            onClick={() => {
+                                setIsQuickAppointConfirmOpen(false);
+                                setIsQuickAppointDialogOpen(true);
+                            }}
+                        >
+                            Үргэлжлүүлэх
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

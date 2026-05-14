@@ -29,6 +29,7 @@ export const ALL_DYNAMIC_FIELDS: FieldDefinition[] = [
     { key: '{{employee.lastName}}', label: 'Овог', group: 'Employee', example: 'Батболд', path: 'employee.lastName' },
     { key: '{{employee.firstName}}', label: 'Нэр', group: 'Employee', example: 'Болд', path: 'employee.firstName' },
     { key: '{{employee.fullName}}', label: 'Бүтэн нэр', group: 'Employee', example: 'Батболд Болд', path: 'employee.fullName' }, // Virtual field
+    { key: '{{employee.shortName}}', label: 'Овгийн эхний үсэг. Нэр', group: 'Employee', example: 'Б. Болд', path: 'employee.shortName' }, // Virtual field
     { key: '{{employee.email}}', label: 'Имэйл', group: 'Employee', example: 'bold@example.mn', path: 'employee.email' },
     { key: '{{employee.phone}}', label: 'Утас', group: 'Employee', example: '99112233', path: 'employee.phoneNumber' },
     { key: '{{employee.code}}', label: 'Ажилтны код', group: 'Employee', example: 'EMP001', path: 'employee.employeeCode' },
@@ -37,6 +38,11 @@ export const ALL_DYNAMIC_FIELDS: FieldDefinition[] = [
     { key: '{{employee.registerNo}}', label: 'Регистрийн дугаар', group: 'Employee', example: 'УБ00112233', path: 'questionnaire.registrationNumber' },
     { key: '{{employee.address}}', label: 'Гэрийн хаяг', group: 'Employee', example: 'СБД, 1-р хороо', path: 'questionnaire.homeAddress' },
     { key: '{{employee.birthDate}}', label: 'Төрсөн огноо', group: 'Employee', example: '1990-05-15', path: 'questionnaire.birthDate' },
+
+    // Цалин / нэмэгдэл / хангамж — appointedCompensation-оос ирнэ
+    { key: '{{employee.salary}}', label: 'Цалин (батлагдсан)', group: 'Employee', example: '1,500,000 ₮', path: 'employee.appointedCompensation.salary' },
+    { key: '{{employee.incentives}}', label: 'Нэмэгдэл жагсаалт', group: 'Employee', example: '• Ахлах нэмэгдэл: 200,000₮ (Сар бүр)', path: 'employee.appointedCompensation.incentives' },
+    { key: '{{employee.allowances}}', label: 'Хангамж жагсаалт', group: 'Employee', example: '• Хоол: 150,000₮/Сар бүр', path: 'employee.appointedCompensation.allowances' },
 
     // --- АЖЛЫН БАЙР ---
     // Үндсэн мэдээлэл
@@ -50,13 +56,12 @@ export const ALL_DYNAMIC_FIELDS: FieldDefinition[] = [
     { key: '{{position.reportsToName}}', label: 'Шууд удирдлага', group: 'Position', example: 'Технологийн захирал', path: 'position.reportsToName' },
     
     // Цалин урамшуулал
-    { key: '{{position.salary.min}}', label: 'Цалингийн доод хэмжээ', group: 'Position', example: '2,000,000', path: 'position.salaryRange.min' },
-    { key: '{{position.salary.max}}', label: 'Цалингийн дээд хэмжээ', group: 'Position', example: '3,000,000', path: 'position.salaryRange.max' },
-    { key: '{{position.salary.mid}}', label: 'Цалингийн дундаж', group: 'Position', example: '2,500,000', path: 'position.salaryRange.mid' },
     { key: '{{position.salary.currency}}', label: 'Валют', group: 'Position', example: 'MNT', path: 'position.salaryRange.currency' },
     { key: '{{position.salary.period}}', label: 'Цалингийн давтамж', group: 'Position', example: 'Сар бүр', path: 'position.salaryRange.period' },
     { key: '{{position.salaryStepName}}', label: 'Цалингийн шатлал', group: 'Position', example: 'Шат 2', path: 'position.salaryStepName' },
     { key: '{{position.salaryStepValue}}', label: 'Цалингийн шатлалын дүн', group: 'Position', example: '2,200,000', path: 'position.salaryStepValue' },
+    { key: '{{position.salaryStepValueWords}}', label: 'Цалингийн дүн (үгээр)', group: 'Position', example: 'хоёр сая хоёр зуун мянга', path: 'position.salaryStepValueWords' },
+    { key: '{{position.salaryStepValueWithWords}}', label: 'Цалингийн дүн тоо + үгээр', group: 'Position', example: '2,200,000 (хоёр сая хоёр зуун мянга)', path: 'position.salaryStepValueWithWords' },
     
     // Туршлага шаардлага
     { key: '{{position.experience.totalYears}}', label: 'Шаардлагатай туршлага (жил)', group: 'Position', example: '3', path: 'position.experience.totalYears' },
@@ -65,6 +70,8 @@ export const ALL_DYNAMIC_FIELDS: FieldDefinition[] = [
     
     // Төсөв
     { key: '{{position.budget.yearlyBudget}}', label: 'Жилийн төсөв', group: 'Position', example: '50,000,000', path: 'position.budget.yearlyBudget' },
+    { key: '{{position.budget.yearlyBudgetWords}}', label: 'Жилийн төсөв (үгээр)', group: 'Position', example: 'тавин сая', path: 'position.budget.yearlyBudgetWords' },
+    { key: '{{position.budget.yearlyBudgetWithWords}}', label: 'Жилийн төсөв тоо + үгээр', group: 'Position', example: '50,000,000 (тавин сая)', path: 'position.budget.yearlyBudgetWithWords' },
     { key: '{{position.budget.currency}}', label: 'Төсвийн валют', group: 'Position', example: 'MNT', path: 'position.budget.currency' },
     
     // Тэтгэмж нөхцөл

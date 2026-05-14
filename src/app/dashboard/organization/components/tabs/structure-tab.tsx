@@ -1,18 +1,9 @@
 
 'use client';
 
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-    Card,
-    CardContent,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
+import React, { useState, useMemo, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { AddActionButton } from '@/components/ui/add-action-button';
-import { ActionIconButton } from '@/components/ui/action-icon-button';
-import { MoreHorizontal, Settings, Pencil, Trash2, History, Printer, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -27,6 +18,8 @@ import {
     updateDocumentNonBlocking,
     deleteDocumentNonBlocking,
     useDoc,
+    tenantDoc,
+    useTenantWrite,
 } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -37,11 +30,20 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { OrgChartFlowCanvas } from '../flow/org-chart-flow-canvas';
+import dynamic from 'next/dynamic';
+const OrgChartFlowCanvas = dynamic(
+    () => import('../flow/org-chart-flow-canvas').then(m => ({ default: m.OrgChartFlowCanvas })),
+    { ssr: false }
+);
 import { Department, DepartmentType, Position, CompanyProfile } from '../../types';
 import { OrganizationFilters } from '@/hooks/use-organization-filters';
 import { Building2 } from 'lucide-react';
 import { EmptyState } from '@/components/organization/empty-state';
+import * as Sentry from '@sentry/nextjs';
+
+export interface StructureTabHandle {
+    triggerPrint: () => void;
+}
 
 interface StructureTabProps {
     departments: Department[] | null;
@@ -51,26 +53,26 @@ interface StructureTabProps {
     onAddDepartment: () => void;
     onClearFilters: () => void;
     onDepartmentClick: (deptId: string) => void;
+    onPrintingChange?: (isPrinting: boolean) => void;
 }
 
-export const StructureTab = ({ departments, departmentTypes, positions, filters, onAddDepartment, onClearFilters, onDepartmentClick }: StructureTabProps) => {
+export const StructureTab = forwardRef<StructureTabHandle, StructureTabProps>(({ departments, departmentTypes, positions, filters, onAddDepartment, onClearFilters, onDepartmentClick, onPrintingChange }, ref) => {
     const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
     const [isEditDeptOpen, setIsEditDeptOpen] = useState(false);
-    const [isPrinting, setIsPrinting] = useState(false);
     const chartRef = useRef<HTMLDivElement>(null);
-    const router = useRouter();
 
     const { firestore } = useFirebase();
+    const { tDoc } = useTenantWrite();
 
     const onDepartmentUpdate = async (id: string, data: Partial<Department>) => {
         if (!firestore) return;
         try {
-            await updateDocumentNonBlocking(doc(firestore, 'departments', id), data);
+            await updateDocumentNonBlocking(tDoc('departments', id), data);
         } catch (error) {
-            console.error("Error updating department:", error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
         }
     }
-    const companyProfileQuery = useMemoFirebase(() => (firestore ? doc(firestore, 'company', 'profile') : null), [firestore]);
+    const companyProfileQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'profile') : null), [firestore]);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileQuery as any);
 
     // Apply filters
@@ -155,24 +157,24 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
 
     const handleDeleteDepartment = (deptId: string) => {
         if (!firestore) return;
-        const docRef = doc(firestore, 'departments', deptId);
+        const docRef = tDoc('departments', deptId);
         deleteDocumentNonBlocking(docRef);
     }
 
     const handlePrint = useCallback(() => {
-        setIsPrinting(true);
-        
+        onPrintingChange?.(true);
+
         // Get the chart container
         const chartContainer = chartRef.current;
         if (!chartContainer) {
-            setIsPrinting(false);
+            onPrintingChange?.(false);
             return;
         }
 
         // Find the ReactFlow viewport
         const viewport = chartContainer.querySelector('.react-flow__viewport') as HTMLElement;
         if (!viewport) {
-            setIsPrinting(false);
+            onPrintingChange?.(false);
             return;
         }
 
@@ -202,7 +204,7 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
         const frameDoc = printFrame.contentDocument || printFrame.contentWindow?.document;
         if (!frameDoc) {
             document.body.removeChild(printFrame);
-            setIsPrinting(false);
+            onPrintingChange?.(false);
             return;
         }
 
@@ -292,10 +294,12 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
             // Clean up after printing
             setTimeout(() => {
                 document.body.removeChild(printFrame);
-                setIsPrinting(false);
+                onPrintingChange?.(false);
             }, 1000);
         }, 300);
-    }, [companyProfile, deptsWithData]);
+    }, [companyProfile, deptsWithData, onPrintingChange]);
+
+    useImperativeHandle(ref, () => ({ triggerPrint: handlePrint }), [handlePrint]);
 
     return (
         <div className="space-y-6">
@@ -309,93 +313,48 @@ export const StructureTab = ({ departments, departmentTypes, positions, filters,
             />
 
             {/* Visual Chart */}
-            <Card className="shadow-sm">
-                <CardHeader className="pb-4 border-b">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle>{companyProfile?.legalName || 'Байгууллагын бүтэц'}</CardTitle>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={handlePrint}
-                                disabled={isPrinting || orgTree.length === 0}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                                title="Хэвлэх"
-                            >
-                                {isPrinting ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Printer className="h-4 w-4" />
-                                )}
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => router.push('/dashboard/organization/history')}
-                                className="text-muted-foreground hover:text-primary transition-colors"
-                                title="Түүх"
-                            >
-                                <History className="h-4 w-4" />
-                            </Button>
-                            <ActionIconButton
-                                label="Тохиргоо"
-                                description="Бүтцийн тохиргоо"
-                                href="/dashboard/organization/settings"
-                                icon={<Settings className="h-4 w-4" />}
-                                variant="outline"
-                                className="text-muted-foreground hover:text-primary transition-colors bg-white"
-                            />
-                            <AddActionButton
-                                label="Нэгж нэмэх"
-                                description="Шинэ алба нэгж үүсгэх"
-                                onClick={onAddDepartment}
-                            />
+            <div className="bg-muted/5 relative rounded-xl">
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center min-h-[400px]" aria-live="polite">
+                        <div className="flex flex-col items-center justify-center">
+                            <Skeleton className="h-24 w-56" />
+                            <div className="w-px h-8 mt-1 bg-border" />
+                            <div className="flex gap-8 mt-8">
+                                <Skeleton className="h-24 w-56" />
+                                <Skeleton className="h-24 w-56" />
+                            </div>
                         </div>
                     </div>
-                </CardHeader>
-                <CardContent className="p-0 md:p-0 bg-muted/5 relative">
-                    {isLoading && (
-                        <div className="flex flex-col items-center justify-center min-h-[400px]">
-                            <div className="flex flex-col items-center justify-center">
-                                <Skeleton className="h-24 w-56" />
-                                <div className="w-px h-8 mt-1 bg-border" />
-                                <div className="flex gap-8 mt-8">
-                                    <Skeleton className="h-24 w-56" />
-                                    <Skeleton className="h-24 w-56" />
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    {!isLoading && orgTree.length > 0 ? (
-                        <div ref={chartRef}>
-                            <OrgChartFlowCanvas
-                                data={orgTree}
-                                onDepartmentClick={onDepartmentClick}
-                                onDepartmentUpdate={onDepartmentUpdate}
+                )}
+                {!isLoading && orgTree.length > 0 ? (
+                    <div ref={chartRef}>
+                        <OrgChartFlowCanvas
+                            data={orgTree}
+                            onDepartmentClick={onDepartmentClick}
+                            onDepartmentUpdate={onDepartmentUpdate}
+                        />
+                    </div>
+                ) : (
+                    !isLoading && (
+                        <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
+                            <EmptyState
+                                icon={Building2}
+                                title="Байгууллагын бүтэц үүсээгүй байна"
+                                description="Эхлэхийн тулд эхний нэгжээ үүсгээрэй. Компанийн үндсэн хэлтсээс эхэлнэ."
+                                action={{
+                                    label: "Анхны нэгжийг нэмэх",
+                                    onClick: onAddDepartment
+                                }}
+                                tip="Компанийн үндсэн хэлтсээс эхлээд дэд хэлтсүүдийг нэмнэ үү."
                             />
                         </div>
-                    ) : (
-                        !isLoading && (
-                            <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
-                                <EmptyState
-                                    icon={Building2}
-                                    title="Байгууллагын бүтэц үүсээгүй байна"
-                                    description="Эхлэхийн тулд эхний нэгжээ үүсгээрэй. Компанийн үндсэн хэлтсээс эхэлнэ."
-                                    action={{
-                                        label: "Анхны нэгжийг нэмэх",
-                                        onClick: onAddDepartment
-                                    }}
-                                    tip="Компанийн үндсэн хэлтсээс эхлээд дэд хэлтсүүдийг нэмнэ үү."
-                                />
-                            </div>
-                        )
-                    )}
-                </CardContent>
-            </Card>
+                    )
+                )}
+            </div>
 
 
         </div>
     );
-};
+});
+
+StructureTab.displayName = 'StructureTab';

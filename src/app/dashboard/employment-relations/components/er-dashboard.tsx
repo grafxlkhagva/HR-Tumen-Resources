@@ -3,7 +3,6 @@
 import * as React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AddActionButton } from '@/components/ui/add-action-button';
 import { FileCode, FileText, Clock } from 'lucide-react';
 import {
   PieChart,
@@ -71,6 +70,7 @@ export function ERDashboard({
       return {
         total: 0,
         pendingCount: 0,
+        rejectedCount: 0,
         statusData: [] as { name: string; value: number; color: string }[],
       };
     }
@@ -80,6 +80,7 @@ export function ERDashboard({
     // Pending: DRAFT, IN_REVIEW, REVIEWED, SENT_TO_EMPLOYEE
     const pendingStatuses = ['DRAFT', 'IN_REVIEW', 'REVIEWED', 'SENT_TO_EMPLOYEE'];
     const pendingCount = documents.filter((d) => pendingStatuses.includes(d.status)).length;
+    const rejectedCount = documents.filter((d) => d.status === 'REJECTED').length;
 
     // Status distribution
     const statusCounts: Record<string, number> = {};
@@ -103,6 +104,7 @@ export function ERDashboard({
     return {
       total,
       pendingCount,
+      rejectedCount,
       statusData,
     };
   }, [documents]);
@@ -135,17 +137,10 @@ export function ERDashboard({
       <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full blur-3xl bg-gradient-to-br from-blue-500/10 to-indigo-500/10" />
       <CardContent className="p-5 sm:p-6 relative z-10">
         {/* ── Header ───────────────────────────────────────────────── */}
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-              Dashboard | хөдөлмөрийн харилцаа
-            </h3>
-          </div>
-          <AddActionButton
-            label="Шинэ документ"
-            description="Шинэ процесс/баримт үүсгэх"
-            href="/dashboard/employment-relations/create"
-          />
+        <div className="mb-5">
+          <h3 className="text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+            Dashboard | хөдөлмөрийн харилцаа
+          </h3>
         </div>
 
         {/* ── Main grid: Status donut | Summary stats ──── */}
@@ -228,8 +223,18 @@ export function ERDashboard({
                     Хүлээгдэж буй
                   </p>
                 </div>
-                <div className="text-2xl font-extrabold text-amber-400 leading-none">{metrics.pendingCount}</div>
-                <p className="text-[10px] text-slate-500 mt-0.5">баримт</p>
+                <div className="flex items-end gap-3">
+                  <div>
+                    <div className="text-2xl font-extrabold text-amber-400 leading-none">{metrics.pendingCount}</div>
+                    <p className="text-[10px] text-slate-500 mt-0.5">баримт</p>
+                  </div>
+                  {metrics.rejectedCount > 0 && (
+                    <div className="mb-0.5">
+                      <div className="text-lg font-bold text-rose-400 leading-none">{metrics.rejectedCount}</div>
+                      <p className="text-[10px] text-rose-500/70 mt-0.5">татгалзсан</p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Document types */}

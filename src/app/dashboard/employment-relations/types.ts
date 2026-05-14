@@ -1,3 +1,12 @@
+import type { Timestamp } from 'firebase/firestore';
+import type { ComponentType, SVGProps } from 'react';
+
+/**
+ * Firestore-оос уншсан timestamp. Бичих үеийн `serverTimestamp()` (FieldValue)
+ * нь setDoc/updateDoc API-аар орох тул read-side type зөвхөн `Timestamp` байна.
+ */
+export type FirestoreTimestamp = Timestamp;
+
 export type DocumentStatus =
     | 'DRAFT'
     | 'IN_REVIEW'
@@ -7,8 +16,9 @@ export type DocumentStatus =
     | 'SENT_TO_EMPLOYEE'
     | 'ACKNOWLEDGED'
     | 'REJECTED'
-    | 'ARCHIVED';
-export type ActionType = 'REVIEW' | 'APPROVE' | 'SIGN' | 'ARCHIVE' | 'CREATE' | 'UPDATE' | 'REJECT';
+    | 'ARCHIVED'
+    | 'HISTORICAL';
+export type ActionType = 'REVIEW' | 'APPROVE' | 'SIGN' | 'ARCHIVE' | 'CREATE' | 'UPDATE' | 'REJECT' | 'INSTANT_APPLY';
 export type ApproverRole = 'MANAGER' | 'HR_MANAGER' | 'DIRECTOR' | 'EMPLOYEE' | 'SPECIFIC_USER' | 'POSITION';
 
 export interface PrintSettings {
@@ -27,8 +37,6 @@ export interface PrintSettings {
     showLogo?: boolean;
     companyName?: string;
     documentTitle?: string;
-    /** Толгойнд ашиглах байгууллага: '__main__' = үндсэн, '0','1',... = охин компанийн индекс */
-    headerCompanyKey?: string;
 }
 
 export interface DocumentHeader {
@@ -41,19 +49,11 @@ export interface DocumentHeader {
     // Байрлал: Огноо зүүн талд, гарчиг голд, дугаар баруун талд
 }
 
-// Гарын үсгийн блокын тохиргоо - баримтын доод хэсэгт байрлах
-export interface DocumentSignature {
-    position?: string;           // Албан тушаал (жнь: "Гүйцэтгэх захирал")
-    name?: string;               // Гарын үсэг зурагчийн нэр (жнь: "Б.БАТ")
-    signatureImageUrl?: string;  // Гарын үсгийн зураг (заавал биш)
-    showStamp?: boolean;         // "(Тамга)" үг харуулах эсэх
-    alignment?: 'left' | 'center' | 'right';  // Байрлал
-}
-
 // Дугаарлалтын тохиргоо - Unique, Human-readable, Auto-generated, Immutable, Traceable
 export interface NumberingConfig {
     includePrefix?: boolean;      // Үсгэн код оруулах (жнь: ГЭР)
     includeYear?: boolean;        // Он оруулах (жнь: 2026)
+    shortYear?: boolean;          // Оныг 2 оронтой болгох (жнь: 26)
     includeMonth?: boolean;       // Сар оруулах (жнь: 01)
     includeDay?: boolean;         // Өдөр оруулах (жнь: 15)
     separator?: string;           // Тусгаарлагч тэмдэгт (жнь: "-", "/", ".")
@@ -74,10 +74,9 @@ export interface ERDocumentType {
     lastNumberMonth?: number; // Сүүлд дугаар олгосон сар
     lastNumberDay?: number;   // Сүүлд дугаар олгосон өдөр
     header?: DocumentHeader;  // Толгойн тохиргоо
-    signature?: DocumentSignature;  // Гарын үсгийн тохиргоо
     numberingConfig?: NumberingConfig;  // Дугаарлалтын тохиргоо
-    createdAt?: any;
-    updatedAt?: any;
+    createdAt?: FirestoreTimestamp;
+    updatedAt?: FirestoreTimestamp;
 }
 
 export interface ERTemplate {
@@ -92,7 +91,6 @@ export interface ERTemplate {
     /** Системийн загвар (устгаж, нэрийг өөрчилж болохгүй, агуулгыг засаж болно) */
     isSystem?: boolean;
     includeHeader?: boolean;     // Толгой хэсэг оруулах эсэх
-    includeSignature?: boolean;  // Гарын үсгийн блок оруулах эсэх
     printSettings?: PrintSettings;
     customInputs?: {
         key: string;
@@ -102,8 +100,17 @@ export interface ERTemplate {
         type: 'text' | 'number' | 'date' | 'boolean';
         order: number;
     }[];
-    createdAt?: any;
-    updatedAt?: any;
+    /**
+     * Нэмэлт template metadata — лайфсайкл action-тай холбоо барих зэрэг.
+     * `metadata.actionId` нь create flow-д appointment-ын системийн талбаруудыг
+     * (цалин, урамшуулал, онбординг) идэвхжүүлнэ.
+     */
+    metadata?: {
+        actionId?: string;
+        [key: string]: unknown;
+    };
+    createdAt?: FirestoreTimestamp;
+    updatedAt?: FirestoreTimestamp;
 }
 
 export interface ERWorkflowStep {
@@ -123,14 +130,43 @@ export interface ERWorkflow {
     steps: ERWorkflowStep[];
     description?: string;
     isActive: boolean;
-    createdAt?: any;
-    updatedAt?: any;
+    createdAt?: FirestoreTimestamp;
+    updatedAt?: FirestoreTimestamp;
+}
+
+export interface AppointmentIncentive {
+    type: string;
+    description?: string;
+    amount: number;
+    currency?: string;
+    unit?: string;
+    frequency?: string;
+}
+
+export interface AppointmentAllowance {
+    type: string;
+    amount: number;
+    currency?: string;
+    period?: string;
+}
+
+export interface AppointmentDetails {
+    actionId: string;
+    salaryStepIndex?: number | null;
+    salaryStepName?: string;
+    salaryStepValue?: number;
+    selectedIncentives?: AppointmentIncentive[];
+    selectedAllowances?: AppointmentAllowance[];
+    enableOnboarding?: boolean;
 }
 
 export interface ERDocument {
     id: string;
     documentNumber?: string;  // Автомат дугаар (жнь: "ГЭР-2026-0001")
     documentTypeId: string;
+    // Түүхэн бичлэг
+    isHistorical?: boolean;
+    historicalNote?: string;
     templateId: string;
     employeeId: string;
     positionId?: string;
@@ -139,13 +175,26 @@ export interface ERDocument {
     status: DocumentStatus;
     content: string;
     version: number;
-    metadata: Record<string, any>;
+    metadata: Record<string, unknown>;
     history: ERDocumentHistory[];
     attachments?: ERAttachment[];
     printSettings?: PrintSettings;
-    customInputs?: Record<string, any>;
-    createdAt?: any;
-    updatedAt?: any;
+    customInputs?: Record<string, unknown>;
+    /**
+     * Per-document placeholder overrides. Key format: `{{field.path}}` (matches
+     * getReplacementMap keys). Lets the reviewer change resolved values for
+     * THIS document only, without mutating source employee/position records.
+     */
+    fieldOverrides?: Record<string, string>;
+    /**
+     * Appointment action-д зориулсан системийн утгуудын structured snapshot.
+     * Зөвхөн appointment_* action бүхий баримтад үүснэ. Жинхэнэ employee
+     * record өөрчлөхгүй — зөвхөн баримт руугаа хадгалагдана. content-д
+     * rendered утга хадгалагдах бөгөөд энэ нь structured readback-д зориулна.
+     */
+    appointmentDetails?: AppointmentDetails;
+    createdAt?: FirestoreTimestamp;
+    updatedAt?: FirestoreTimestamp;
 
     // Workflow Data
     reviewers?: string[]; // List of User IDs who need to review
@@ -155,7 +204,7 @@ export interface ERDocument {
         status: 'PENDING' | 'APPROVED' | 'REJECTED';
         comment?: string;
         actorId?: string;
-        updatedAt: any;
+        updatedAt: FirestoreTimestamp;
     }>;
     rejectionReason?: string;
     approverId?: string; // The final approver who uploads signed doc
@@ -163,21 +212,67 @@ export interface ERDocument {
 
     // Employee acknowledgement (optional per document)
     employeeAckRequired?: boolean;
-    employeeAckSentAt?: any; // Timestamp
+    employeeAckSentAt?: FirestoreTimestamp;
     employeeAckSentBy?: string; // uid
-    employeeAckAt?: any; // Timestamp
+    employeeAckAt?: FirestoreTimestamp;
     employeeAckBy?: string; // uid (should match employeeId)
     employeeAckComment?: string;
 
     // New: Real-time Activity Feed
     activity?: ProcessActivity[];
+
+    /**
+     * Release/Appointment flow rollback snapshot.
+     *
+     * ER doc үүсгэхэд ажилтны өмнөх төлвийг бүртгэнэ. Хэрэв процесс цуцлагдсан
+     * (REJECTED) эсвэл doc устгагдсан бол энэ snapshot-аас employee-ийн төлвийг
+     * буцаан сэргээнэ.
+     *
+     * - release_* doc-д: status, positionId, jobTitle, departmentId, loginDisabled
+     * - appointment_* doc-д: мөн lifecycleStage, appointedCompensation,
+     *   positionFilledBefore (concurrent write race detection-д)
+     *
+     * Phase 5.1 (audit P5-A) — schema-г өргөтгөв:
+     *   • positionFilledBefore — appointment dialog+1 хийхийн өмнөх filled тоо
+     *   • snapshotAt            — diagnostics / forensics
+     *   • appointedCompensation — `unknown` → typed `AppointedCompensation | null`
+     *
+     * Хуучин баримтууд эдгээр талбаргүй байна — бүх rollback код optional
+     * хэлбэрээр уншдаг тул backward compatible.
+     */
+    previousState?: {
+        status?: string | null;
+        positionId?: string | null;
+        jobTitle?: string | null;
+        departmentId?: string | null;
+        loginDisabled?: boolean;
+        lifecycleStage?: string | null;
+        appointedCompensation?: AppointedCompensation | null;
+        /** Appointment transaction `+1` хийхийн өмнөх positions.filled value. */
+        positionFilledBefore?: number | null;
+        /** Snapshot хэзээ авсныг forensics-д ашиглана. */
+        snapshotAt?: FirestoreTimestamp;
+    };
+}
+
+/**
+ * Ажилтны томилгооны үед бүртгэгдэх цалин + нэмэгдлийн тохиргоо.
+ * `Employee.appointedCompensation`-д болон ER doc-ийн `previousState`-д
+ * ижил хэлбэрээр хадгалагдана.
+ */
+export interface AppointedCompensation {
+    salaryStepIndex?: number | null;
+    salary?: number;
+    salaryStepName?: string;
+    incentiveIndices?: number[];
+    allowanceIndices?: number[];
 }
 
 export interface ERDocumentHistory {
     stepId: string;
     action: ActionType;
     actorId: string;
-    timestamp: any;
+    timestamp: FirestoreTimestamp;
     comment?: string;
 }
 
@@ -187,7 +282,7 @@ export interface ProcessActivity {
     actorId: string;
     content?: string;
     recipientId?: string; // If replying to someone
-    createdAt: any;
+    createdAt: FirestoreTimestamp;
 }
 
 export interface ERAttachment {
@@ -197,7 +292,7 @@ export interface ERAttachment {
     type: string;
     size: number;
     uploadedBy: string;
-    uploadedAt: any;
+    uploadedAt: FirestoreTimestamp;
 }
 
 export interface ERAuditLog {
@@ -205,16 +300,16 @@ export interface ERAuditLog {
     documentId: string;
     userId: string;
     action: string; // Detailed action description
-    timestamp: any;
+    timestamp: FirestoreTimestamp;
     details?: string;
-    metadata?: Record<string, any>;
+    metadata?: Record<string, unknown>;
 }
 
 // Utility type for status configuration
 export interface StatusConfig {
     label: string;
     color: string;
-    icon?: any;
+    icon?: ComponentType<SVGProps<SVGSVGElement>>;
 }
 
 export const DOCUMENT_STATUSES: Record<DocumentStatus, StatusConfig> = {
@@ -227,4 +322,5 @@ export const DOCUMENT_STATUSES: Record<DocumentStatus, StatusConfig> = {
     ACKNOWLEDGED: { label: 'Танилцсан', color: 'bg-teal-100 text-teal-800' },
     REJECTED: { label: 'Татгалзсан', color: 'bg-red-100 text-red-700' },
     ARCHIVED: { label: 'Архивлагдсан', color: 'bg-gray-100 text-gray-700' },
+    HISTORICAL: { label: 'Архив', color: 'bg-slate-100 text-slate-500 border border-slate-200' },
 };

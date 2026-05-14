@@ -17,9 +17,20 @@ import {
     useFirebase,
     useMemoFirebase,
     useCollection,
+    useTenantWrite,
 } from '@/firebase';
-import { doc, increment, writeBatch, collection, getDocs, addDoc } from 'firebase/firestore';
-import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save, Sparkles } from 'lucide-react';
+import { doc, collection, getDocs, addDoc, runTransaction, Timestamp } from 'firebase/firestore';
+import {
+    checkAppointmentEligibility,
+    getAppointmentDocumentUrl,
+    readAndGuardAppointmentInTransaction,
+    applyAppointmentPositionWrites,
+} from '@/lib/services/employee-appointment-service';
+import { getReleaseDocumentUrl } from '@/lib/services/employee-release-service';
+import { logAudit } from '@/lib/client/audit-client';
+import { Loader2, UserPlus, UserRoundCheck, Calendar as CalendarIcon, X, Save, Sparkles, AlertTriangle, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import type { EmployeeStatus } from '@/types';
 import type { Employee } from '../employees/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
@@ -59,6 +70,7 @@ import { Switch } from '@/components/ui/switch';
 
 import { Position as JobPosition } from './types';
 import { isActiveStatus } from '@/types';
+import * as Sentry from '@sentry/nextjs';
 
 const assignmentSchema = z.object({
     assignmentDate: z.date({ required_error: 'Томилох огноог сонгоно уу.' }),
@@ -92,9 +104,22 @@ export function AssignEmployeeDialog({
     onAssignmentComplete,
 }: AssignEmployeeDialogProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [step, setStep] = React.useState(1);
     const [localSelectedEmployee, setLocalSelectedEmployee] = React.useState<Employee | null>(null);
+
+    // Cross-workflow eligibility guard — Layer C2.
+    const [eligibility, setEligibility] = React.useState<
+        | null
+        | { allowed: true }
+        | {
+              allowed: false;
+              reason: string;
+              activeAppointmentDocId?: string;
+              activeReleaseDocId?: string;
+          }
+    >(null);
 
     const form = useForm<AssignmentFormValues>({
         resolver: zodResolver(assignmentSchema),
@@ -126,8 +151,48 @@ export function AssignEmployeeDialog({
                 assignmentType: 'direct',
                 trialEndDate: undefined,
             });
+        } else {
+            setEligibility(null);
         }
     }, [open, selectedEmployee, form]);
+
+    // Cross-workflow eligibility шалгалт — Layer C2.
+    // localSelectedEmployee солигдох болгонд checkAppointmentEligibility-г дуудаж
+    // дуусаагүй release/appointment doc-уудыг илрүүлнэ.
+    React.useEffect(() => {
+        if (!open || !firestore || !companyPath || !localSelectedEmployee?.id) {
+            setEligibility(null);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            try {
+                const result = await checkAppointmentEligibility({
+                    firestore,
+                    companyPath,
+                    employeeId: localSelectedEmployee.id,
+                    employeeStatus: localSelectedEmployee.status as EmployeeStatus,
+                });
+                if (cancelled) return;
+                if (result.allowed) {
+                    setEligibility({ allowed: true });
+                } else {
+                    setEligibility({
+                        allowed: false,
+                        reason: result.reason,
+                        activeAppointmentDocId: result.activeAppointmentDoc?.id,
+                        activeReleaseDocId: result.activeReleaseDoc?.id,
+                    });
+                }
+            } catch (e) {
+                Sentry.captureException(e, { tags: { module: 'organization' } });
+                if (!cancelled) setEligibility({ allowed: true });
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [open, firestore, companyPath, localSelectedEmployee?.id, localSelectedEmployee?.status]);
 
     const assignableEmployees = React.useMemo(() => {
         return employees.filter(emp => isActiveStatus(emp.status) && !emp.positionId);
@@ -136,53 +201,91 @@ export function AssignEmployeeDialog({
 
     const handleFinalAssignment = async (values: AssignmentFormValues) => {
         if (!firestore || !position || !localSelectedEmployee) return;
+        if (eligibility && eligibility.allowed === false) {
+            toast({
+                variant: 'destructive',
+                title: 'Томилгоо хийх боломжгүй',
+                description: eligibility.reason,
+            });
+            return;
+        }
 
         try {
-            const batch = writeBatch(firestore);
-
-            // 1. Update employee's document (departmentId from position to show алба correctly)
-            const employeeDocRef = doc(firestore, 'employees', localSelectedEmployee.id);
-            batch.update(employeeDocRef, {
-                positionId: position.id,
-                jobTitle: position.title,
-                departmentId: position.departmentId ?? null,
-            });
-
-            // 2. Update position's filled count
-            const positionDocRef = doc(firestore, 'positions', position.id);
-            batch.update(positionDocRef, {
-                filled: increment(1)
-            });
-
-            // 3. Add to employment history
-            const historyCollectionRef = collection(firestore, `employees/${localSelectedEmployee.id}/employmentHistory`);
+            // Refs-ийг transaction-аас гадна үүсгэнэ
+            const employeeDocRef = tDoc('employees', localSelectedEmployee.id);
+            const positionDocRef = tDoc('positions', position.id);
+            const historyCollectionRef = tCollection('employees', localSelectedEmployee.id, 'employmentHistory');
             const historyDocRef = doc(historyCollectionRef);
+
             let historyNotes = `${position.title} албан тушаалд ${format(values.assignmentDate, 'yyyy-MM-dd')}-нд томилов.`;
             if (values.assignmentType === 'trial' && values.trialEndDate) {
                 historyNotes += ` Туршилтын хугацаа ${format(values.trialEndDate, 'yyyy-MM-dd')} хүртэл.`
             }
 
-            batch.set(historyDocRef, {
-                eventType: 'Албан тушаалд томилогдсон',
-                eventDate: values.assignmentDate.toISOString(),
-                notes: historyNotes,
-                createdAt: new Date().toISOString(),
+            // ─── Atomic transaction ──────────────────────────────────────
+            // Capacity check + old position decrement + employee/position
+            // update + history entry — бүгд атомик. Concurrent томилгоо race
+            // condition үүсгэхгүй.
+            await runTransaction(firestore, async (transaction) => {
+                // Layer E4: shared helper — read + status guard + capacity guard +
+                // reassignment-ийн хуучин position уншилт.
+                const ctx = await readAndGuardAppointmentInTransaction(
+                    transaction,
+                    employeeDocRef,
+                    positionDocRef,
+                );
+
+                // --- WRITES ---
+                // Position filled count бичилтүүд (шинэ +1, хуучин -1)
+                applyAppointmentPositionWrites(transaction, ctx, positionDocRef);
+
+                transaction.update(employeeDocRef, {
+                    positionId: position.id,
+                    jobTitle: position.title,
+                    departmentId: position.departmentId ?? null,
+                    updatedAt: Timestamp.now(),
+                });
+
+                transaction.set(historyDocRef, {
+                    eventType: 'Албан тушаалд томилогдсон',
+                    eventDate: values.assignmentDate.toISOString(),
+                    notes: historyNotes,
+                    createdAt: new Date().toISOString(),
+                });
             });
-
-
-
-            await batch.commit();
 
             toast({
                 title: 'Амжилттай томилогдлоо',
             });
 
-        } catch (error) {
-            console.error("Error assigning employee: ", error);
+            // Audit log — direct assignment (ER doc-гүй шууд томилгоо)
+            try {
+                const employeeName = `${localSelectedEmployee.firstName || ''} ${localSelectedEmployee.lastName || ''}`.trim() || 'Ажилтан';
+                logAudit({
+                    action: 'create',
+                    resource: 'employee',
+                    resourceId: localSelectedEmployee.id,
+                    resourceName: employeeName,
+                    description: `Ажилтан ${position.title}-д шууд томилогдлоо: ${employeeName}`,
+                    metadata: {
+                        kind: 'direct_assignment',
+                        positionId: position.id,
+                        positionName: position.title,
+                        departmentId: position.departmentId ?? null,
+                        assignmentType: values.assignmentType,
+                        assignmentDate: values.assignmentDate.toISOString(),
+                    },
+                });
+            } catch (auditErr) {
+                Sentry.captureMessage('[handleFinalAssignment] audit log failed:', { level: 'warning', tags: { module: 'organization' }, extra: { error: auditErr } });
+            }
+
+        } catch (error: any) {
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 variant: "destructive",
                 title: "Алдаа",
-                description: "Ажилтан томилоход алдаа гарлаа."
+                description: error?.message || "Ажилтан томилоход алдаа гарлаа."
             });
         } finally {
             onOpenChange(false);
@@ -237,6 +340,38 @@ export function AssignEmployeeDialog({
                         <p className="text-xs text-muted-foreground">Дээрх ажилтанг томилох гэж байна.</p>
                     </div>
                 </div>
+
+                {/* Cross-workflow eligibility banner — Layer C2 */}
+                {eligibility && eligibility.allowed === false && (
+                    <div className="p-4 rounded-xl bg-amber-50 border-2 border-amber-200 space-y-3">
+                        <div className="flex items-start gap-3">
+                            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <div className="font-bold text-amber-900 text-sm">Томилгоо хийх боломжгүй</div>
+                                <div className="text-xs text-amber-800 mt-1 font-medium">{eligibility.reason}</div>
+                            </div>
+                        </div>
+                        {(eligibility.activeReleaseDocId || eligibility.activeAppointmentDocId) && (
+                            <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="bg-white border-amber-300 text-amber-800 hover:bg-amber-100 h-8 rounded-lg font-bold w-full"
+                            >
+                                <Link
+                                    href={
+                                        eligibility.activeReleaseDocId
+                                            ? getReleaseDocumentUrl(eligibility.activeReleaseDocId)
+                                            : getAppointmentDocumentUrl(eligibility.activeAppointmentDocId!)
+                                    }
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                                    Одоо явагдаж буй баримт руу очих
+                                </Link>
+                            </Button>
+                        )}
+                    </div>
+                )}
                 <FormField
                     control={form.control}
                     name="assignmentDate"
@@ -281,7 +416,11 @@ export function AssignEmployeeDialog({
                     <Button type="button" variant="outline" onClick={() => selectedEmployee ? onOpenChange(false) : setStep(1)} disabled={isSubmitting}>
                         Болих
                     </Button>
-                    <Button type="submit" variant="success" disabled={isSubmitting}>
+                    <Button
+                        type="submit"
+                        variant="success"
+                        disabled={isSubmitting || (eligibility !== null && eligibility.allowed === false)}
+                    >
                         {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
                         Баталгаажуулах
                     </Button>

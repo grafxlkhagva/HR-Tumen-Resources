@@ -364,7 +364,7 @@ export function StartOnboardingWizardDialog({ open, onOpenChange }: StartOnboard
 
       onOpenChange(false);
       if (result.projectIds?.[0]) {
-        router.push(`/dashboard/projects/${result.projectIds[0]}`);
+        router.push(`/projects/${result.projectIds[0]}`);
       }
     } catch (e: any) {
       console.error(e);

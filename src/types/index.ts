@@ -125,6 +125,14 @@ export interface Employee {
     crmAccess?: boolean;
     /** Бизнес төлөвлөгөө модулд нэвтрэх эрхтэй эсэх */
     businessPlanAccess?: boolean;
+    /** Төслүүд модулд нэвтрэх эрхтэй эсэх */
+    projectsAccess?: boolean;
+    /** Хурлын өрөө модулд нэвтрэх эрхтэй эсэх */
+    meetingsAccess?: boolean;
+    /** Компани модулд нэвтрэх эрхтэй эсэх */
+    companyAccess?: boolean;
+    /** Албан бичиг модулд нэвтрэх эрхтэй эсэх */
+    officialLettersAccess?: boolean;
 }
 
 /**

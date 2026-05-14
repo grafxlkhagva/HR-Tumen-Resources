@@ -15,7 +15,7 @@ import {
     Search,
     Info
 } from 'lucide-react';
-import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirebase, useCollection, useMemoFirebase, tenantCollection } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Department, DepartmentHistory } from '@/app/dashboard/organization/types';
 import { format } from 'date-fns';
@@ -30,10 +30,10 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
     const { firestore } = useFirebase();
     const [expandedSnapshot, setExpandedSnapshot] = useState<string | null>(null);
 
-    const historyQuery = useMemoFirebase(() => {
+    const historyQuery = useMemoFirebase(({ firestore, companyPath }) => {
         if (!firestore || !departmentId) return null;
         return query(
-            collection(firestore, 'departmentHistory'),
+            tenantCollection(firestore, companyPath, 'departmentHistory'),
             where('departmentId', '==', departmentId)
         );
     }, [firestore, departmentId]);
@@ -120,9 +120,9 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
 
                             <div className="flex items-center gap-4">
                                 <div className="hidden md:flex flex-col items-end text-right">
-                                    <p className="text-xs font-semibold">{record.snapshot.positions.length} Ажлын байр</p>
+                                    <p className="text-xs font-semibold">{record.snapshot?.positions?.length ?? 0} Ажлын байр</p>
                                     <p className="text-[10px] text-muted-foreground">
-                                        {record.snapshot.positions.reduce((acc, p) => acc + (p.employees?.length || 0), 0)} Ажилтан
+                                        {record.snapshot?.positions?.reduce((acc, p) => acc + (p.employees?.length || 0), 0) ?? 0} Ажилтан
                                     </p>
                                 </div>
                                 {expandedSnapshot === record.id ? <ChevronDown className="w-5 h-5 text-muted-foreground" /> : <ChevronRight className="w-5 h-5 text-muted-foreground" />}
@@ -133,7 +133,7 @@ export const HistoryTab = ({ departmentId }: HistoryTabProps) => {
                             <CardContent className="pt-0 pb-6 px-6 border-t border-border/50 bg-muted/10">
                                 <div className="mt-4 space-y-4">
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {record.snapshot.positions.map(pos => (
+                                        {record.snapshot?.positions?.map(pos => (
                                             <div key={pos.id} className="p-3 rounded-lg border border-border/50 bg-background shadow-sm hover:border-primary/30 transition-colors">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <div>

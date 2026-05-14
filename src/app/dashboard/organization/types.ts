@@ -32,6 +32,12 @@ export type Position = {
     code?: string;
     departmentId: string;
     filled: number;
+    /**
+     * Position-д хэдэн ажилтан томилогдож болох дээд хязгаар (capacity).
+     * Optional — байхгүй бол `employee-appointment-service.getPositionCapacity`
+     * нь default `1` гэж тооцно (backwards-compatible хуучин data-д).
+     */
+    headcount?: number;
     reportsToId?: string; // Standardized
     reportsTo?: string; // Compatibility
     levelId?: string;
@@ -56,7 +62,6 @@ export type Position = {
     disapprovedBy?: string;
     disapprovedByName?: string;
     approvalHistory?: ApprovalLog[];
-    actionHistory?: PositionActionLog[];
     purpose?: string;
     responsibilities?: { title: string; description: string }[];
     compensation?: {
@@ -151,18 +156,11 @@ export type ApprovalLog = {
     action: 'approve' | 'disapprove';
     userId: string;
     userName: string;
+    /** Бодит write үе (server clock-ийг ойртуулах client `Date.now()`) */
     timestamp: string;
+    /** Хэрэглэгчийн сонгосон хүчин төгөлдөр огноо (timestamp-аас өөр байж болно) */
+    effectiveDate?: string;
     note?: string;
-};
-
-export type PositionActionLog = {
-    action: 'appoint' | 'release' | 'transfer_out' | 'transfer_in';
-    employeeId: string;
-    employeeName: string;
-    date: string;
-    note?: string;
-    userId: string;
-    userName: string;
 };
 
 export type PositionLevel = {
@@ -204,7 +202,7 @@ export type SalaryRangeVersion = {
 }
 
 /** Төлөв: бүтцийн бүрэн snapshot (татан буулгах) эсвэл нэг үйлдлийн лог */
-export type DepartmentHistoryEventType = 'position_added' | 'position_updated' | 'position_deleted';
+export type DepartmentHistoryEventType = 'position_added' | 'position_updated' | 'position_deleted' | 'position_approved' | 'position_disapproved';
 
 export type DepartmentHistory = {
     id: string;

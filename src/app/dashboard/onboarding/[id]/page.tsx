@@ -41,7 +41,7 @@ export default function OnboardingDetailRedirectPage() {
                 const sortedProjects = [...projects].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
                 const firstProject = sortedProjects[0];
                 setRedirecting(true);
-                router.replace(`/dashboard/projects/${firstProject.id}`);
+                router.replace(`/projects/${firstProject.id}`);
             }
         }
     }, [isLoading, projects, router]);

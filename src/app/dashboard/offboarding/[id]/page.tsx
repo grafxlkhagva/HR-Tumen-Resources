@@ -29,7 +29,7 @@ export default function OffboardingEmployeeRedirectPage() {
         const sorted = [...(projects || [])].sort((a, b) => (a.stageOrder || 0) - (b.stageOrder || 0));
         const first = sorted[0];
         if (first?.id) {
-            router.replace(`/dashboard/projects/${first.id}`);
+            router.replace(`/projects/${first.id}`);
         }
     }, [isLoading, projects, router]);
 

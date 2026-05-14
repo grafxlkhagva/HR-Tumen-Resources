@@ -29,13 +29,18 @@ export function DynamicFieldSelector({ onSelect, customFields }: DynamicFieldSel
     const [search, setSearch] = React.useState("")
     const [copiedField, setCopiedField] = React.useState<string | null>(null);
 
-    const filteredFields = React.useMemo(() => {
-        let fields: any[] = [];
+    type SelectorField = { key: string; label: string; example?: string; type?: string };
+    const filteredFields = React.useMemo<SelectorField[]>(() => {
+        let fields: SelectorField[] = [];
 
         if (activeCategory === 'Custom') {
             fields = customFields || [];
         } else {
-            fields = ALL_DYNAMIC_FIELDS.filter(f => f.group === activeCategory);
+            fields = ALL_DYNAMIC_FIELDS.filter(f => f.group === activeCategory).map((f: FieldDefinition) => ({
+                key: f.key,
+                label: f.label,
+                example: f.example,
+            }));
         }
 
         if (search) {

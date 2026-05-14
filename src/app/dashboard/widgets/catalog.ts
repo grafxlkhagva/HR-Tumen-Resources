@@ -6,33 +6,25 @@ import {
     Users,
     UserCheck,
     Palmtree,
-    Newspaper,
     Handshake,
     Sparkles,
-    FolderKanban,
     GraduationCap,
-    DoorOpen,
     Award,
     ClipboardList,
-    Stamp,
     LucideIcon
 } from 'lucide-react';
 
 export type WidgetId =
-    | 'projects'
     | 'employees'
     | 'structure'
     | 'attendance'
     | 'vacation'
-    | 'posts'
     | 'recruitment'
     | 'points'
     | 'er'
     | 'training'
-    | 'meetings'
     | 'skills'
-    | 'survey'
-    | 'official-letters';
+    | 'survey';
 
 export type WidgetSize = 'normal' | 'compact';
 
@@ -49,34 +41,21 @@ export interface WidgetConfig {
 
 // Default order for widgets (initial 9 cards)
 export const DEFAULT_ORDER: WidgetId[] = [
-    'projects',
     'employees',
     'structure',
     'attendance',
     'vacation',
-    'posts',
     'recruitment',
     'points',
     'er',
     'training',
-    'meetings',
     'skills',
     'survey'
 ];
 
 // Widget catalog with all available widgets
 export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
-    // Core widgets (default 9)
-    projects: {
-        id: 'projects',
-        label: 'Төслүүд',
-        description: 'Идэвхтэй төслүүд болон таскууд',
-        href: '/dashboard/projects',
-        size: 'normal',
-        icon: FolderKanban,
-        requiredData: ['projects'],
-        category: 'core'
-    },
+    // Core widgets
     employees: {
         id: 'employees',
         label: 'Хамт олон',
@@ -115,16 +94,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         size: 'normal',
         icon: Palmtree,
         requiredData: ['vacationRequests'],
-        category: 'core'
-    },
-    posts: {
-        id: 'posts',
-        label: 'Мэдээлэл',
-        description: 'Нийтлэлийн тоо',
-        href: '/dashboard/posts',
-        size: 'normal',
-        icon: Newspaper,
-        requiredData: ['posts'],
         category: 'core'
     },
     recruitment: {
@@ -167,16 +136,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         requiredData: [],
         category: 'core'
     },
-    meetings: {
-        id: 'meetings',
-        label: 'Хурлын өрөө',
-        description: 'Хурлын өрөөний захиалга',
-        href: '/dashboard/meetings',
-        size: 'compact',
-        icon: DoorOpen,
-        requiredData: [],
-        category: 'core'
-    },
     skills: {
         id: 'skills',
         label: 'Ур чадвар',
@@ -197,16 +156,6 @@ export const WIDGET_CATALOG: Record<WidgetId, WidgetConfig> = {
         requiredData: [],
         category: 'core'
     },
-    'official-letters': {
-        id: 'official-letters',
-        label: 'Албан бичиг',
-        description: 'Стандартын дагуу албан бланк удирдах',
-        href: '/dashboard/official-letters',
-        size: 'compact',
-        icon: Stamp,
-        requiredData: [],
-        category: 'core'
-    }
 };
 
 // Get widget config by ID

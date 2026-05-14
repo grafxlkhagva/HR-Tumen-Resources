@@ -1,5 +1,6 @@
-import { collection, doc, query, where, getDocs, writeBatch } from 'firebase/firestore';
-import { useCollection, useFirebase, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase';
+import { query, where, getDocs, writeBatch, addDoc, deleteDoc } from 'firebase/firestore';
+import { useFetchCollection, useFirebase, useMemoFirebase, tenantCollection, tenantDoc, useTenantWrite } from '@/firebase';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,6 +27,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import * as Sentry from '@sentry/nextjs';
 
 interface ColumnConfig {
     key: string;
@@ -61,6 +63,7 @@ interface LookupManagementProps {
 
 export function LookupManagement({ collectionName, title, description, columns, aiGenerationType, sortBy, referenceCheck }: LookupManagementProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const [isAdding, setIsAdding] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -74,18 +77,18 @@ export function LookupManagement({ collectionName, title, description, columns, 
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
     const collectionRef = useMemoFirebase(
-        () => (firestore ? collection(firestore, collectionName) : null),
+        ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, collectionName) : null),
         [firestore, collectionName]
     );
 
-    const { data: items, isLoading } = useCollection<any>(collectionRef);
+    const { data: items, isLoading, refetch } = useFetchCollection<any>(collectionRef);
 
     // Create a stable key for items to use in dependencies
     const itemsKey = useMemo(() => items?.map(i => i.id).join(',') || '', [items]);
 
     // Fetch usage counts for all items when referenceCheck is configured
     const fetchUsageCounts = useCallback(async () => {
-        if (!firestore || !referenceCheck || !items || items.length === 0) {
+        if (!firestore || !companyPath || !referenceCheck || !items || items.length === 0) {
             setUsageCounts({});
             return;
         }
@@ -96,7 +99,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
             
             for (const item of items) {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', item.id)
                 );
                 const snapshot = await getDocs(q);
@@ -105,12 +108,12 @@ export function LookupManagement({ collectionName, title, description, columns, 
             
             setUsageCounts(counts);
         } catch (error) {
-            console.error('Error fetching usage counts:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
         } finally {
             setIsLoadingUsage(false);
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [firestore, referenceCheck?.collection, referenceCheck?.field, itemsKey]);
+    }, [firestore, companyPath, referenceCheck?.collection, referenceCheck?.field, itemsKey]);
 
     // Fetch usage counts when items change
     useEffect(() => {
@@ -149,7 +152,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
         try {
             const response = await fetch('/api/generate-org-defaults', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({ type: aiGenerationType }),
             });
 
@@ -162,7 +165,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
             setGeneratedItems(result.data);
             setShowAIConfirmDialog(true);
         } catch (error) {
-            console.error('AI generation error:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа',
                 description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
@@ -178,19 +181,18 @@ export function LookupManagement({ collectionName, title, description, columns, 
 
         setIsSubmitting(true);
         try {
-            // Add all generated items to Firebase
             for (const item of generatedItems) {
-                await addDocumentNonBlocking(collection(firestore, collectionName), item);
+                await addDoc(tCollection(collectionName), item);
             }
-            
             toast({
                 title: 'Амжилттай',
                 description: `${generatedItems.length} бичлэг нэмэгдлээ`,
             });
             setGeneratedItems([]);
             setShowAIConfirmDialog(false);
+            refetch();
         } catch (error) {
-            console.error('Error adding AI items:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа',
                 description: 'Бичлэг нэмэхэд алдаа гарлаа',
@@ -213,10 +215,11 @@ export function LookupManagement({ collectionName, title, description, columns, 
 
         setIsSubmitting(true);
         try {
-            await addDocumentNonBlocking(collection(firestore, collectionName), newItemData);
+            await addDoc(tCollection(collectionName), newItemData);
             setNewItemData({});
             setIsAdding(false);
             toast({ title: 'Амжилттай нэмэгдлээ' });
+            refetch();
         } catch (e) {
             toast({ title: 'Алдаа', variant: 'destructive' });
         } finally {
@@ -231,12 +234,12 @@ export function LookupManagement({ collectionName, title, description, columns, 
             const batch = writeBatch(firestore);
             
             // Update the lookup item itself
-            batch.update(doc(firestore, collectionName, id), editItemData);
+            batch.update(tDoc(collectionName, id), editItemData);
             
             // If there's a referenceCheck config and the name field changed, update all referencing documents
-            if (referenceCheck && editItemData.name) {
+            if (referenceCheck && editItemData.name && companyPath) {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', id)
                 );
                 const snapshot = await getDocs(q);
@@ -255,7 +258,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
                     }
                     
                     if (Object.keys(updateData).length > 0) {
-                        batch.update(doc(firestore, referenceCheck.collection, docSnap.id), updateData);
+                        batch.update(tenantDoc(firestore, companyPath!, referenceCheck.collection, docSnap.id), updateData);
                     }
                 });
                 
@@ -274,11 +277,10 @@ export function LookupManagement({ collectionName, title, description, columns, 
             if (!referenceCheck || usageCounts[id] === 0) {
                 toast({ title: 'Амжилттай шинэчлэгдлээ' });
             }
-            
-            // Refresh usage counts
+            refetch();
             fetchUsageCounts();
         } catch (e) {
-            console.error('Update error:', e);
+            Sentry.captureException(e, { tags: { module: 'organization' } });
             toast({ title: 'Алдаа', variant: 'destructive' });
         } finally {
             setIsSubmitting(false);
@@ -289,10 +291,10 @@ export function LookupManagement({ collectionName, title, description, columns, 
         if (!firestore) return;
         
         // Real-time check if item is in use (don't rely on cached state)
-        if (referenceCheck) {
+        if (referenceCheck && companyPath) {
             try {
                 const q = query(
-                    collection(firestore, referenceCheck.collection),
+                    tenantCollection(firestore, companyPath, referenceCheck.collection),
                     where(referenceCheck.field, '==', id)
                 );
                 const snapshot = await getDocs(q);
@@ -309,7 +311,7 @@ export function LookupManagement({ collectionName, title, description, columns, 
                     return;
                 }
             } catch (error) {
-                console.error('Error checking usage:', error);
+                Sentry.captureException(error, { tags: { module: 'organization' } });
                 toast({ 
                     title: 'Алдаа',
                     description: 'Ашиглалтыг шалгахад алдаа гарлаа',
@@ -321,8 +323,9 @@ export function LookupManagement({ collectionName, title, description, columns, 
         
         if (!confirm('Та итгэлтэй байна уу?')) return;
         try {
-            await deleteDocumentNonBlocking(doc(firestore, collectionName, id));
+            await deleteDoc(tDoc(collectionName, id));
             toast({ title: 'Устгагдлаа' });
+            refetch();
             fetchUsageCounts();
         } catch (e) {
             toast({ title: 'Алдаа', variant: 'destructive' });

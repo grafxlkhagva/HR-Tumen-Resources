@@ -19,6 +19,11 @@ export function useTenantRole(): TenantRole {
     return (employeeProfile.role ?? 'employee') as TenantRole;
 }
 
+/** Single-tenant: фикс companyId буцаана. Тестийн код-ыг ажиллуулахын тулд shim. */
+export function useCompanyId(): string {
+    return 'default';
+}
+
 interface CompanyShape {
     id?: string;
     name?: string;
@@ -38,6 +43,8 @@ interface TenantContextShape {
     isInGrace: boolean;
     graceEndsAt: Date | null;
     daysUntilExpiry: number | null;
+    /** Subscription feature/quota check — single-tenant-д ямар ч хязгаар байхгүй учир үргэлж true */
+    isWithinLimit: (featureKey: string, currentValue: number) => boolean;
 }
 
 /**
@@ -64,5 +71,6 @@ export function useTenant(): TenantContextShape {
         isInGrace: false,
         graceEndsAt: null,
         daysUntilExpiry: null,
+        isWithinLimit: () => true,
     };
 }

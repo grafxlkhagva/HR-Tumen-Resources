@@ -1,5 +1,7 @@
 'use client';
 
+import { isSystemUser } from '@/lib/employee-utils';
+
 import * as React from 'react';
 import {
   AppDialog,
@@ -24,7 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { useCollection, useDoc, useFirebase, useMemoFirebase } from '@/firebase';
+import { useCollection, useDoc, useFirebase, useMemoFirebase, useTenantWrite, tenantCollection, tenantDoc } from '@/firebase';
 import { collection, doc, query, where } from 'firebase/firestore';
 import { Employee } from '@/types';
 import {
@@ -43,6 +45,7 @@ import {
   Check,
   Loader2,
 } from 'lucide-react';
+import * as Sentry from '@sentry/nextjs';
 
 type TaskPlanItem = {
   selected: boolean;
@@ -77,6 +80,7 @@ export function StartPositionPreparationWizardDialog({
   positionTitle,
 }: StartPositionPreparationWizardDialogProps) {
   const { firestore, user: firebaseUser } = useFirebase();
+  const { companyPath } = useTenantWrite();
   const { employeeProfile: currentUserProfile } = useEmployeeProfile();
   const { toast } = useToast();
   const router = useRouter();
@@ -84,25 +88,25 @@ export function StartPositionPreparationWizardDialog({
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [taskPlanByStage, setTaskPlanByStage] = React.useState<TaskPlanByStage>({});
 
-  const employeesQuery = useMemoFirebase(() => {
+  const employeesQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
+    return query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent']));
   }, [firestore]);
   const { data: employees, isLoading: employeesLoading } = useCollection<Employee>(employeesQuery as any);
 
-  const existingPrepProjectsQuery = useMemoFirebase(() => {
+  const existingPrepProjectsQuery = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore || !positionId) return null;
     return query(
-      collection(firestore, 'projects'),
+      tenantCollection(firestore, companyPath, 'projects'),
       where('type', '==', 'position_preparation'),
       where('positionPreparationPositionId', '==', positionId),
     );
   }, [firestore, positionId]);
   const { data: existingPrepProjects, isLoading: projectsLoading } = useCollection<any>(existingPrepProjectsQuery as any);
 
-  const prepConfigRef = useMemoFirebase(() => {
+  const prepConfigRef = useMemoFirebase(({ firestore, companyPath }) => {
     if (!firestore) return null;
-    return doc(firestore, 'settings', 'positionPreparation');
+    return tenantDoc(firestore, companyPath, 'settings', 'positionPreparation');
   }, [firestore]);
   const { data: prepConfig, isLoading: configLoading } = useDoc<any>(prepConfigRef as any);
 
@@ -111,7 +115,8 @@ export function StartPositionPreparationWizardDialog({
   }, [prepConfig]);
 
   const canSubmit = React.useMemo(() => {
-    for (const stage of prepStages) {
+    const activeStages = prepStages.filter((s) => (s.tasks || []).length > 0);
+    for (const stage of activeStages) {
       const stagePlan = taskPlanByStage[stage.id] || {};
       const selected = Object.entries(stagePlan).filter(([, p]) => p.selected);
       const ok = selected.every(([, p]) => isValidDateString(p.dueDate) && !!p.ownerId);
@@ -130,17 +135,19 @@ export function StartPositionPreparationWizardDialog({
   }, [open, resetState]);
 
   const buildOverrides = React.useCallback((): PositionPreparationStageTaskPlan[] => {
-    return prepStages.map((stage) => {
-      const stagePlan = taskPlanByStage[stage.id] || {};
-      const tasks = Object.entries(stagePlan)
-        .filter(([, p]) => p.selected)
-        .map(([templateTaskId, p]) => ({
-          templateTaskId,
-          dueDate: p.dueDate!,
-          ownerId: p.ownerId!,
-        }));
-      return { stageId: stage.id, tasks };
-    });
+    return prepStages
+      .filter((s) => (s.tasks || []).length > 0)
+      .map((stage) => {
+        const stagePlan = taskPlanByStage[stage.id] || {};
+        const tasks = Object.entries(stagePlan)
+          .filter(([, p]) => p.selected)
+          .map(([templateTaskId, p]) => ({
+            templateTaskId,
+            dueDate: p.dueDate!,
+            ownerId: p.ownerId!,
+          }));
+        return { stageId: stage.id, tasks };
+      });
   }, [prepStages, taskPlanByStage]);
 
   const handleCreate = React.useCallback(async () => {
@@ -172,6 +179,7 @@ export function StartPositionPreparationWizardDialog({
 
       const result = await createPositionPreparationProjects({
         firestore,
+        companyPath,
         positionId,
         positionTitle: positionTitle || 'Ажлын байр',
         initiatorId,
@@ -186,9 +194,9 @@ export function StartPositionPreparationWizardDialog({
       });
 
       onOpenChange(false);
-      if (result.projectIds?.[0]) router.push(`/dashboard/projects/${result.projectIds[0]}`);
+      if (result.projectIds?.[0]) router.push(`/projects/${result.projectIds[0]}`);
     } catch (e: any) {
-      console.error(e);
+      Sentry.captureException(e, { tags: { module: 'organization' } });
       toast({
         title: 'Алдаа гарлаа',
         description: e?.message || 'Бэлтгэл төсөл үүсгэхэд алдаа гарлаа.',
@@ -317,7 +325,7 @@ export function StartPositionPreparationWizardDialog({
                             <SelectValue placeholder="Хариуцагч сонгох" />
                           </SelectTrigger>
                           <SelectContent>
-                            {(employees || []).map((e) => (
+                            {(employees || []).filter(e => !isSystemUser(e as any)).map((e) => (
                               <SelectPrimitive.Item
                                 key={e.id}
                                 value={e.id}
@@ -386,7 +394,9 @@ export function StartPositionPreparationWizardDialog({
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    {prepStages.map((s, idx) => (
+                    {prepStages
+                      .filter((s) => (s.tasks || []).length > 0)
+                      .map((s, idx) => (
                       <div key={s.id} className="pb-6 border-b last:border-b-0 last:pb-0">
                         {renderStageStep(s, idx)}
                       </div>

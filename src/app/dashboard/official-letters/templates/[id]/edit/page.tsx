@@ -1,12 +1,10 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import React from 'react';
-import { useParams } from 'next/navigation';
-import { TemplateForm } from '../../components/template-form';
-
-export default function EditTemplatePage() {
-    const params = useParams<{ id: string }>();
-    const id = params?.id;
-    if (!id) return null;
-    return <TemplateForm mode="edit" templateId={id} />;
+export default async function LegacyTemplateEditRedirect({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}) {
+    const { id } = await params;
+    redirect(`/official-letters/templates/${id}/edit`);
 }

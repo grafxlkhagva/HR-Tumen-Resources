@@ -202,7 +202,7 @@ export default function PointAdminPage() {
                     <ActionIconButton
                         label="Тохиргоо"
                         description="Пойнтын тохиргоо"
-                        href="/dashboard/company/mission"
+                        href="/company/mission"
                         icon={<SettingsIcon className="h-4 w-4" />}
                         variant="outline"
                         className="bg-white hover:bg-slate-50 border-slate-200"

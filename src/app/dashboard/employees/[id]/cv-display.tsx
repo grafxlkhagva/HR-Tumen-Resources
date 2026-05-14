@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useDoc, useFirebase, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirebase, useMemoFirebase, tenantDoc, tenantEmployeeSubdoc } from '@/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Printer, User, Phone, Mail, MapPin, Briefcase, GraduationCap, Languages, Award, Globe, History, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatDateMN, formatDateRangeMN } from '@/lib/date-utils';
 
 const CVSectionHeader = ({ title, icon: Icon }: { title: string; icon: React.ElementType }) => (
     <div className="flex items-center gap-3 mb-6">
@@ -69,8 +69,12 @@ const CVSkeleton = () => (
 export function CVDisplay({ employeeId }: { employeeId: string }) {
     const { firestore } = useFirebase();
 
-    const employeeRef = useMemoFirebase(() => firestore ? doc(firestore, 'employees', employeeId) : null, [firestore, employeeId]);
-    const questionnaireRef = useMemoFirebase(() => firestore ? doc(firestore, `employees/${employeeId}/questionnaire`, 'data') : null, [firestore, employeeId]);
+    const employeeRef = useMemoFirebase(({ firestore, companyPath }) => firestore ? tenantDoc(firestore, companyPath, 'employees', employeeId) : null, [employeeId]);
+    const questionnaireRef = useMemoFirebase(
+        ({ firestore, companyPath }) =>
+            firestore && employeeId ? tenantEmployeeSubdoc(firestore, companyPath, employeeId, 'questionnaire', 'data') : null,
+        [employeeId]
+    );
 
     const { data: employee, isLoading: isLoadingEmployee } = useDoc(employeeRef);
     const { data: questionnaire, isLoading: isLoadingQuestionnaire } = useDoc(questionnaireRef);
@@ -99,22 +103,8 @@ export function CVDisplay({ employeeId }: { employeeId: string }) {
 
     const fullName = `${questionnaire.lastName || ''} ${questionnaire.firstName || ''}`;
 
-    const formatDate = (date: any) => {
-        if (!date) return '';
-        try {
-            if (date.seconds) return new Date(date.seconds * 1000).toLocaleDateString('mn-MN');
-            return new Date(date).toLocaleDateString('mn-MN');
-        } catch {
-            return date.toString();
-        }
-    };
-
-    const formatDateRange = (start: any, end: any, isCurrent?: boolean) => {
-        if (!start) return '';
-        const startDate = formatDate(start);
-        const endDate = isCurrent ? 'Одоо' : (end ? formatDate(end) : 'Тодорхойгүй');
-        return `${startDate} - ${endDate}`;
-    }
+    const formatDate = formatDateMN;
+    const formatDateRange = formatDateRangeMN;
 
     return (
         <Card className="border-none shadow-xl rounded-[2.5rem] overflow-hidden bg-white print:shadow-none print:rounded-none">

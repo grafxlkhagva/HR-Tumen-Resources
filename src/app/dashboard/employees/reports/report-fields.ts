@@ -27,16 +27,6 @@ export interface ReportPreset {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const LIFECYCLE_LABELS: Record<string, string> = {
-  attraction: 'Татах',
-  recruitment: 'Сонгон шалгаруулалт',
-  onboarding: 'Чиглүүлэлт',
-  development: 'Хөгжүүлэлт',
-  retention: 'Тогтвортой байдал',
-  offboarding: 'Чөлөөлөлт',
-  alumni: 'Алумни',
-};
-
 const EDUCATION_RANK_ORDER = [
   'Доктор',
   'Магистр',
@@ -139,7 +129,7 @@ export const REPORT_FIELD_GROUPS: ReportFieldGroup[] = [
         key: 'department',
         label: 'Хэлтэс',
         group: 'registration',
-        getValue: (e, _q, depts) => depts.get(e.departmentId) || '',
+        getValue: (e, _q, depts) => depts.get(e.departmentId ?? '') || '',
       },
       {
         key: 'email',
@@ -170,12 +160,6 @@ export const REPORT_FIELD_GROUPS: ReportFieldGroup[] = [
         label: 'Ажлаас гарсан огноо',
         group: 'registration',
         getValue: (e) => formatDate(e.terminationDate),
-      },
-      {
-        key: 'lifecycleStage',
-        label: 'Амьдралын мөчлөг',
-        group: 'registration',
-        getValue: (e) => LIFECYCLE_LABELS[e.lifecycleStage || ''] || '',
       },
       {
         key: 'questionnaireCompletion',

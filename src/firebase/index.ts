@@ -89,3 +89,4 @@ export {
     tenantCollection,
     tenantDoc,
 } from './tenant-compat';
+export { tenantEmployeeSubdoc } from './tenant-helpers';

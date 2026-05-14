@@ -35,9 +35,12 @@ import {
   updateDocumentNonBlocking,
   useFirebase,
   useMemoFirebase,
+  tenantCollection,
+  useTenantWrite,
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertTriangle, Sparkles } from 'lucide-react';
+import { useTenant } from '@/contexts/tenant-context';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const departmentSchema = z.object({
   name: z.string().min(2, {
@@ -76,8 +79,13 @@ export function AddDepartmentDialog({
   onDepartmentAdded,
 }: AddDepartmentDialogProps) {
   const { firestore } = useFirebase();
+  const { tDoc } = useTenantWrite();
   const { toast } = useToast();
+  const { company, isWithinLimit } = useTenant();
   const isEditMode = !!editingDepartment;
+
+  const limitReached = !isEditMode && !isWithinLimit('maxDepartments', departments.length);
+  const maxDepartments = company?.limits?.maxDepartments ?? 0;
 
   const form = useForm<DepartmentFormValues>({
     resolver: zodResolver(departmentSchema),
@@ -111,7 +119,7 @@ export function AddDepartmentDialog({
   const { isSubmitting } = form.formState;
 
   const departmentsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'departments') : null),
+    ({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null),
     [firestore]
   );
 
@@ -138,7 +146,7 @@ export function AddDepartmentDialog({
     }
 
     if (isEditMode && editingDepartment) {
-      const docRef = doc(firestore, 'departments', editingDepartment.id);
+      const docRef = tDoc('departments', editingDepartment.id);
       updateDocumentNonBlocking(docRef, finalData);
       toast({
         title: 'Амжилттай шинэчлэгдлээ',
@@ -172,6 +180,18 @@ export function AddDepartmentDialog({
 
               </DialogHeader>
               <div className="grid gap-4 py-4">
+                {limitReached && (
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Нэгжийн хязгаар хэтэрсэн</AlertTitle>
+                    <AlertDescription>
+                      Таны багцад хамгийн ихдээ {maxDepartments} нэгж үүсгэх боломжтой (одоо: {departments.length}).
+                      <a href="/dashboard/billing" className="ml-1 inline-flex items-center gap-1 font-medium underline underline-offset-2">
+                        <Sparkles className="h-3 w-3" />Багц сунгах
+                      </a>
+                    </AlertDescription>
+                  </Alert>
+                )}
                 <FormField
                   control={form.control}
                   name="name"
@@ -263,7 +283,7 @@ export function AddDepartmentDialog({
                 >
                   Цуцлах
                 </Button>
-                <Button type="submit" disabled={isSubmitting}>
+                <Button type="submit" disabled={isSubmitting || limitReached}>
                   {isSubmitting && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}

@@ -64,7 +64,7 @@ const PositionHistorySheet = ({ position }: { position: Position }) => {
     return (
         <Sheet>
             <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-slate-100 p-0">
+                <Button variant="ghost" size="icon" className="h-6 w-6 rounded-full hover:bg-slate-100 p-0" aria-label="Түүх харах">
                     <HistoryIcon className="h-3.5 w-3.5 text-slate-400 group-hover:text-primary transition-colors" />
                 </Button>
             </SheetTrigger>
@@ -130,6 +130,7 @@ interface PositionsListTableProps {
     onEdit: (pos: Position) => void;
     onDelete: (pos: Position) => void;
     onDisband?: (pos: Position) => void;
+    onDisapprove?: (pos: Position) => void;
     onDuplicate: (pos: Position) => void;
     onClearFilters?: () => void;
 }
@@ -144,6 +145,7 @@ export const PositionsListTable = ({
     onEdit,
     onDelete,
     onDisband,
+    onDisapprove,
     onDuplicate,
     onClearFilters
 }: PositionsListTableProps) => {
@@ -286,7 +288,7 @@ export const PositionsListTable = ({
                                         <AlertDialog>
                                             <DropdownMenu>
                                                 <DropdownMenuTrigger asChild>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Үйлдлүүд">
                                                         <MoreHorizontal className="h-4 w-4" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
@@ -299,6 +301,12 @@ export const PositionsListTable = ({
                                                             <Copy className="mr-2 h-4 w-4" /> Хувилах
                                                         </DropdownMenuItem>
                                                     </AlertDialogTrigger>
+
+                                                    {pos.isApproved === true && onDisapprove && (
+                                                        <DropdownMenuItem onClick={() => onDisapprove(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
+                                                            <PowerOff className="mr-2 h-4 w-4" /> Батламж цуцлах
+                                                        </DropdownMenuItem>
+                                                    )}
 
                                                     {pos.isApproved === true && onDisband && (
                                                         <DropdownMenuItem onClick={() => onDisband(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
@@ -514,7 +522,7 @@ export const PositionsListTable = ({
                                 <AlertDialog>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Үйлдлүүд">
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -527,6 +535,12 @@ export const PositionsListTable = ({
                                                     <Copy className="mr-2 h-4 w-4" /> Хувилах
                                                 </DropdownMenuItem>
                                             </AlertDialogTrigger>
+
+                                            {pos.isApproved === true && onDisapprove && (
+                                                <DropdownMenuItem onClick={() => onDisapprove(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">
+                                                    <PowerOff className="mr-2 h-4 w-4" /> Батламж цуцлах
+                                                </DropdownMenuItem>
+                                            )}
 
                                             {pos.isApproved === true && onDisband && (
                                                 <DropdownMenuItem onClick={() => onDisband(pos)} className="text-amber-600 focus:text-amber-600 focus:bg-amber-50">

@@ -1,23 +1,26 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs } from 'firebase/firestore';
+import { collection, doc, query, where, writeBatch, arrayUnion, orderBy, limit, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { generateNextPositionCode } from '@/lib/code-generator';
 import {
     useFirebase,
     useMemoFirebase,
     useDoc,
     useCollection,
-    addDocumentNonBlocking,
-    deleteDocumentNonBlocking,
-    updateDocumentNonBlocking
+    useFetchCollection,
+    updateDocumentNonBlocking,
+    tenantCollection,
+    tenantDoc,
+    useTenantWrite
 } from '@/firebase';
 import { addDepartmentHistoryEvent } from '@/app/dashboard/organization/department-history-log';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles } from 'lucide-react';
+import { ArrowLeft, Users, Network, LayoutDashboard, History as HistoryIcon, Plus, Edit3, Save, X, Trash2, AlertTriangle, Loader2, PlusCircle, LayoutList, CheckCircle, Upload, FileText, ChevronRight, Copy, Sparkles, MoreVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -42,16 +45,22 @@ import { cn } from '@/lib/utils';
 import { PositionsManagementTab } from './components/positions-management-tab';
 import { HistoryTab } from './components/history-tab';
 import { PositionStructureChart } from './components/position-structure-chart';
-import { AddPositionDialog } from '@/app/dashboard/organization/add-position-dialog';
+import dynamic from 'next/dynamic';
+const AddPositionDialog = dynamic(
+    () => import('@/app/dashboard/organization/add-position-dialog').then(m => ({ default: m.AddPositionDialog })),
+    { ssr: false }
+);
 import { DepartmentStructureCard } from '@/components/organization/department-structure-card';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import * as Sentry from '@sentry/nextjs';
 
 export default function DepartmentPage() {
     const params = useParams<{ departmentId?: string | string[] }>();
     const departmentId = Array.isArray(params?.departmentId) ? params.departmentId[0] : params?.departmentId;
     const router = useRouter();
     const { firestore, user } = useFirebase();
+    const { tDoc, tCollection, companyPath } = useTenantWrite();
     const { toast } = useToast();
     const performedByName = user?.displayName || user?.email || 'Систем';
     const performedBy = user?.uid ?? '';
@@ -74,34 +83,52 @@ export default function DepartmentPage() {
     // AI Generation State
     const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
+    // Урд багны нэгжийн карт — тойрог задрах цэс (хулганаар нээгдэнэ)
+    const [deptCardMenuOpen, setDeptCardMenuOpen] = useState(false);
+    const deptCardMenuRef = useRef<HTMLDivElement>(null);
+    const deptCardLeaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const openDeptCardMenu = () => {
+        if (deptCardLeaveTimerRef.current) {
+            clearTimeout(deptCardLeaveTimerRef.current);
+            deptCardLeaveTimerRef.current = null;
+        }
+        setDeptCardMenuOpen(true);
+    };
+    const closeDeptCardMenu = () => {
+        deptCardLeaveTimerRef.current = setTimeout(() => setDeptCardMenuOpen(false), 250);
+    };
+    useEffect(() => {
+        return () => { if (deptCardLeaveTimerRef.current) clearTimeout(deptCardLeaveTimerRef.current); };
+    }, []);
+
     // -- Queries --
-    const deptDocRef = useMemoFirebase(() => (firestore && departmentId ? doc(firestore, 'departments', departmentId) : null), [firestore, departmentId]);
+    const deptDocRef = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? tenantDoc(firestore, companyPath, 'departments', departmentId) : null), [firestore, departmentId]);
     const { data: department, isLoading: isDeptLoading } = useDoc<Department>(deptDocRef as any);
 
-    const positionsColRef = useMemoFirebase(() => (firestore ? collection(firestore, 'positions') : null), [firestore]);
-    const positionsQuery = useMemoFirebase(() => (firestore && departmentId ? query(collection(firestore, 'positions'), where('departmentId', '==', departmentId)) : null), [firestore, departmentId]);
-    const { data: positions } = useCollection<Position>(positionsQuery as any);
+    const positionsColRef = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positions') : null), [firestore]);
+    const positionsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore && departmentId ? query(tenantCollection(firestore, companyPath, 'positions'), where('departmentId', '==', departmentId), limit(200)) : null), [firestore, departmentId]);
+    const { data: positions, refetch: refetchPositions } = useFetchCollection<Position>(positionsQuery as any);
 
     // Lookups for Edit Form
-    const typesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departmentTypes') : null), [firestore]);
-    const deptsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'departments') : null), [firestore]);
-    const categoriesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'jobCategories') : null), [firestore]);
-    const levelsQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'positionLevels') : null), [firestore]);
-    const empTypesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'employmentTypes') : null), [firestore]);
-    const schedulesQuery = useMemoFirebase(() => (firestore ? collection(firestore, 'workSchedules') : null), [firestore]);
+    const typesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departmentTypes') : null), [firestore]);
+    const deptsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'departments') : null), [firestore]);
+    const categoriesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'jobCategories') : null), [firestore]);
+    const levelsQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'positionLevels') : null), [firestore]);
+    const empTypesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'employmentTypes') : null), [firestore]);
+    const schedulesQuery = useMemoFirebase(({ firestore, companyPath }) => (firestore ? tenantCollection(firestore, companyPath, 'workSchedules') : null), [firestore]);
     const deptEmployeesQuery = useMemoFirebase(
-        () => (firestore
-            ? query(collection(firestore, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']))
+        ({ firestore, companyPath }) => (firestore
+            ? query(tenantCollection(firestore, companyPath, 'employees'), where('status', 'in', ['active', 'active_probation', 'active_permanent', 'appointing']))
             : null),
         [firestore, departmentId]
     );
 
-    const { data: departmentTypes } = useCollection<DepartmentType>(typesQuery);
-    const { data: allDepartments } = useCollection<Department>(deptsQuery);
-    const { data: levels } = useCollection<PositionLevel>(levelsQuery);
-    const { data: categories } = useCollection<JobCategory>(categoriesQuery);
-    const { data: empTypes } = useCollection<EmploymentType>(empTypesQuery);
-    const { data: schedules } = useCollection<WorkSchedule>(schedulesQuery);
+    const { data: departmentTypes } = useFetchCollection<DepartmentType>(typesQuery);
+    const { data: allDepartments } = useFetchCollection<Department>(deptsQuery);
+    const { data: levels } = useFetchCollection<PositionLevel>(levelsQuery);
+    const { data: categories } = useFetchCollection<JobCategory>(categoriesQuery);
+    const { data: empTypes } = useFetchCollection<EmploymentType>(empTypesQuery);
+    const { data: schedules } = useFetchCollection<WorkSchedule>(schedulesQuery);
     const { data: allActiveEmployees } = useCollection<any>(deptEmployeesQuery as any);
 
     // -- Derived Data --
@@ -171,7 +198,7 @@ export default function DepartmentPage() {
             setIsEditingInfo(false);
             toast({ title: "Мэдээлэл хадгалагдлаа" });
         } catch (e: any) {
-            console.error("Save error:", e);
+            Sentry.captureException(e, { tags: { module: 'organization' } });
             let errorMessage = "Мэдээлэл хадгалахад алдаа гарлаа";
 
             if (e.code === 'permission-denied' || e.message?.includes('Missing or insufficient permissions')) {
@@ -195,7 +222,7 @@ export default function DepartmentPage() {
         setIsDeptDeleting(true);
 
         try {
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const hq = query(historyRef, where('departmentId', '==', department.id));
             const historySnapshot = await getDocs(hq);
             const hasHistory = !historySnapshot.empty;
@@ -218,7 +245,7 @@ export default function DepartmentPage() {
                 setIsDeptDeleteConfirmOpen(true);
             }
         } catch (error) {
-            console.error("Error checking dept constraints:", error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({ variant: "destructive", title: "Алдаа гарлаа" });
         } finally {
             setIsDeptDeleting(false);
@@ -229,11 +256,11 @@ export default function DepartmentPage() {
         if (!firestore || !department) return;
         setIsDeptDeleting(true);
         try {
-            await deleteDocumentNonBlocking(doc(firestore, 'departments', department.id));
+            await deleteDoc(tDoc('departments', department.id));
             toast({ title: "Нэгж амжилттай устгагдлаа" });
             router.push('/dashboard/organization');
         } catch (error) {
-            console.error("Error deleting department:", error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({ variant: "destructive", title: "Алдаа гарлаа" });
             setIsDeptDeleting(false);
         }
@@ -246,18 +273,18 @@ export default function DepartmentPage() {
             const timestamp = new Date().toISOString();
 
             // 1. Fetch all employees in this department
-            const employeesRef = collection(firestore, 'employees');
+            const employeesRef = tCollection('employees');
             const eq = query(employeesRef, where('departmentId', '==', department.id));
             const employeeSnapshot = await getDocs(eq);
-            const deptEmployees = employeeSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
+            const deptEmployees = employeeSnapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
             })) as any[];
 
             const batch = writeBatch(firestore);
 
             // 2. Prepare History Entry
-            const historyRef = collection(firestore, 'departmentHistory');
+            const historyRef = tCollection('departmentHistory');
             const newHistoryDoc = doc(historyRef);
 
             const snapshot = {
@@ -297,10 +324,10 @@ export default function DepartmentPage() {
             });
 
             // 4. Delete Dept and Positions
-            batch.delete(doc(firestore, 'departments', department.id));
+            batch.delete(tDoc('departments', department.id));
             if (positions) {
                 positions.forEach(pos => {
-                    batch.delete(doc(firestore, 'positions', pos.id));
+                    batch.delete(tDoc('positions', pos.id));
                 });
             }
 
@@ -308,7 +335,7 @@ export default function DepartmentPage() {
             toast({ title: "Нэгж амжилттай татан буугдлаа" });
             router.push('/dashboard/organization');
         } catch (error) {
-            console.error("Error disbanding department:", error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({ variant: "destructive", title: "Алдаа гарлаа" });
             setIsDeptDeleting(false);
         }
@@ -320,12 +347,12 @@ export default function DepartmentPage() {
     };
 
     const posCodeConfigRef = useMemoFirebase(
-        ({ firestore }) => (firestore ? doc(firestore, 'company', 'positionCodeConfig') : null),
+        ({ firestore, companyPath }) => (firestore ? tenantDoc(firestore, companyPath, 'company', 'positionCodeConfig') : null),
         []
     );
 
     const handleDuplicate = async (pos: any) => {
-        if (!firestore || !posCodeConfigRef) return;
+        if (!firestore || !posCodeConfigRef || !department?.id) return;
         const {
             id,
             filled,
@@ -337,6 +364,11 @@ export default function DepartmentPage() {
             levelName,
             departmentColor,
             assignedEmployee,
+            approvalHistory: _history,
+            approvedAt: _approvedAt,
+            approvedBy: _approvedBy,
+            disapprovedAt: _disapprovedAt,
+            disapprovedBy: _disapprovedBy,
             ...clonedData
         } = pos;
 
@@ -345,10 +377,17 @@ export default function DepartmentPage() {
             return acc;
         }, {} as any);
 
+        delete cleanData.approvalHistory;
+        delete cleanData.approvedAt;
+        delete cleanData.approvedBy;
+        delete cleanData.disapprovedAt;
+        delete cleanData.disapprovedBy;
+
         try {
             const newCode = await generateNextPositionCode(firestore, posCodeConfigRef);
             const newPositionData = {
                 ...cleanData,
+                departmentId: department.id,
                 code: newCode,
                 title: `${pos.title || 'Шинэ ажлын байр'} (Хуулбар)`,
                 filled: 0,
@@ -356,11 +395,13 @@ export default function DepartmentPage() {
                 isApproved: false,
                 createdAt: new Date().toISOString(),
             };
-            const ref = await addDocumentNonBlocking(collection(firestore, 'positions'), newPositionData);
+            const colRef = tCollection('positions');
+            const ref = await addDoc(colRef, newPositionData);
             const deptId = newPositionData.departmentId || department?.id;
-            if (ref && deptId && performedBy) {
+            if (deptId && performedBy) {
                 addDepartmentHistoryEvent({
                     firestore,
+                    companyPath,
                     departmentId: deptId,
                     eventType: 'position_added',
                     positionId: ref.id,
@@ -369,10 +410,11 @@ export default function DepartmentPage() {
                     performedByName,
                 }).catch(() => {});
             }
-            toast({ title: "Амжилттай хувиллаа" });
+            toast({ title: "Амжилттай хувиллаа", description: "Шинэ ажлын байр жагсаалтад нэмэгдлээ." });
+            refetchPositions();
         } catch (e) {
-            console.error('Хуулбарлах алдаа:', e);
-            toast({ variant: 'destructive', title: 'Код үүсгэхэд алдаа гарлаа' });
+            Sentry.captureException(e, { tags: { module: 'organization' } });
+            toast({ variant: 'destructive', title: 'Хувилах амжилтгүй', description: e instanceof Error ? e.message : 'Дахин оролдоно уу.' });
         }
     };
 
@@ -398,7 +440,7 @@ export default function DepartmentPage() {
 
             const response = await fetch('/api/generate-department-details', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     departmentName: infoForm.name || department?.name,
                     departmentType: deptTypeName,
@@ -423,7 +465,7 @@ export default function DepartmentPage() {
                 description: 'Зорилго болон чиг үүргийг шалгаад хадгалаарай'
             });
         } catch (error) {
-            console.error('AI generation error:', error);
+            Sentry.captureException(error, { tags: { module: 'organization' } });
             toast({
                 title: 'Алдаа',
                 description: error instanceof Error ? error.message : 'AI үүсгэхэд алдаа гарлаа',
@@ -584,9 +626,9 @@ export default function DepartmentPage() {
                         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                             {/* Left column: Department card */}
                             <div className="lg:col-span-3 space-y-4">
-                                <div className="flex justify-center lg:justify-start">
+                                <div className="flex justify-center lg:justify-start overflow-visible">
                                     <DepartmentStructureCard
-                                        className="w-full"
+                                        className="w-full overflow-visible"
                                         department={{
                                             id: department.id,
                                             name: department.name,
@@ -605,52 +647,74 @@ export default function DepartmentPage() {
                                             try {
                                                 await updateDocumentNonBlocking(deptDocRef as any, data as any);
                                             } catch (e) {
-                                                console.error(e);
+                                                Sentry.captureException(e, { tags: { module: 'organization' } });
                                             }
                                         }}
                                         topActions={
-                                            <>
-                                                <TooltipProvider delayDuration={150}>
+                                            <TooltipProvider delayDuration={150}>
+                                                <div
+                                                    ref={deptCardMenuRef}
+                                                    className={cn(
+                                                        'relative z-[50] overflow-visible transition-all duration-200',
+                                                        deptCardMenuOpen ? 'w-[88px] h-[56px] -mt-7' : 'w-7 h-7'
+                                                    )}
+                                                    onMouseEnter={openDeptCardMenu}
+                                                    onMouseLeave={closeDeptCardMenu}
+                                                >
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className={cn(
-                                                                    "h-7 w-7 rounded-lg",
-                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
+                                                                    'h-7 w-7 rounded-full shrink-0',
+                                                                    department.color ? 'hover:bg-white/20 text-current' : 'hover:bg-muted text-muted-foreground',
+                                                                    deptCardMenuOpen && 'absolute right-0 bottom-0 rotate-90'
                                                                 )}
-                                                                onClick={handleAddPosition}
-                                                                aria-label="Ажлын байр нэмэх"
+                                                                style={!deptCardMenuOpen ? { position: 'relative' } : undefined}
+                                                                aria-label="Үйлдлүүд"
                                                             >
-                                                                <PlusCircle className="h-3.5 w-3.5" />
+                                                                <MoreVertical className="h-4 w-4" />
                                                             </Button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <div className="text-xs font-semibold">Ажлын байр нэмэх</div>
-                                                        </TooltipContent>
+                                                        <TooltipContent><div className="text-xs font-semibold">Үйлдлүүд</div></TooltipContent>
                                                     </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className={cn(
-                                                                    "h-7 w-7 rounded-lg",
-                                                                    department.color ? "hover:bg-white/20 text-current" : "hover:bg-muted text-muted-foreground"
-                                                                )}
-                                                                onClick={handleInfoEdit}
-                                                                aria-label="Засах"
-                                                            >
-                                                                <Edit3 className="h-4 w-4" />
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent>
-                                                            <div className="text-xs font-semibold">Засах</div>
-                                                        </TooltipContent>
-                                                    </Tooltip>
-                                                </TooltipProvider>
-                                            </>
+                                                    {[
+                                                        { angle: 90, Icon: PlusCircle, label: 'Ажлын байр нэмэх', onClick: handleAddPosition },
+                                                        { angle: 150, Icon: Edit3, label: 'Засах', onClick: handleInfoEdit },
+                                                    ].map(({ angle, Icon, label, onClick }, i) => {
+                                                        const rad = (angle * Math.PI) / 180;
+                                                        const x = Math.cos(rad) * 44;
+                                                        const y = -Math.sin(rad) * 44;
+                                                        return (
+                                                            <Tooltip key={label}>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="icon"
+                                                                        className={cn(
+                                                                            'absolute h-9 w-9 rounded-full bg-white hover:bg-slate-50 text-slate-700 shadow-lg border border-slate-200 transition-all duration-200',
+                                                                            !deptCardMenuOpen && 'pointer-events-none invisible scale-0'
+                                                                        )}
+                                                                        style={{
+                                                                            right: 0,
+                                                                            bottom: deptCardMenuOpen ? 0 : undefined,
+                                                                            top: deptCardMenuOpen ? undefined : 0,
+                                                                            transform: deptCardMenuOpen ? `translate(${x}px, ${y}px)` : 'translate(0,0) scale(0)',
+                                                                            transitionDelay: deptCardMenuOpen ? `${i * 50}ms` : '0ms',
+                                                                        }}
+                                                                        onClick={(e) => { e.stopPropagation(); onClick(); setDeptCardMenuOpen(false); }}
+                                                                        aria-label={label}
+                                                                    >
+                                                                        <Icon className="h-4 w-4" />
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="left"><div className="text-xs font-semibold">{label}</div></TooltipContent>
+                                                            </Tooltip>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </TooltipProvider>
                                         }
                                         details={
                                             <div className="space-y-3">
@@ -759,6 +823,7 @@ export default function DepartmentPage() {
                     employmentTypes={empTypes || []}
                     workSchedules={schedules || []}
                     parentPositionId={pendingParentPositionId}
+                    onSuccess={refetchPositions}
                 />
 
                 <AlertDialog open={isDeptDeleteConfirmOpen} onOpenChange={setIsDeptDeleteConfirmOpen}>

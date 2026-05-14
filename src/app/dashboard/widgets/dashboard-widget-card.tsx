@@ -13,10 +13,6 @@ import { cn } from '@/lib/utils';
 import { WidgetId, getWidgetConfig } from './catalog';
 
 export interface WidgetData {
-    // Projects widget
-    activeProjectsCount?: number;
-    overdueTasksCount?: number;
-    
     // Employees widget
     employeesCount?: number;
     permanentCount?: number;
@@ -36,9 +32,6 @@ export interface WidgetData {
     // Vacation widget
     vacationCount?: number;
     
-    // Posts widget
-    postsCount?: number;
-    
     // Recruitment widget
     recruitmentOpenVacancies?: number;
     recruitmentTotalCandidates?: number;
@@ -55,11 +48,6 @@ export interface WidgetData {
     trainingCoursesCount?: number;
     trainingActivePlansCount?: number;
     trainingCompletionRate?: number;
-
-    // Meetings widget
-    meetingsTodayCount?: number;
-    meetingRoomsCount?: number;
-    nextMeetingTime?: string;
 
     // Skills widget
     skillsInventoryCount?: number;
@@ -118,23 +106,6 @@ export function DashboardWidgetCard({
         }
 
         switch (id) {
-            case 'projects':
-                return (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-700">
-                            <div>
-                                <div className="text-2xl sm:text-3xl font-semibold text-white">{data.activeProjectsCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Идэвхтэй төсөл</div>
-                            </div>
-                            <div className="h-10 w-px bg-slate-700" />
-                        </div>
-                        <div>
-                            <div className="text-xl sm:text-2xl font-semibold text-amber-400">{data.overdueTasksCount ?? 0}</div>
-                            <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">Хугацаа хэтэрсэн таск</div>
-                        </div>
-                    </div>
-                );
-
             case 'employees': {
                 const total = data.employeesCount ?? 0;
                 const permanent = data.permanentCount ?? 0;
@@ -248,14 +219,6 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'posts':
-                return (
-                    <div>
-                        <div className="text-3xl sm:text-4xl font-semibold text-white mb-1">{data.postsCount ?? 0}</div>
-                        <div className="text-xs text-slate-400 font-medium">нийтлэл</div>
-                    </div>
-                );
-
             case 'recruitment': {
                 const openVac = data.recruitmentOpenVacancies ?? 0;
                 const totalCand = data.recruitmentTotalCandidates ?? 0;
@@ -352,31 +315,6 @@ export function DashboardWidgetCard({
                     </div>
                 );
 
-            case 'meetings':
-                return (
-                    <div className="relative z-10 space-y-2">
-                        <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide mb-2">
-                            Хурлын өрөө
-                        </div>
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <div className="text-2xl font-semibold text-white">{data.meetingsTodayCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400">Өнөөдрийн хурал</div>
-                            </div>
-                            <div className="h-8 w-px bg-slate-700" />
-                            <div>
-                                <div className="text-2xl font-semibold text-orange-400">{data.meetingRoomsCount ?? 0}</div>
-                                <div className="text-[10px] text-slate-400">Өрөө</div>
-                            </div>
-                        </div>
-                        {data.nextMeetingTime && (
-                            <div className="pt-1 border-t border-slate-700/60">
-                                <div className="text-[10px] text-slate-500">Дараагийн: <span className="text-orange-400 font-semibold">{data.nextMeetingTime}</span></div>
-                            </div>
-                        )}
-                    </div>
-                );
-
             case 'skills':
                 return (
                     <div className="relative z-10 space-y-2">
@@ -435,8 +373,6 @@ export function DashboardWidgetCard({
     // Get gradient colors for decorative backgrounds
     const getGradientClasses = () => {
         switch (id) {
-            case 'projects':
-                return 'bg-gradient-to-br from-violet-500/10 to-purple-500/10';
             case 'employees':
                 return 'bg-gradient-to-br from-emerald-500/10 to-teal-500/10';
             case 'recruitment':
@@ -447,8 +383,6 @@ export function DashboardWidgetCard({
                 return 'bg-gradient-to-br from-blue-500/10 to-indigo-500/10';
             case 'training':
                 return 'bg-gradient-to-br from-teal-500/10 to-cyan-500/10';
-            case 'meetings':
-                return 'bg-gradient-to-br from-orange-500/10 to-amber-500/10';
             case 'skills':
                 return 'bg-gradient-to-br from-indigo-500/10 to-violet-500/10';
             case 'survey':
@@ -516,13 +450,11 @@ export function DashboardWidgetCard({
                         <Icon
                             className={cn(
                                 "h-5 w-5 text-slate-500 group-hover:scale-110 transition-transform",
-                                id === 'projects' && "text-violet-400",
                                 id === 'employees' && "text-emerald-400",
                                 id === 'points' && "text-yellow-500",
                                 id === 'recruitment' && "text-blue-400",
                                 id === 'er' && "text-blue-500",
                                 id === 'training' && "text-teal-400",
-                                id === 'meetings' && "text-orange-400",
                                 id === 'skills' && "text-indigo-400",
                                 id === 'survey' && "text-rose-400"
                             )}

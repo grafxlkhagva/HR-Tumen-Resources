@@ -375,7 +375,7 @@ export default function OffboardingDashboardPage() {
                                         <div className="p-5 flex items-center justify-end lg:pr-8 gap-2">
                                             {group.projects.length > 0 && (
                                                 <Button asChild variant="ghost" size="sm" className="rounded-full hover:bg-rose-50 group/btn">
-                                                    <Link href={`/dashboard/projects/${group.projects[0].id}`}>
+                                                    <Link href={`/projects/${group.projects[0].id}`}>
                                                         <span className="mr-2 text-xs font-bold text-slate-500 group-hover/btn:text-rose-600">Төсөл харах</span>
                                                         <ChevronRight className="h-4 w-4 text-slate-300 group-hover/btn:text-rose-400 transition-transform group-hover/btn:translate-x-1" />
                                                     </Link>

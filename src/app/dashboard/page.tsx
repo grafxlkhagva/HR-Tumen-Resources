@@ -385,7 +385,6 @@ const OrganizationChart = () => {
     const todayStr = format(new Date(), 'yyyy-MM-dd');
     const attendanceQuery = useMemoFirebase(() => (firestore ? query(collection(firestore, 'attendance'), where('date', '==', todayStr)) : null), [firestore, todayStr]);
     const timeOffQuery = useMemoFirebase(() => (firestore ? query(collectionGroup(firestore, 'timeOffRequests'), where('status', '==', 'Зөвшөөрсөн')) : null), [firestore]);
-    const postsQuery = useMemoFirebase(() => firestore ? collection(firestore, 'posts') : null, [firestore]);
 
 
     const { data: departments, isLoading: isLoadingDepts } = useCollection<Department>(deptsQuery);
@@ -401,12 +400,6 @@ const OrganizationChart = () => {
         firestore ? query(collectionGroup(firestore, 'vacationRequests'), where('status', '==', 'APPROVED')) : null
         , [firestore]);
     const { data: vacationRequests } = useCollection<VacationRequest>(vacationRequestsQuery);
-
-    // Projects query (for projects widget)
-    const projectsQuery = useMemoFirebase(() =>
-        firestore ? query(collection(firestore, 'projects'), where('status', 'in', ['DRAFT', 'ACTIVE', 'ON_HOLD', 'PLANNING', 'IN_PROGRESS'])) : null
-        , [firestore]);
-    const { data: activeProjects } = useCollection<any>(projectsQuery);
 
     // Recruitment queries (for Recruitment widget)
     const vacanciesQuery = useMemoFirebase(() =>
@@ -452,29 +445,6 @@ const OrganizationChart = () => {
         , [firestore]);
     const { data: skillAssessments } = useCollection<any>(skillAssessmentsQuery);
 
-    // All tasks query for overdue count (using collectionGroup)
-    const allTasksQuery = useMemoFirebase(() =>
-        firestore ? collectionGroup(firestore, 'tasks') : null
-        , [firestore]);
-    const { data: allTasks } = useCollection<any>(allTasksQuery);
-
-    // Meeting rooms and today's bookings (for Meetings widget)
-    const meetingRoomsQuery = useMemoFirebase(() =>
-        firestore ? collection(firestore, 'meeting_rooms') : null
-        , [firestore]);
-    const { data: meetingRooms } = useCollection<any>(meetingRoomsQuery);
-
-    const todayBookingsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        return query(
-            collection(firestore, 'room_bookings'),
-            where('date', '==', todayStr),
-            where('status', '==', 'active')
-        );
-    }, [firestore]);
-    const { data: todayBookings } = useCollection<any>(todayBookingsQuery);
-
     // Business Plan queries (for Business Plan widget)
     const bpPlansQuery = useMemoFirebase(() =>
         firestore ? query(collection(firestore, 'bp_plans'), where('status', '==', 'active')) : null
@@ -496,20 +466,6 @@ const OrganizationChart = () => {
         firestore ? collection(firestore, 'surveys') : null
         , [firestore]);
     const { data: allSurveys } = useCollection<any>(surveysQuery);
-
-    // Calculate overdue tasks
-    const overdueTasksCount = useMemo(() => {
-        if (!allTasks) return 0;
-        const today = new Date();
-        return allTasks.filter((task: any) => {
-            if (task.status === 'DONE') return false;
-            try {
-                return parseISO(task.dueDate) < today;
-            } catch {
-                return false;
-            }
-        }).length;
-    }, [allTasks]);
 
     // Dashboard widgets hook
     const {
@@ -536,7 +492,6 @@ const OrganizationChart = () => {
         }).length;
     }, [vacationRequests]);
     const { data: timeOffData, isLoading: isLoadingTimeOff } = useCollection<TimeOffRequest>(timeOffQuery);
-    const { data: posts, isLoading: isLoadingPosts } = useCollection(postsQuery);
     const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<CompanyProfile>(companyProfileRef);
 
 
@@ -545,7 +500,7 @@ const OrganizationChart = () => {
     // Critical loading states for the organization chart
     const isCriticalLoading = isLoadingDepts || isLoadingPos || isLoadingEmp || isLoadingProfile;
     // Secondary loading states for statistics
-    const isStatsLoading = isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff || isLoadingPosts;
+    const isStatsLoading = isLoadingSchedules || isLoadingLevels || isLoadingEmpTypes || isLoadingJobCategories || isLoadingAttendance || isLoadingTimeOff;
 
     // For visual skeleton of the chart
     const isLoading = isCriticalLoading;
@@ -661,10 +616,6 @@ const OrganizationChart = () => {
     const widgetData: WidgetData = useMemo(() => {
         const empArr = employees || [];
         return {
-            // Projects widget
-            activeProjectsCount: activeProjects?.length || 0,
-            overdueTasksCount,
-
             // Employees widget
             employeesCount: empArr.length,
             permanentCount: empArr.filter(e => e.status === 'active_permanent').length,
@@ -684,9 +635,6 @@ const OrganizationChart = () => {
             // Vacation widget
             vacationCount: onLeaveCount,
             
-            // Posts widget
-            postsCount: posts?.length || 0,
-
             // Recruitment widget
             recruitmentOpenVacancies: allVacancies?.filter((v: any) => v.status === 'OPEN').length || 0,
             recruitmentTotalCandidates: allApplications?.length || 0,
@@ -705,18 +653,6 @@ const OrganizationChart = () => {
                 const total = trainingPlans?.filter((p: any) => p.status !== 'cancelled').length || 0;
                 const completed = trainingPlans?.filter((p: any) => p.status === 'completed').length || 0;
                 return total > 0 ? Math.round((completed / total) * 100) : 0;
-            })(),
-
-            // Meetings widget
-            meetingsTodayCount: todayBookings?.length || 0,
-            meetingRoomsCount: meetingRooms?.filter((r: any) => r.isActive).length || 0,
-            nextMeetingTime: (() => {
-                if (!todayBookings?.length) return undefined;
-                const nowStr = format(new Date(), 'HH:mm');
-                const upcoming = todayBookings
-                    .filter((b: any) => b.startTime > nowStr)
-                    .sort((a: any, b: any) => a.startTime.localeCompare(b.startTime));
-                return upcoming[0]?.startTime;
             })(),
 
             // Skills widget
@@ -750,23 +686,18 @@ const OrganizationChart = () => {
             surveyTotalResponses: allSurveys?.reduce((sum: number, s: any) => sum + (s.responsesCount || 0), 0) || 0,
         };
     }, [
-        activeProjects,
-        overdueTasksCount,
         employees,
         departments,
         positions,
         presentEmployees.size,
         onLeaveEmployees.size,
         onLeaveCount,
-        posts,
         erDocuments,
         erPendingCount,
         erTemplates,
         genderCounts,
         trainingCourses,
         trainingPlans,
-        todayBookings,
-        meetingRooms,
         skillsInventory,
         skillAssessments,
         bpPlans,

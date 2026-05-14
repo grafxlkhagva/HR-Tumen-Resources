@@ -1024,7 +1024,7 @@ export default function TrainingPlanDetailPage() {
                                 </CardHeader>
                                 <CardContent className="space-y-2">
                                     {plan?.projectId && (
-                                        <Button variant="outline" size="sm" className="w-full" onClick={() => router.push(`/dashboard/projects/${plan.projectId}`)}>
+                                        <Button variant="outline" size="sm" className="w-full" onClick={() => router.push(`/projects/${plan.projectId}`)}>
                                             Төсөл үзэх →
                                         </Button>
                                     )}

@@ -1,9 +1,11 @@
 'use client';
+import { sanitizeHtml } from '@/lib/sanitize';
 
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase';
-import { collection, Timestamp, doc, getDoc } from 'firebase/firestore';
+import { useFirebase, addDocumentNonBlocking, setDocumentNonBlocking, useTenantWrite } from '@/firebase';
+import { Timestamp, doc, getDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { ERTemplate, ERDocumentType, PrintSettings } from '../types';
 import { Button } from '@/components/ui/button';
@@ -16,13 +18,28 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
-    Printer, Save, ArrowLeft, Plus, Trash2, Settings2, ChevronUp, ChevronDown,
+    Printer, Save, ArrowLeft, Plus, Trash2, Settings2,
     GripVertical, Sparkles, Loader2, Eye, Library, PanelLeftClose, PanelLeft,
     Check, Copy, Keyboard, Clock, CheckCircle2, AlertCircle, Wand2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { DynamicFieldSelector } from './dynamic-field-selector';
-import { RichTextEditor } from './rich-text-editor';
+import { generateHeaderHtml as buildHeaderHtml } from '../lib/generate-header-html';
+import dynamic from 'next/dynamic';
+
+// Lazy-loaded Tiptap editor — Загвар засах/үзэх хуудсанд л ачаалагдана.
+// RichTextEditor нь StarterKit + 6 extension-тэй ~300KB дэх Tiptap bundle.
+const RichTextEditor = dynamic(
+    () => import('./rich-text-editor').then(m => ({ default: m.RichTextEditor })),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="min-h-[500px] border rounded-lg bg-muted/20 flex items-center justify-center text-sm text-muted-foreground">
+                Засварлагч ачаалж байна...
+            </div>
+        ),
+    }
+);
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { VerticalTabMenu } from '@/components/ui/vertical-tab-menu';
@@ -45,7 +62,6 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TEMPLATE_PRESETS, TEMPLATE_CATEGORIES, TemplatePreset } from '../data/template-library';
-import { generateDocumentHeader, generateDocumentSignature } from '../utils';
 
 interface TemplateFormProps {
     initialData?: Partial<ERTemplate>;
@@ -64,6 +80,7 @@ const DEFAULT_PRINT_SETTINGS: PrintSettings = {
 
 export function TemplateForm({ initialData, docTypes, mode, templateId }: TemplateFormProps) {
     const { firestore } = useFirebase();
+    const { tDoc, tCollection } = useTenantWrite();
     const { toast } = useToast();
     const router = useRouter();
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -76,83 +93,59 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [selectedPresetCategory, setSelectedPresetCategory] = useState<string>('contract');
     const [pendingInsertContent, setPendingInsertContent] = useState<string | null>(null);
-    const [editorKey, setEditorKey] = useState(0);
-    const [companyProfile, setCompanyProfile] = useState<any>(null);
+    const [companyProfile, setCompanyProfile] = useState<Record<string, unknown> | null>(null);
 
-    // Fetch company profile (and subsidiaries) for header logo/name
+    // Fetch company profile for logo — tenant-scoped
     useEffect(() => {
         if (!firestore) return;
-        const profileRef = doc(firestore, 'company', 'profile');
+        const profileRef = tDoc('company', 'profile');
         getDoc(profileRef).then(snap => {
             if (snap.exists()) {
                 setCompanyProfile(snap.data());
             }
         });
-    }, [firestore]);
+    }, [firestore, tDoc]);
 
     const [formData, setFormData] = useState<Partial<ERTemplate>>({
         isActive: true,
         isDeletable: false,
         version: 1,
         includeHeader: true,
-        includeSignature: true,
         printSettings: DEFAULT_PRINT_SETTINGS,
         requiredFields: [],
         customInputs: [],
         ...initialData
     });
 
-    const subsidiaries: { name: string; registrationNumber?: string; logoUrl?: string }[] = React.useMemo(() => {
-        if (!companyProfile?.subsidiaries) return [];
-        return companyProfile.subsidiaries.map((item: unknown) => {
-            if (typeof item === 'string') return { name: item, registrationNumber: '', logoUrl: undefined };
-            const o = item as { name?: string; registrationNumber?: string; logoUrl?: string };
-            return { name: o.name ?? '', registrationNumber: o.registrationNumber, logoUrl: o.logoUrl };
-        });
-    }, [companyProfile?.subsidiaries]);
-
-    const headerCompanyKey = formData.printSettings?.headerCompanyKey ?? '__main__';
-    const headerCompany = React.useMemo(() => {
-        if (headerCompanyKey === '__main__') {
-            return {
-                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
-                logoUrl: companyProfile?.logoUrl
-            };
-        }
-        const idx = parseInt(headerCompanyKey, 10);
-        if (Number.isNaN(idx) || idx < 0 || idx >= subsidiaries.length) {
-            return {
-                name: companyProfile?.name || companyProfile?.legalName || 'Байгууллага',
-                logoUrl: companyProfile?.logoUrl
-            };
-        }
-        const sub = subsidiaries[idx];
-        return { name: sub.name, logoUrl: sub.logoUrl };
-    }, [headerCompanyKey, subsidiaries, companyProfile]);
-
+    // Track unsaved changes
     useEffect(() => {
         if (initialData) {
             setFormData(prev => ({ ...prev, ...initialData }));
-            setEditorKey(k => k + 1);
         }
     }, [initialData]);
 
+    // Mount-ийн дараа л track хийнэ — анхнаасаа "Хадгалаагүй" гарахгүй
+    const isMountedRef = React.useRef(false);
     useEffect(() => {
+        if (!isMountedRef.current) {
+            isMountedRef.current = true;
+            return;
+        }
         setHasUnsavedChanges(true);
     }, [formData]);
+
+    // handleSubmit ref — keyboard shortcut-д stale closure-с зайлсхийнэ
+    const handleSubmitRef = React.useRef<(() => void) | null>(null);
 
     // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Ctrl+S or Cmd+S to save
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
                 e.preventDefault();
-                handleSubmit();
+                handleSubmitRef.current?.();
             }
-            // Ctrl+Shift+V to open variable selector
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
                 e.preventDefault();
-                // Focus on search in variable selector
                 const searchInput = document.querySelector('[data-variable-search]') as HTMLInputElement;
                 searchInput?.focus();
             }
@@ -160,7 +153,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [formData]);
+    }, []); // Зөвхөн mount-д — ref-р handleSubmit-г дамжуулна
 
     // Warn before leaving with unsaved changes
     useEffect(() => {
@@ -205,7 +198,6 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             content: preset.content,
             customInputs: preset.customInputs || []
         }));
-        setEditorKey(k => k + 1);
         setIsLibraryOpen(false);
         toast({
             title: 'Загвар ачааллаа',
@@ -234,7 +226,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }));
     };
 
-    const updateCustomInput = (order: number, field: string, value: any) => {
+    const updateCustomInput = (order: number, field: string, value: string | number | boolean) => {
         setFormData(prev => {
             const inputs = prev.customInputs?.map(input =>
                 input.order === order ? { ...input, [field]: value } : input
@@ -308,7 +300,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         try {
             const response = await fetch('/api/generate-template', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     templateName: formData.name,
                     documentTypeName: selectedDocType?.name || '',
@@ -326,7 +318,6 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                 content: result.data.content || prev.content,
                 customInputs: result.data.customInputs || prev.customInputs
             }));
-            setEditorKey(k => k + 1);
 
             toast({
                 title: 'Амжилттай',
@@ -344,39 +335,25 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         }
     };
 
+    // Generate header HTML based on docType + companyProfile (shared util)
     const generateHeaderHtml = React.useCallback(() => {
-        if (!formData.includeHeader || !formData.documentTypeId) return '';
         const docType = docTypes.find(dt => dt.id === formData.documentTypeId);
-        return generateDocumentHeader({
-            includeHeader: true,
-            docTypeHeader: docType?.header,
-            companyProfile,
-            headerCompanyKey: formData.printSettings?.headerCompanyKey,
+        return buildHeaderHtml({
+            includeHeader: formData.includeHeader,
+            documentType: docType ?? null,
+            companyProfile: (companyProfile ?? null) as Record<string, unknown> | null,
         });
-    }, [formData.includeHeader, formData.documentTypeId, docTypes, companyProfile, formData.printSettings?.headerCompanyKey]);
-
-    const generateSignatureHtml = React.useCallback(() => {
-        if (!formData.includeSignature || !formData.documentTypeId) return '';
-        const docType = docTypes.find(dt => dt.id === formData.documentTypeId);
-        return generateDocumentSignature({
-            includeSignature: true,
-            docTypeSignature: docType?.signature,
-        });
-    }, [formData.includeSignature, formData.documentTypeId, docTypes]);
-
-    const selectedDocSignature = React.useMemo(() => {
-        if (!formData.documentTypeId) return undefined;
-        return docTypes.find(dt => dt.id === formData.documentTypeId)?.signature;
-    }, [docTypes, formData.documentTypeId]);
+    }, [formData.includeHeader, formData.documentTypeId, docTypes, companyProfile]);
 
     const getPreviewHtml = React.useMemo(() => {
         const headerHtml = generateHeaderHtml();
-        const signatureHtml = generateSignatureHtml();
-        const contentToShow = headerHtml + (formData.content || '') + signatureHtml;
+        const contentToShow = headerHtml + (formData.content || '');
         
         if (!contentToShow) return '';
 
+        const now = new Date();
         const sampleData: Record<string, string> = {
+            // Company
             '{{company.name}}': 'ХХК "Жишээ Компани"',
             '{{company.legalName}}': 'ХХК "Жишээ Компани"',
             '{{company.address}}': 'УБ хот, СБД, 1-р хороо',
@@ -385,15 +362,54 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             '{{company.ceo}}': 'Б. Болд',
             '{{company.registrationNumber}}': '1234567',
             '{{company.taxId}}': '9876543',
+            '{{company.website}}': 'https://example.mn',
+            '{{company.industry}}': 'Мэдээллийн технологи',
+            '{{company.employeeCount}}': '50',
+            '{{company.establishedDate}}': '2015-01-01',
+            '{{company.mission}}': 'Хамгийн сайн үйлчилгээг үзүүлэх',
+            '{{company.vision}}': 'Салбартаа тэргүүлэгч байх',
+            // Employee
             '{{employee.firstName}}': 'Бат',
             '{{employee.lastName}}': 'Дорж',
             '{{employee.fullName}}': 'Дорж Бат',
-            '{{employee.registerNo}}': 'АА00112233',
+            '{{employee.email}}': 'bat.dorj@example.mn',
+            '{{employee.phone}}': '99112233',
+            '{{employee.code}}': 'EMP0001',
+            '{{employee.jobTitle}}': 'Ахлах менежер',
             '{{employee.hireDate}}': '2024-01-15',
+            '{{employee.registerNo}}': 'АА00112233',
+            '{{employee.address}}': 'СБД, 5-р хороо, 42-р байр',
+            '{{employee.birthDate}}': '1990-05-15',
+            // Position
             '{{position.title}}': 'Ахлах менежер',
-            '{{department.name}}': 'Санхүү',
-            '{{date.today}}': new Date().toISOString().split('T')[0],
-            '{{date.year}}': new Date().getFullYear().toString(),
+            '{{position.code}}': 'MGR-01',
+            '{{position.levelName}}': 'Ахлах мэргэжилтэн',
+            '{{position.employmentTypeName}}': 'Үндсэн ажилтан',
+            '{{position.workScheduleName}}': '9:00-18:00',
+            '{{position.salary.min}}': '2,000,000',
+            '{{position.salary.max}}': '3,000,000',
+            '{{position.salary.mid}}': '2,500,000',
+            '{{position.salary.currency}}': 'MNT',
+            '{{position.salary.period}}': 'Сар бүр',
+            '{{position.salaryStepName}}': 'Шат 2',
+            '{{position.salaryStepValue}}': '2,200,000',
+            '{{position.benefits.vacationDays}}': '15',
+            '{{position.experience.totalYears}}': '3',
+            '{{position.experience.educationLevel}}': 'Бакалавр',
+            // Department
+            '{{department.name}}': 'Санхүү хэлтэс',
+            '{{department.code}}': 'FIN',
+            '{{department.managerName}}': 'Б. Болд',
+            '{{department.managerPositionName}}': 'Хэлтсийн дарга',
+            '{{department.filled}}': '15',
+            '{{department.positionCount}}': '20',
+            // System
+            '{{date.today}}': now.toISOString().split('T')[0],
+            '{{date.year}}': now.getFullYear().toString(),
+            '{{date.month}}': String(now.getMonth() + 1).padStart(2, '0'),
+            '{{date.day}}': String(now.getDate()).padStart(2, '0'),
+            '{{document.number}}': 'ГЭР-2026-0001',
+            '{{user.name}}': 'Системийн хэрэглэгч',
         };
 
         formData.customInputs?.forEach(input => {
@@ -416,10 +432,12 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
         html = html.replace(/\{\{([^}]+)\}\}/g,
             '<span style="background-color: #fee2e2; padding: 0 4px; border-radius: 2px; color: #dc2626;">{{$1}}</span>');
 
-        return html;
-    }, [formData.content, formData.customInputs, generateHeaderHtml, generateSignatureHtml]);
+        return sanitizeHtml(html);
+    }, [formData.content, formData.customInputs, generateHeaderHtml]);
 
     const handleSubmit = async () => {
+        // ref update — keyboard shortcut always gets latest version
+        // (ref assigned below via useEffect)
         if (!firestore || !formData.name || !formData.documentTypeId || !formData.content) {
             toast({ title: "Дутуу мэдээлэл", description: "Шаардлагатай талбаруудыг бөглөнө үү", variant: "destructive" });
             return;
@@ -465,14 +483,14 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             };
 
             if (mode === 'edit' && templateId) {
-                await setDocumentNonBlocking(doc(firestore, 'er_templates', templateId), templateData, { merge: true });
+                await setDocumentNonBlocking(tDoc('er_templates', templateId), templateData, { merge: true });
                 toast({ title: "Амжилттай", description: "Загвар шинэчлэгдлээ" });
             } else {
                 const newDoc = {
                     ...templateData,
                     createdAt: Timestamp.now()
                 };
-                await addDocumentNonBlocking(collection(firestore, 'er_templates'), newDoc);
+                await addDocumentNonBlocking(tCollection('er_templates'), newDoc);
                 toast({ title: "Амжилттай", description: "Шинэ загвар үүслээ" });
             }
             setHasUnsavedChanges(false);
@@ -485,6 +503,12 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
             setIsSubmitting(false);
         }
     };
+
+    // Ref-г handleSubmit-ийн хамгийн сүүлийн хувилбараар шинэчилнэ
+    // (keyboard shortcut-д stale closure байхгүй болно)
+    React.useEffect(() => {
+        handleSubmitRef.current = handleSubmit;
+    });
 
     return (
         <TooltipProvider>
@@ -533,6 +557,25 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                 <div className="flex justify-between"><span>Хадгалах</span><kbd className="px-1 bg-muted rounded">Ctrl+S</kbd></div>
                                 <div className="flex justify-between"><span>Хувьсагч хайх</span><kbd className="px-1 bg-muted rounded">Ctrl+Shift+V</kbd></div>
                             </div>
+                        </TooltipContent>
+                    </Tooltip>
+
+                    {/* Split view toggle */}
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setShowSplitView(v => !v)}
+                                className="shrink-0"
+                            >
+                                {showSplitView
+                                    ? <PanelLeftClose className="h-4 w-4" />
+                                    : <PanelLeft className="h-4 w-4" />}
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">
+                            <span className="text-xs">{showSplitView ? 'Sidebar нуух' : 'Sidebar харуулах'}</span>
                         </TooltipContent>
                     </Tooltip>
 
@@ -629,6 +672,43 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                     </div>
                                 </div>
 
+                                {/* Lifecycle action linkage — create flow-д системийн талбаруудыг идэвхжүүлнэ */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Label>Үйл ажиллагааны төрөл (action)</Label>
+                                        <Badge variant="outline" className="text-[9px] h-4">Нэмэлт</Badge>
+                                    </div>
+                                    <Select
+                                        value={formData.metadata?.actionId || '__none'}
+                                        onValueChange={(val) => setFormData(prev => ({
+                                            ...prev,
+                                            metadata: {
+                                                ...(prev.metadata || {}),
+                                                actionId: val === '__none' ? undefined : val,
+                                            },
+                                        }))}
+                                    >
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Холбогдохгүй (чөлөөт загвар)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="__none">Холбогдохгүй — чөлөөт загвар</SelectItem>
+                                            <SelectItem value="appointment_permanent">Үндсэн ажилтнаар томилох</SelectItem>
+                                            <SelectItem value="appointment_probation">Туршилтын хугацаатай томилох</SelectItem>
+                                            <SelectItem value="appointment_reappoint">Эргүүлэн томилох</SelectItem>
+                                            <SelectItem value="release_company">Чөлөөлөх — ажил олгогчоор</SelectItem>
+                                            <SelectItem value="release_employee">Чөлөөлөх — ажилтны хүсэлтээр</SelectItem>
+                                            <SelectItem value="release_temporary">Чөлөөлөх — түр</SelectItem>
+                                            <SelectItem value="release_temporary_longterm">Чөлөөлөх — урт хугацаа</SelectItem>
+                                            <SelectItem value="release_temporary_maternity">Чөлөөлөх — жирэмсэн амаржсан</SelectItem>
+                                            <SelectItem value="release_temporary_childcare">Чөлөөлөх — хүүхэд асрах</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-[10px] text-muted-foreground">
+                                        Appointment action-уудад баримт үүсгэх үед цалингийн шатлал, урамшуулал, хангамж сонгох талбар нэмэгдэнэ.
+                                    </p>
+                                </div>
+
                                 {/* Include Header Option */}
                                 {formData.documentTypeId && (
                                     <div className="mt-4 space-y-3">
@@ -646,61 +726,21 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                                 onCheckedChange={(c) => setFormData(prev => ({ ...prev, includeHeader: c }))}
                                             />
                                         </div>
-
-                                        {/* Include Signature Option */}
-                                        <div className="flex items-center justify-between rounded-lg border p-3 bg-slate-50">
-                                            <div className="space-y-0.5">
-                                                <Label className="cursor-pointer text-sm font-medium">
-                                                    Гарын үсэг автоматаар оруулах
-                                                </Label>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {selectedDocSignature?.name || selectedDocSignature?.position
-                                                        ? <>Баримтын доод хэсэгт <strong>{selectedDocSignature?.position || 'Гүйцэтгэх захирал'}</strong>{selectedDocSignature?.name ? ` · ${selectedDocSignature.name}` : ''} автоматаар нэмэгдэнэ</>
-                                                        : 'Баримтын төрлийн тохиргоонд гарын үсгийн мэдээлэл оруулаагүй байна'}
-                                                </p>
-                                            </div>
-                                            <Switch
-                                                checked={formData.includeSignature ?? true}
-                                                onCheckedChange={(c) => setFormData(prev => ({ ...prev, includeSignature: c }))}
-                                            />
-                                        </div>
                                         
-                                        {formData.includeHeader && (
-                                            <div className="space-y-3">
-                                                <div className="space-y-1.5">
-                                                    <Label className="text-xs text-muted-foreground">Толгойнд ашиглах байгууллага</Label>
-                                                    <Select
-                                                        value={headerCompanyKey}
-                                                        onValueChange={(val) => setFormData(prev => ({
-                                                            ...prev,
-                                                            printSettings: { ...prev.printSettings, headerCompanyKey: val }
-                                                        }))}
-                                                    >
-                                                        <SelectTrigger>
-                                                            <SelectValue placeholder="Сонгох" />
-                                                        </SelectTrigger>
-                                                        <SelectContent>
-                                                            <SelectItem value="__main__">
-                                                                {companyProfile?.name || companyProfile?.legalName || 'Үндсэн байгууллага'}
-                                                            </SelectItem>
-                                                            {subsidiaries.map((sub, i) => (
-                                                                <SelectItem key={i} value={String(i)}>
-                                                                    {sub.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                </div>
+                                        {formData.includeHeader && (() => {
+                                            const profileLogoUrl = typeof companyProfile?.logoUrl === 'string' ? companyProfile.logoUrl : '';
+                                            const profileName = typeof companyProfile?.name === 'string' ? companyProfile.name : '';
+                                            return (
                                                 <div className="flex items-center gap-3 p-2 rounded border bg-white">
-                                                    {headerCompany.logoUrl ? (
+                                                    {profileLogoUrl ? (
                                                         <>
-                                                            <img 
-                                                                src={headerCompany.logoUrl} 
-                                                                alt="Logo" 
+                                                            <img
+                                                                src={profileLogoUrl}
+                                                                alt="Logo"
                                                                 className="h-10 w-10 object-contain border rounded"
                                                             />
                                                             <div className="flex-1 min-w-0">
-                                                                <p className="text-sm font-medium truncate">{headerCompany.name}</p>
+                                                                <p className="text-sm font-medium truncate">{profileName || 'Байгууллага'}</p>
                                                                 <p className="text-xs text-green-600">✓ Толгой урьдчилан харахад харагдана</p>
                                                             </div>
                                                         </>
@@ -710,14 +750,14 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                                                 <AlertCircle className="h-5 w-5 text-slate-400" />
                                                             </div>
                                                             <div className="flex-1">
-                                                                <p className="text-sm font-medium">{headerCompany.name}</p>
+                                                                <p className="text-sm font-medium">{profileName || 'Байгууллага'}</p>
                                                                 <p className="text-xs text-amber-600">Лого оруулаагүй байна</p>
                                                             </div>
                                                         </>
                                                     )}
                                                 </div>
-                                            </div>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                 )}
                             </CardContent>
@@ -744,7 +784,6 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                                     <TabsContent value="visual" className="mt-0">
                                         <RichTextEditor
-                                            key={`tpl-editor-${editorKey}`}
                                             content={formData.content || ''}
                                             onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
                                             insertContent={pendingInsertContent}
@@ -758,7 +797,7 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
 
                                     <TabsContent value="preview" className="mt-0">
                                         <div className="min-h-[500px] border rounded-lg bg-white overflow-auto shadow-inner">
-                                            {(formData.content || formData.includeHeader || formData.includeSignature) ? (
+                                            {(formData.content || formData.includeHeader) ? (
                                                 <div
                                                     className="p-8 prose prose-sm max-w-none"
                                                     dangerouslySetInnerHTML={{ __html: getPreviewHtml }}
@@ -864,20 +903,22 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-1">
-                                        {[...(formData.customInputs || [])].sort((a, b) => (a.order || 0) - (b.order || 0)).map((input, idx) => (
+                                        {formData.customInputs.slice(0, 5).map((input, idx) => (
                                             <div key={idx} className="flex items-center gap-2 text-xs p-2 bg-slate-50 rounded">
-                                                <code className="text-primary shrink-0">{`{{${input.key || '...'}}}`}</code>
-                                                <span className="text-muted-foreground truncate flex-1">{input.label}</span>
-                                                <button
-                                                    type="button"
-                                                    className="shrink-0 p-1 rounded text-rose-400 hover:text-rose-600 hover:bg-rose-100"
-                                                    onClick={() => removeCustomInput(input.order)}
-                                                    title="Устгах"
-                                                >
-                                                    <Trash2 className="h-3.5 w-3.5" />
-                                                </button>
+                                                <code className="text-primary">{`{{${input.key || '...'}}}`}</code>
+                                                <span className="text-muted-foreground truncate">{input.label}</span>
                                             </div>
                                         ))}
+                                        {formData.customInputs.length > 5 && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="w-full text-xs"
+                                                onClick={() => setIsInputsDialogOpen(true)}
+                                            >
+                                                +{formData.customInputs.length - 5} бусад...
+                                            </Button>
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1041,11 +1082,8 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
                                                     key={`input-${input.order}`}
                                                     id={`input-${input.order}`}
                                                     input={input}
-                                                    index={index}
-                                                    isLast={index === allInputs.length - 1}
                                                     onUpdate={updateCustomInput}
                                                     onRemove={removeCustomInput}
-                                                    onMove={moveCustomInput}
                                                 />
                                             ))}
                                     </div>
@@ -1066,14 +1104,13 @@ export function TemplateForm({ initialData, docTypes, mode, templateId }: Templa
     );
 }
 
-function SortableInputItem({ id, input, index, isLast, onUpdate, onRemove, onMove }: {
+type CustomInputDef = NonNullable<ERTemplate['customInputs']>[number];
+
+function SortableInputItem({ id, input, onUpdate, onRemove }: {
     id: string;
-    input: any;
-    index: number;
-    isLast: boolean;
-    onUpdate: (order: number, field: string, value: any) => void;
+    input: CustomInputDef;
+    onUpdate: (order: number, field: string, value: string | number | boolean) => void;
     onRemove: (order: number) => void;
-    onMove: (index: number, direction: 'up' | 'down') => void;
 }) {
     const {
         attributes,
@@ -1160,30 +1197,18 @@ function SortableInputItem({ id, input, index, isLast, onUpdate, onRemove, onMov
                         />
                     </div>
                 </div>
+                {/* Required toggle */}
+                <div className="flex items-center justify-between pt-1 border-t mt-2">
+                    <Label className="text-[10px] text-slate-500 cursor-pointer">Заавал бөглөх</Label>
+                    <Switch
+                        checked={input.required ?? true}
+                        onCheckedChange={(v) => onUpdate(input.order, 'required', v)}
+                    />
+                </div>
             </div>
 
-            <div className="flex flex-col gap-1 border-l pl-4">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
-                    onClick={() => onMove(index, 'up')}
-                    disabled={index === 0}
-                    title="Дээшлүүлэх"
-                >
-                    <ChevronUp className="h-5 w-5" />
-                </Button>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-slate-400 hover:text-primary hover:bg-primary/5"
-                    onClick={() => onMove(index, 'down')}
-                    disabled={isLast}
-                    title="Доошлуулах"
-                >
-                    <ChevronDown className="h-5 w-5" />
-                </Button>
-                <div className="flex-1 min-h-[4px]" />
+            {/* Arrow buttons хасав — DnD drag handle л байна */}
+            <div className="flex flex-col items-center justify-end border-l pl-4 pb-1">
                 <Button
                     variant="ghost"
                     size="icon"

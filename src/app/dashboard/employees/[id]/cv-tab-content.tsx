@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useFirebase, useDoc, useMemoFirebase, tenantEmployeeSubdoc } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -12,51 +11,14 @@ import { format } from 'date-fns';
 import { Employee } from '../data';
 import { FullQuestionnaireValues } from '@/types/questionnaire';
 import { INSURANCE_TYPES } from '@/data/insurance-types';
+import { transformQuestionnaireDates, formatDateISO } from '@/lib/date-utils';
 
 interface CVTabContentProps {
     employee: Employee;
 }
 
-const transformDates = (data: any) => {
-    if (!data) return data;
-    const transformedData = { ...data };
-    const dateFields = ['birthDate', 'disabilityDate'];
-    const arrayDateFields = ['entryDate', 'gradDate', 'startDate', 'endDate'];
-
-    for (const field of dateFields) {
-        if (transformedData[field] && typeof transformedData[field] === 'object' && 'seconds' in transformedData[field]) {
-            transformedData[field] = transformedData[field].toDate();
-        }
-    }
-
-    ['education', 'trainings', 'experiences'].forEach(arrayKey => {
-        if (transformedData[arrayKey]) {
-            transformedData[arrayKey] = transformedData[arrayKey].map((item: any) => {
-                const newItem = { ...item };
-                for (const field of arrayDateFields) {
-                    if (newItem[field] && typeof newItem[field] === 'object' && 'seconds' in newItem[field]) {
-                        newItem[field] = newItem[field].toDate();
-                    }
-                }
-                return newItem;
-            });
-        }
-    });
-
-    return transformedData;
-};
-
-const formatDate = (date: any): string => {
-    if (!date) return '-';
-    try {
-        if (typeof date === 'string') return date;
-        if (date.seconds) return format(new Date(date.seconds * 1000), 'yyyy-MM-dd');
-        if (date instanceof Date) return format(date, 'yyyy-MM-dd');
-        return '-';
-    } catch {
-        return '-';
-    }
-};
+const transformDates = transformQuestionnaireDates;
+const formatDate = formatDateISO;
 
 const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
     <div className="mb-6">
@@ -80,12 +42,18 @@ export function CVTabContent({ employee }: CVTabContentProps) {
     const printRef = React.useRef<HTMLDivElement>(null);
 
     const questionnaireDocRef = useMemoFirebase(
-        () => (firestore && employee?.id ? doc(firestore, `employees/${employee.id}/questionnaire`, 'data') : null),
-        [firestore, employee?.id]
+        ({ firestore, companyPath }) =>
+            firestore && employee?.id
+                ? tenantEmployeeSubdoc(firestore, companyPath, employee.id, 'questionnaire', 'data')
+                : null,
+        [employee?.id]
     );
 
     const { data: rawQuestionnaireData, isLoading } = useDoc<FullQuestionnaireValues>(questionnaireDocRef);
-    const questionnaireData = React.useMemo(() => transformDates(rawQuestionnaireData), [rawQuestionnaireData]);
+    const questionnaireData = React.useMemo(
+        () => transformDates(rawQuestionnaireData as Record<string, unknown> | null | undefined) as FullQuestionnaireValues | null | undefined,
+        [rawQuestionnaireData]
+    );
 
     const handlePrint = () => {
         const printContent = printRef.current;
@@ -158,7 +126,7 @@ export function CVTabContent({ employee }: CVTabContentProps) {
         );
     }
 
-    const data = questionnaireData || {};
+    const data = (questionnaireData || {}) as Partial<FullQuestionnaireValues>;
     const fullName = `${data.lastName || employee?.lastName || ''} ${data.firstName || employee?.firstName || ''}`.trim();
     const insuranceType = INSURANCE_TYPES.find(t => t.code === data.insuranceTypeCode);
 
@@ -238,12 +206,12 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                             </div>
                         )}
                         
-                        {data.hasDriversLicense && data.driverLicenseCategories?.length > 0 && (
+                        {data.hasDriversLicense && (data.driverLicenseCategories?.length ?? 0) > 0 && (
                             <div className="mt-3 flex items-center gap-2">
                                 <Car className="w-4 h-4 text-slate-400" />
                                 <span className="text-xs text-slate-500">Жолооны үнэмлэх:</span>
                                 <div className="flex gap-1">
-                                    {data.driverLicenseCategories.map((cat: string) => (
+                                    {(data.driverLicenseCategories ?? []).map((cat: string) => (
                                         <Badge key={cat} variant="secondary" className="text-[10px]">{cat}</Badge>
                                     ))}
                                 </div>
@@ -269,10 +237,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                         </div>
                         
                         {/* Emergency Contacts */}
-                        {data.emergencyContacts?.length > 0 && (
+                        {(data.emergencyContacts?.length ?? 0) > 0 && (
                             <div className="mt-4">
                                 <p className="text-xs font-semibold text-slate-600 mb-2">Яаралтай үед холбоо барих</p>
-                                {data.emergencyContacts.map((contact: any, idx: number) => (
+                                {(data.emergencyContacts ?? []).map((contact: any, idx: number) => (
                                     <div key={idx} className="flex gap-4 text-xs py-1.5 border-b border-slate-100 last:border-0">
                                         <span className="font-medium text-slate-800">{contact.fullName}</span>
                                         <span className="text-slate-500">{contact.relationship}</span>
@@ -284,10 +252,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                     </Section>
 
                     {/* Work Experience */}
-                    {!data.experienceNotApplicable && data.experiences?.length > 0 && (
+                    {!data.experienceNotApplicable && (data.experiences?.length ?? 0) > 0 && (
                         <Section title="Ажлын туршлага" icon={Briefcase}>
                             <div className="space-y-3">
-                                {data.experiences.map((exp: any, idx: number) => (
+                                {(data.experiences ?? []).map((exp: any, idx: number) => (
                                     <div key={idx} className="p-3 bg-slate-50 rounded-lg">
                                         <div className="flex items-start justify-between">
                                             <div>
@@ -311,10 +279,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                     )}
 
                     {/* Education */}
-                    {!data.educationNotApplicable && data.education?.length > 0 && (
+                    {!data.educationNotApplicable && (data.education?.length ?? 0) > 0 && (
                         <Section title="Боловсрол" icon={GraduationCap}>
                             <div className="space-y-3">
-                                {data.education.map((edu: any, idx: number) => (
+                                {(data.education ?? []).map((edu: any, idx: number) => (
                                     <div key={idx} className="p-3 bg-slate-50 rounded-lg">
                                         <div className="flex items-start justify-between">
                                             <div>
@@ -338,10 +306,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                     )}
 
                     {/* Languages */}
-                    {!data.languagesNotApplicable && data.languages?.length > 0 && (
+                    {!data.languagesNotApplicable && (data.languages?.length ?? 0) > 0 && (
                         <Section title="Гадаад хэлний мэдлэг" icon={Languages}>
                             <div className="space-y-2">
-                                {data.languages.map((lang: any, idx: number) => (
+                                {(data.languages ?? []).map((lang: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-4 py-2 border-b border-slate-100 last:border-0">
                                         <span className="text-sm font-semibold text-slate-800 w-24">{lang.language}</span>
                                         <div className="flex gap-3 text-[11px] text-slate-500">
@@ -360,10 +328,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                     )}
 
                     {/* Trainings */}
-                    {!data.trainingsNotApplicable && data.trainings?.length > 0 && (
+                    {!data.trainingsNotApplicable && (data.trainings?.length ?? 0) > 0 && (
                         <Section title="Мэргэшлийн сургалт" icon={Award}>
                             <div className="space-y-3">
-                                {data.trainings.map((training: any, idx: number) => (
+                                {(data.trainings ?? []).map((training: any, idx: number) => (
                                     <div key={idx} className="p-3 bg-slate-50 rounded-lg">
                                         <div className="flex items-start justify-between">
                                             <div>
@@ -384,10 +352,10 @@ export function CVTabContent({ employee }: CVTabContentProps) {
                     )}
 
                     {/* Family Members */}
-                    {!data.familyMembersNotApplicable && data.familyMembers?.length > 0 && (
+                    {!data.familyMembersNotApplicable && (data.familyMembers?.length ?? 0) > 0 && (
                         <Section title="Гэр бүлийн мэдээлэл" icon={Users}>
                             <div className="space-y-2">
-                                {data.familyMembers.map((member: any, idx: number) => (
+                                {(data.familyMembers ?? []).map((member: any, idx: number) => (
                                     <div key={idx} className="flex items-center gap-4 py-2 border-b border-slate-100 last:border-0">
                                         <Badge variant="outline" className="text-[10px]">{member.relationship}</Badge>
                                         <span className="text-sm font-medium text-slate-800">

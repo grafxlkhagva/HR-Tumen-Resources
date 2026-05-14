@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useCallback, useEffect } from 'react';
+import React, { useMemo, useCallback, useEffect, useRef } from 'react';
 import ReactFlow, {
     Background,
     Controls,
@@ -20,7 +20,11 @@ import { PositionFlowNode } from './position-flow-node';
 import { Position, Department } from '../../../types';
 import { Button } from '@/components/ui/button';
 import { LayoutTemplate } from 'lucide-react';
-import { AppointEmployeeDialog } from './appoint-employee-dialog';
+import dynamic from 'next/dynamic';
+const AppointEmployeeDialog = dynamic(
+    () => import('./appoint-employee-dialog').then(m => ({ default: m.AppointEmployeeDialog })),
+    { ssr: false }
+);
 import { useToast } from '@/hooks/use-toast';
 
 const NODE_TYPES = {
@@ -86,6 +90,7 @@ function FlowInner({
     const { fitView } = useReactFlow();
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+    const nodeTypesRef = useRef(NODE_TYPES);
 
     useEffect(() => {
         setNodes(initialNodes);
@@ -106,7 +111,7 @@ function FlowInner({
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
-            nodeTypes={NODE_TYPES}
+            nodeTypes={nodeTypesRef.current}
             connectionLineType={ConnectionLineType.SmoothStep}
             fitView
             className="bg-dot-pattern"
@@ -202,7 +207,7 @@ export function PositionStructureFlowCanvas(props: PositionStructureFlowCanvasPr
     }, [positions, employees, lookups, onPositionClick, onAddChild, onDuplicate]);
 
     return (
-        <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-hidden relative group">
+        <div className="w-full h-full min-h-[500px] bg-background border-none rounded-xl overflow-visible relative group">
             <ReactFlowProvider>
                 <FlowInner
                     {...props}

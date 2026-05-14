@@ -14,7 +14,7 @@ export default function Home() {
   const [showRoleChoice, setShowRoleChoice] = React.useState(false);
   const [isCheckingRole, setIsCheckingRole] = React.useState(false);
   const [isNavigating, setIsNavigating] = React.useState(false);
-  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean; crmAccess: boolean; businessPlanAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false, crmAccess: false, businessPlanAccess: false });
+  const [userFlags, setUserFlags] = React.useState<{ isAdmin: boolean; tmsAccess: boolean; newsAccess: boolean; crmAccess: boolean; businessPlanAccess: boolean; projectsAccess: boolean; meetingsAccess: boolean; companyAccess: boolean; officialLettersAccess: boolean }>({ isAdmin: false, tmsAccess: false, newsAccess: false, crmAccess: false, businessPlanAccess: false, projectsAccess: false, meetingsAccess: false, companyAccess: false, officialLettersAccess: false });
   const hasCheckedRole = React.useRef(false);
 
   // Fetch company profile for dialog
@@ -53,13 +53,17 @@ export default function Home() {
         if (userDoc.exists()) {
           const userData = userDoc.data();
           
-          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess || userData.crmAccess || userData.businessPlanAccess) {
+          if (userData.role === 'admin' || userData.tmsAccess || userData.newsAccess || userData.crmAccess || userData.businessPlanAccess || userData.projectsAccess || userData.meetingsAccess || userData.companyAccess || userData.officialLettersAccess) {
             setUserFlags({
               isAdmin: userData.role === 'admin',
               tmsAccess: !!userData.tmsAccess,
               newsAccess: !!userData.newsAccess,
               crmAccess: !!userData.crmAccess,
               businessPlanAccess: !!userData.businessPlanAccess,
+              projectsAccess: !!userData.projectsAccess,
+              meetingsAccess: !!userData.meetingsAccess,
+              companyAccess: !!userData.companyAccess,
+              officialLettersAccess: !!userData.officialLettersAccess,
             });
             setShowRoleChoice(true);
           } else {
@@ -113,6 +117,26 @@ export default function Home() {
     router.replace('/business-plan');
   }, [router]);
 
+  const handleChooseProjects = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/projects');
+  }, [router]);
+
+  const handleChooseMeetings = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/meetings');
+  }, [router]);
+
+  const handleChooseCompany = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/company');
+  }, [router]);
+
+  const handleChooseOfficialLetters = React.useCallback(() => {
+    setIsNavigating(true);
+    router.replace('/official-letters');
+  }, [router]);
+
   if (showRoleChoice) {
     return (
       <RoleChoiceOrbit
@@ -122,6 +146,10 @@ export default function Home() {
         onChooseNews={userFlags.newsAccess || userFlags.isAdmin ? handleChooseNews : undefined}
         onChooseCrm={userFlags.crmAccess || userFlags.isAdmin ? handleChooseCrm : undefined}
         onChooseBusinessPlan={userFlags.businessPlanAccess || userFlags.isAdmin ? handleChooseBusinessPlan : undefined}
+        onChooseProjects={userFlags.projectsAccess || userFlags.isAdmin ? handleChooseProjects : undefined}
+        onChooseMeetings={userFlags.meetingsAccess || userFlags.isAdmin ? handleChooseMeetings : undefined}
+        onChooseCompany={userFlags.companyAccess || userFlags.isAdmin ? handleChooseCompany : undefined}
+        onChooseOfficialLetters={userFlags.officialLettersAccess || userFlags.isAdmin ? handleChooseOfficialLetters : undefined}
         companyName={(companyProfile as { name?: string } | null)?.name}
         companyLogoUrl={(companyProfile as { logoUrl?: string } | null)?.logoUrl}
       />
