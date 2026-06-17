@@ -22,6 +22,7 @@ import {
     DoorOpen,
     Building2,
     Stamp,
+    HardHat,
     Grid3x3,
     Check,
     Orbit,
@@ -29,13 +30,13 @@ import {
 import { cn } from '@/lib/utils';
 import { useEmployeeProfile, type EmployeeProfile } from '@/hooks/use-employee-profile';
 
-export type PortalId = 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters';
+export type PortalId = 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters' | 'hse';
 
 interface PortalDef {
     id: PortalId;
     label: string;
     description: string;
-    icon: React.ComponentType<{ className?: string }>;
+    icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
     href: string;
     color: string;
     /** Тухайн ажилтан үзэх эрхтэй эсэх. */
@@ -132,6 +133,15 @@ const PORTALS: PortalDef[] = [
         href: '/official-letters',
         color: '#b45309',
         visible: (p) => p.role === 'admin' || !!p.officialLettersAccess,
+    },
+    {
+        id: 'hse',
+        label: 'ХАБЭА',
+        description: 'Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй',
+        icon: HardHat,
+        href: '/hse',
+        color: '#16a34a',
+        visible: (p) => p.role === 'admin' || !!p.hseAccess,
     },
 ];
 

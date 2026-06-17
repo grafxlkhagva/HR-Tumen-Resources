@@ -6,6 +6,34 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
 
+    // ─── Туслах функцууд ─────────────────────────────────────────────────
+    function isTmsStaff() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
+            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true);
+    }
+
+    function isHseStaff() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
+        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
+            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('hseAccess', false) == true);
+    }
+
+    function isDriverClaim() {
+      return request.auth != null && request.auth.token.get('role', '') == 'driver';
+    }
+
+    function isOwnDriverId(driverId) {
+      return isDriverClaim() && request.auth.token.get('driverId', '') == driverId;
+    }
+
+    function isValidImageUpload() {
+      return request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
+    }
+
     // Ажилтны гэрэл зураг — админ нэмэх (add-employee), нэвтэрсэн унших
     match /employee-photos/{userId}/{fileName} {
       allow read: if request.auth != null;
@@ -120,46 +148,37 @@ service firebase.storage {
         && firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin';
     }
 
-    // TMS тээвэрчний зураг (жолооны үнэмлэх, иргэний үнэмлэх) — админ эсвэл TMS эрхтэй хэрэглэгч бичих/унших
+    // TMS тээвэрчний зураг (жолооны үнэмлэх, иргэний үнэмлэх) — TMS staff бүх жолоочийг,
+    // жолооч өөрийн файлуудыг
     match /tms_drivers/{driverId}/{fileName} {
-      allow read: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true);
-      allow write: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
+      allow read: if isTmsStaff() || isOwnDriverId(driverId);
+      allow write: if (isTmsStaff() || isOwnDriverId(driverId))
+                   && isValidImageUpload();
     }
 
-    // TMS тээврийн хэрэгслийн зураг
+    // TMS тээврийн хэрэгслийн зураг (TMS staff бүх машин, жолооч read-only)
     match /tms_vehicles/{vehicleId}/{fileName} {
-      allow read: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true);
-      allow write: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
+      allow read: if isTmsStaff() || isDriverClaim();
+      allow write: if isTmsStaff() && isValidImageUpload();
     }
 
     // TMS тээврийн удирдлагын диспач зураг (хяналтын даалгавар)
+    // Жолооч өөрийн trip-ийн dispatch step зураг хавсаргаж болно
     match /tms/{path=**} {
-      allow read: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true);
-      allow write: if request.auth != null
-        && firestore.exists(/databases/(default)/documents/employees/$(request.auth.uid))
-        && (firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('role', 'employee') == 'admin'
-            || firestore.get(/databases/(default)/documents/employees/$(request.auth.uid)).data.get('tmsAccess', false) == true)
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
+      allow read: if isTmsStaff() || isDriverClaim();
+      allow write: if (isTmsStaff() || isDriverClaim()) && isValidImageUpload();
+    }
+
+    // Жолоочийн машины бүртгэлийн зургийг (өдрийн үзлэг, түлшний прайс, засварын фото)
+    match /tms_maintenance/{driverId}/{fileName=**} {
+      allow read: if isTmsStaff() || isOwnDriverId(driverId);
+      allow write: if (isTmsStaff() || isOwnDriverId(driverId)) && isValidImageUpload();
+    }
+
+    // ХАБЭА (HSE) зураг/файл — админ эсвэл hseAccess эрхтэй ажилтан
+    match /hse/{path=**} {
+      allow read: if isHseStaff();
+      allow write: if isHseStaff() && isValidImageUpload();
     }
 
     // Default: дээрх тусгай дүрмүүдэд ороогүй бүх зам хориглоно

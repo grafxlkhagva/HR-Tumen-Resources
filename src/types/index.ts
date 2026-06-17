@@ -133,6 +133,8 @@ export interface Employee {
     companyAccess?: boolean;
     /** Албан бичиг модулд нэвтрэх эрхтэй эсэх */
     officialLettersAccess?: boolean;
+    /** ХАБЭА (Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) модулд нэвтрэх эрхтэй эсэх */
+    hseAccess?: boolean;
 }
 
 /**

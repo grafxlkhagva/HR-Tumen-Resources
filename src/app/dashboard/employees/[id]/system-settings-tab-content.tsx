@@ -42,8 +42,9 @@ import { ProjectsAccessDialog } from './projects-access-dialog';
 import { MeetingsAccessDialog } from './meetings-access-dialog';
 import { CompanyAccessDialog } from './company-access-dialog';
 import { OfficialLettersAccessDialog } from './official-letters-access-dialog';
+import { HseAccessDialog } from './hse-access-dialog';
 import { cn } from '@/lib/utils';
-import { Truck, Newspaper, HeartHandshake, Target, FolderKanban, DoorOpen, Building2, Stamp } from 'lucide-react';
+import { Truck, Newspaper, HeartHandshake, Target, FolderKanban, DoorOpen, Building2, Stamp, HardHat } from 'lucide-react';
 import type { Employee } from '../data';
 import {
     buildInvitationEmailHtmlFromFields,
@@ -91,6 +92,7 @@ export function SystemSettingsTabContent({
     const [showMeetingsAccessDialog, setShowMeetingsAccessDialog] = React.useState(false);
     const [showCompanyAccessDialog, setShowCompanyAccessDialog] = React.useState(false);
     const [showOfficialLettersAccessDialog, setShowOfficialLettersAccessDialog] = React.useState(false);
+    const [showHseAccessDialog, setShowHseAccessDialog] = React.useState(false);
     const [isResettingDevice, setIsResettingDevice] = React.useState(false);
     const [deviceResetConfirmOpen, setDeviceResetConfirmOpen] = React.useState(false);
     const [isResendingInvite, setIsResendingInvite] = React.useState(false);
@@ -1046,6 +1048,10 @@ export function SystemSettingsTabContent({
                                 <Stamp className="h-3.5 w-3.5 mr-1.5" />
                                 {employee.officialLettersAccess ? 'Албан бичиг эрхтэй' : 'Албан бичиг эрх олгох'}
                             </Button>
+                            <Button variant="outline" size="sm" className={cn("h-8 justify-start", employee.hseAccess && "border-green-200 bg-green-50 text-green-700 hover:bg-green-100")} onClick={() => setShowHseAccessDialog(true)}>
+                                <HardHat className="h-3.5 w-3.5 mr-1.5" />
+                                {employee.hseAccess ? 'ХАБЭА эрхтэй' : 'ХАБЭА эрх олгох'}
+                            </Button>
                         </div>
                     </CardContent>
                 </Card>
@@ -1059,6 +1065,7 @@ export function SystemSettingsTabContent({
             <MeetingsAccessDialog open={showMeetingsAccessDialog} onOpenChange={setShowMeetingsAccessDialog} employee={employee} />
             <CompanyAccessDialog open={showCompanyAccessDialog} onOpenChange={setShowCompanyAccessDialog} employee={employee} />
             <OfficialLettersAccessDialog open={showOfficialLettersAccessDialog} onOpenChange={setShowOfficialLettersAccessDialog} employee={employee} />
+            <HseAccessDialog open={showHseAccessDialog} onOpenChange={setShowHseAccessDialog} employee={employee} />
         </div>
     );
 }

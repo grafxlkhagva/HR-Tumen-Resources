@@ -15,13 +15,14 @@ import {
     DoorOpen,
     Building2,
     Stamp,
+    HardHat,
     Lock,
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
 
 interface PortalModule {
-    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters';
+    id: 'admin' | 'employee' | 'tms' | 'news' | 'crm' | 'business_plan' | 'projects' | 'meetings' | 'company' | 'official_letters' | 'hse';
     icon: React.ReactElement;
     label: string;
     description: string;
@@ -41,6 +42,7 @@ interface RoleChoiceOrbitProps {
     onChooseMeetings?: () => void;
     onChooseCompany?: () => void;
     onChooseOfficialLetters?: () => void;
+    onChooseHse?: () => void;
     companyName?: string;
     companyLogoUrl?: string;
 }
@@ -61,6 +63,7 @@ export function RoleChoiceOrbit({
     onChooseMeetings,
     onChooseCompany,
     onChooseOfficialLetters,
+    onChooseHse,
     companyName = 'Систем',
     companyLogoUrl,
 }: RoleChoiceOrbitProps) {
@@ -176,8 +179,19 @@ export function RoleChoiceOrbit({
                 onChoose: onChooseOfficialLetters,
             });
         }
+        if (onChooseHse) {
+            list.push({
+                id: 'hse',
+                icon: <HardHat />,
+                label: 'ХАБЭА',
+                description: 'Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй',
+                color: '#16a34a',
+                enabled: true,
+                onChoose: onChooseHse,
+            });
+        }
         return list;
-    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm, onChooseBusinessPlan, onChooseProjects, onChooseMeetings, onChooseCompany, onChooseOfficialLetters]);
+    }, [onChooseAdmin, onChooseEmployee, onChooseTms, onChooseNews, onChooseCrm, onChooseBusinessPlan, onChooseProjects, onChooseMeetings, onChooseCompany, onChooseOfficialLetters, onChooseHse]);
 
     const N = modules.length;
     const STEP = N > 0 ? 360 / N : 360;

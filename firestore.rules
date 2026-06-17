@@ -30,6 +30,36 @@ service cloud.firestore {
       return isAdmin() || isTmsUser();
     }
 
+    // ─── Driver Flutter app — Custom claim role='driver' дамжуулна ──────────
+    function isDriver() {
+      return isSignedIn() &&
+             request.auth.token.get('role', '') == 'driver';
+    }
+
+    function getDriverId() {
+      return request.auth.token.get('driverId', '');
+    }
+
+    function isOwnDriver(driverId) {
+      return isDriver() && getDriverId() == driverId;
+    }
+
+    // Жолоочийн зөвхөн доорх (өөрийн) талбаруудыг шинэчлэх зөвшөөрнө.
+    // Тогтмол талбарууд (firstName, lastName, license г.м) дисптатчер хийнэ.
+    function driverOnlyFieldsChanged(newD, oldD) {
+      return newD.diff(oldD).affectedKeys()
+        .hasOnly(['fcmTokens', 'availability', 'lastSeenAt',
+                  'lastLocation', 'acceptanceRadius', 'authUid', 'updatedAt']);
+    }
+
+    // Жолооч өөрийн transport-ын дотор аль талбар өөрчилж болохыг тогтооно.
+    function driverTransportFieldsChanged(newD, oldD) {
+      return newD.diff(oldD).affectedKeys()
+        .hasOnly(['driverAcceptanceStatus', 'driverAcceptedAt',
+                  'driverRejectedAt', 'driverRejectionReason',
+                  'status', 'dispatchSteps', 'subTransports', 'updatedAt']);
+    }
+
     function isNewsUser() {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
@@ -38,6 +68,16 @@ service cloud.firestore {
 
     function isNewsAllowed() {
       return isAdmin() || isNewsUser();
+    }
+
+    function isHseUser() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('hseAccess', false) == true;
+    }
+
+    function isHseAllowed() {
+      return isAdmin() || isHseUser();
     }
 
     // ─── TMS Тээврийн удирдлагын талбар түвшний баталгаажуулалт ─────────
@@ -663,14 +703,42 @@ service cloud.firestore {
     }
 
     match /tms_drivers/{driverId} {
-      allow read, write: if isTmsAllowed();
+      // Дисптачер бүх жолоочид; жолооч өөрийн карт уншина
+      allow read: if isTmsAllowed() || isOwnDriver(driverId);
+      // Бүх бичилт: дисптачер. Жолооч өөрийн жижиг талбаруудыг шинэчлэх боломжтой
+      allow create, delete: if isTmsAllowed();
+      allow update: if isTmsAllowed()
+                    || (isOwnDriver(driverId) && driverOnlyFieldsChanged(request.resource.data, resource.data));
     }
     match /tms_drivers/{driverId}/storage/{itemId} {
-      allow read, write: if isTmsAllowed();
+      allow read, write: if isTmsAllowed() || isOwnDriver(driverId);
+    }
+    // Жолоочийн утаснаас орох GPS цэгүүд (хязгаарлагдмал хэмжээтэй)
+    match /tms_drivers/{driverId}/gps_tracks/{trackId} {
+      allow read: if isTmsAllowed() || isOwnDriver(driverId);
+      allow create: if isOwnDriver(driverId)
+                    && request.resource.data.lat is number
+                    && request.resource.data.lng is number
+                    && request.resource.data.source in ['phone', 'aika168'];
+      allow update, delete: if isAdmin();
     }
 
     match /tms_vehicles/{vehicleId} {
-      allow read, write: if isTmsAllowed();
+      // Жолооч өөрт оноогдсон машины мэдээллийг унших эрхтэй (driverId эсвэл driverIds жагсаалтын аль нэг)
+      allow read: if isTmsAllowed()
+                  || (isDriver() && (
+                       resource.data.get('driverId', '') == getDriverId()
+                       || (resource.data.get('driverIds', []) is list
+                           && resource.data.get('driverIds', []).hasAny([getDriverId()]))
+                     ));
+      allow create, delete: if isTmsAllowed();
+      // Жолооч odometer-г шинэчлэх боломжтой (зөвхөн өсгөх)
+      allow update: if isTmsAllowed()
+                    || (isDriver()
+                        && resource.data.get('driverId', '') == getDriverId()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['odometer', 'updatedAt'])
+                        && request.resource.data.get('odometer', 0) >= resource.data.get('odometer', 0));
     }
     match /tms_quotations/{quotationId} {
       allow read, write: if isTmsAllowed();
@@ -703,16 +771,73 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
     match /tms_transport_management/{transportId} {
-      allow read: if isTmsAllowed();
+      // Жолооч өөрт оноогдсон ажил эсвэл marketplace-д ил байгаа ажлыг харна
+      allow read: if isTmsAllowed()
+                  || (isDriver() && (
+                       resource.data.get('driverId', '') == getDriverId()
+                       || resource.data.get('isMarketplaceVisible', false) == true
+                     ));
       allow create: if isTmsAllowed() && tmTransportValid(request.resource.data);
-      allow update: if isTmsAllowed()
-        && tmTransportValid(request.resource.data)
-        && request.resource.data.customerId == resource.data.customerId;
+      // Жолооч өөрт оноогдсон transport дотор дискриминатор шинэчлэх боломжтой
+      allow update: if (isTmsAllowed()
+                       && tmTransportValid(request.resource.data)
+                       && request.resource.data.customerId == resource.data.customerId)
+                    || (isDriver()
+                        && resource.data.get('driverId', '') == getDriverId()
+                        && driverTransportFieldsChanged(request.resource.data, resource.data));
       allow delete: if isAdmin();
     }
     match /tms_contracts/{contractId} {
       allow read, write: if isTmsAllowed();
     }
+
+    // ─── Машины бүртгэл (өдрийн үзлэг, түлш, odometer, засвар) ───────────
+    match /tms_vehicle_maintenance/{maintId} {
+      allow read: if isTmsAllowed()
+                  || (isDriver() && resource.data.get('driverId', '') == getDriverId());
+      allow create: if (isTmsAllowed()
+                       && request.resource.data.driverId is string
+                       && request.resource.data.vehicleId is string
+                       && request.resource.data.type in ['daily_inspection', 'fuel_log', 'odometer', 'repair_request', 'damage_report'])
+                    || (isDriver()
+                        && request.resource.data.driverId == getDriverId()
+                        && request.resource.data.vehicleId is string
+                        && request.resource.data.type in ['daily_inspection', 'fuel_log', 'odometer', 'repair_request', 'damage_report']
+                        && request.resource.data.status == 'submitted');
+      // Status болон reviewerNote-ийг зөвхөн дисптачер шинэчилнэ.
+      // Жолооч зөвхөн `submitted` хэвээр байсан өөрийн бүртгэлийн descriptive талбаруудыг засна
+      allow update: if isTmsAllowed()
+                    || (isDriver()
+                        && resource.data.driverId == getDriverId()
+                        && resource.data.status == 'submitted'
+                        && request.resource.data.driverId == resource.data.driverId
+                        && request.resource.data.vehicleId == resource.data.vehicleId
+                        && request.resource.data.type == resource.data.type
+                        && request.resource.data.status == 'submitted');
+      allow delete: if isAdmin();
+    }
+
+    // ─── ХАБЭА (HSE — Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) ───────────
+    // hse_* collection-ууд: админ эсвэл hseAccess эрхтэй ажилтан унших/бичих.
+    match /hse_hazards/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_hazard_categories/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_tasks/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_incidents/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_alerts/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_violations/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_violation_categories/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_permits/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_training/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_training_templates/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_briefings/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_briefing_templates/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_inspections/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_ppe/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_documents/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_org_info/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_org_config/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_surveys/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_videos/{docId} { allow read, write: if isHseAllowed(); }
 
   }
 }
