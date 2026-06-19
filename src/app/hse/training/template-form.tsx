@@ -18,10 +18,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { ImageUpload } from '../components/image-upload';
 import { FileUpload } from '../components/file-upload';
 import { createHseDoc, updateHseDoc } from '../services/hse-service';
-import { HSE_COLLECTIONS, type TrainingTemplate } from '../types';
+import { HSE_COLLECTIONS, TRAINING_TYPES, type TrainingTemplate } from '../types';
 
 export function TemplateForm({
     open,
@@ -38,6 +45,7 @@ export function TemplateForm({
 
     const [ner, setNer] = React.useState('');
     const [angilal, setAngilal] = React.useState('');
+    const [torol, setTorol] = React.useState<TrainingTemplate['torol']>('Сургалт');
     const [tailbar, setTailbar] = React.useState('');
     const [imgUrl, setImgUrl] = React.useState<string | undefined>();
     const [pdfUrl, setPdfUrl] = React.useState<string | undefined>();
@@ -47,12 +55,14 @@ export function TemplateForm({
         if (template) {
             setNer(template.ner);
             setAngilal(template.angilal || '');
+            setTorol(template.torol || 'Сургалт');
             setTailbar(template.tailbar || '');
             setImgUrl(template.imgUrl);
             setPdfUrl(template.pdfUrl);
         } else {
             setNer('');
             setAngilal('');
+            setTorol('Сургалт');
             setTailbar('');
             setImgUrl(undefined);
             setPdfUrl(undefined);
@@ -70,6 +80,7 @@ export function TemplateForm({
             const payload = {
                 ner: ner.trim(),
                 angilal: angilal.trim() || null,
+                torol,
                 tailbar: tailbar.trim() || null,
                 imgUrl: imgUrl || null,
                 pdfUrl: pdfUrl || null,
@@ -107,14 +118,32 @@ export function TemplateForm({
                                 placeholder="Сургалтын нэр..."
                             />
                         </FormFieldWrapper>
-                        <FormFieldWrapper label="Ангилал">
-                            <Input
-                                value={angilal}
-                                onChange={(e) => setAngilal(e.target.value)}
-                                placeholder="Жишээ: Галын аюулгүй байдал"
-                            />
+                        <FormFieldWrapper label="Төрөл">
+                            <Select
+                                value={torol}
+                                onValueChange={(v) => setTorol(v as TrainingTemplate['torol'])}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {TRAINING_TYPES.map((t) => (
+                                        <SelectItem key={t} value={t}>
+                                            {t}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </FormFieldWrapper>
                     </FormRow>
+
+                    <FormFieldWrapper label="Ангилал">
+                        <Input
+                            value={angilal}
+                            onChange={(e) => setAngilal(e.target.value)}
+                            placeholder="Жишээ: Галын аюулгүй байдал"
+                        />
+                    </FormFieldWrapper>
 
                     <FormFieldWrapper label="Тайлбар">
                         <Textarea

@@ -321,11 +321,32 @@ export function scheduleStatusTone(s: ScheduleStatus): HseTone {
     }
 }
 
+/** Сургалтын загварын төрөл — бүртгэлийн урсгалыг тодорхойлно. */
+export const TRAINING_TYPES = ['Сургалт', 'Урьдчилсан зааварчилгаа'] as const;
+export type TrainingType = (typeof TRAINING_TYPES)[number];
+
+/** Урьдчилсан зааварчилгааны стандарт агуулга (12 зүйл). */
+export const PRE_BRIEFING_TOPICS = [
+    'Байгууллагын ХАБЭА-н журам, дүрэм, зохицуулалт',
+    'ХАБЭА-н хууль тогтоомж',
+    'ХАБЭА-н эрх, үүрэг, ач холбогдол',
+    'УО, МШӨ, Хүнд хордлогын талаар',
+    'Аюулын тодорхойлолт, төрөл, хяналтын арга хэмжээ',
+    'Ноотой эрсдэл',
+    'Ажлын хувцас, НБХХ',
+    'Согтууруулах ундааны хяналт',
+    'Ажил эхлэхийн өмнөх ХАБЭА-н шаардлага',
+    'Онцгой байдлын үед авах арга хэмжээ',
+    'Галын аюулгүй байдал',
+    'Анхны тусламж',
+] as const;
+
 /** Сургалтын загвар — зураг, PDF материал агуулна. Жагсаалтад хуваарилахдаа сонгоно. */
 export interface TrainingTemplate {
     id: string;
     ner: string; // загварын нэр / гарчиг
     angilal?: string;
+    torol?: TrainingType; // сургалт эсвэл урьдчилсан зааварчилгаа
     tailbar?: string;
     imgUrl?: string; // сургалтын зураг
     pdfUrl?: string; // сургалтын материал (PDF)
@@ -337,14 +358,20 @@ export interface Training {
     zagvarId?: string; // сонгосон загвар
     garchig: string; // сургалтын гарчиг / нэр (загвараас авна)
     angilal?: string;
+    torol?: TrainingType; // загвараас хуулсан төрөл
     tuluw: ScheduleStatus;
     hamragdahIds: string[]; // хамрагдах ажилтнууд
-    hamragdsanIds: string[]; // хамрагдсан ажилтнууд
+    hamragdsanIds: string[]; // хамрагдсан (гарын үсэг зурсан) ажилтнууд
     huvaar: string; // хуваарьт огноо
     tailbar?: string;
     imgUrl?: string; // загвараас хуулсан зураг
     pdfUrl?: string; // загвараас хуулсан материал (PDF)
     createdAt?: number;
+}
+
+/** Загвар/сургалтын төрлийг тодорхойлно (хоосон бол "Сургалт"). */
+export function trainingTypeOf(t: { torol?: TrainingType }): TrainingType {
+    return t.torol || 'Сургалт';
 }
 
 export const BRIEFING_TYPES = [

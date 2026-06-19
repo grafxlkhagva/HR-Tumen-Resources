@@ -89,6 +89,7 @@ export function TrainingForm({
                 zagvarId: selectedTemplate.id,
                 garchig: selectedTemplate.ner,
                 angilal: selectedTemplate.angilal || null,
+                torol: selectedTemplate.torol || 'Сургалт',
                 imgUrl: selectedTemplate.imgUrl || null,
                 pdfUrl: selectedTemplate.pdfUrl || null,
                 tuluw,

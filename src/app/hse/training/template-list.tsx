@@ -8,6 +8,7 @@ import { AppConfirmDialog } from '@/components/patterns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge } from '../components/status-badge';
 import { deleteHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, type TrainingTemplate } from '../types';
 import { useTrainingTemplates } from './use-training-templates';
@@ -88,8 +89,20 @@ export function TemplateList() {
                                 )}
                             </div>
                             <CardContent className="space-y-2 p-4">
-                                <div className="space-y-0.5">
-                                    <p className="truncate font-medium">{t.ner}</p>
+                                <div className="space-y-1">
+                                    <div className="flex items-start justify-between gap-2">
+                                        <p className="truncate font-medium">{t.ner}</p>
+                                        <StatusBadge
+                                            tone={
+                                                (t.torol || 'Сургалт') === 'Урьдчилсан зааварчилгаа'
+                                                    ? 'blue'
+                                                    : 'green'
+                                            }
+                                            className="flex-shrink-0"
+                                        >
+                                            {t.torol || 'Сургалт'}
+                                        </StatusBadge>
+                                    </div>
                                     {t.angilal && (
                                         <p className="truncate text-micro text-muted-foreground">
                                             {t.angilal}
