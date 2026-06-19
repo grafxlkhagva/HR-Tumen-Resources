@@ -453,6 +453,165 @@ export function documentStatusTone(s: DocumentStatus): HseTone {
     }
 }
 
+// ─── Баримт бичиг бүрдүүлэлт (folder + sub-documents) ────────────
+
+/** Бүлгийн төлөв (картын ерөнхий төлөв). */
+export const FOLDER_STATUSES = ['Бүрдсэн', 'Хэсэгчлэн', 'Дутуу'] as const;
+export type FolderStatus = (typeof FOLDER_STATUSES)[number];
+
+export function folderStatusTone(s: FolderStatus): HseTone {
+    switch (s) {
+        case 'Бүрдсэн':
+            return 'green';
+        case 'Хэсэгчлэн':
+            return 'amber';
+        case 'Дутуу':
+            return 'red';
+    }
+}
+
+/** Бүлэг доторх нэг баримтын төлөв. */
+export const DOC_ITEM_STATUSES = ['Бүрдсэн', 'Хэсэгчлэн', 'Дутуу', 'Хянагдаж байна'] as const;
+export type DocItemStatus = (typeof DOC_ITEM_STATUSES)[number];
+
+export function docItemStatusTone(s: DocItemStatus): HseTone {
+    switch (s) {
+        case 'Бүрдсэн':
+            return 'green';
+        case 'Хэсэгчлэн':
+            return 'amber';
+        case 'Дутуу':
+            return 'red';
+        case 'Хянагдаж байна':
+            return 'blue';
+    }
+}
+
+/** Бүлэг доторх нэг баримт. */
+export interface DocumentItem {
+    ner: string; // баримтын нэр
+    tuluw: DocItemStatus;
+    tailbar?: string;
+    holboos?: string; // хавсаргасан файл / линк
+}
+
+/** Баримтын бүлэг (карт) — олон баримт агуулна. */
+export interface DocumentFolder {
+    id: string;
+    ner: string; // бүлгийн нэр
+    tuluw: FolderStatus;
+    docs: DocumentItem[];
+    createdAt?: number;
+}
+
+/** Картын дугаарласан тэмдэгийн өнгөнүүд (прототипийн BARIMT_COLORS). */
+export const DOCUMENT_FOLDER_COLORS = [
+    '#0ea5e9',
+    '#eab308',
+    '#8b5cf6',
+    '#3b82f6',
+    '#10b981',
+    '#f59e0b',
+    '#6366f1',
+    '#14b8a6',
+    '#ef4444',
+    '#64748b',
+    '#ec4899',
+    '#84cc16',
+] as const;
+
+/** Стандарт ХАБЭА бичиг баримт бүрдүүлэлт (10 бүлэг). */
+export const DEFAULT_DOCUMENT_FOLDERS: Omit<DocumentFolder, 'id' | 'createdAt'>[] = [
+    {
+        ner: 'Ажлын хувцас, хамгаалах хэрэгслийн ашиглалт',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'ХХХ ашиглалтын журам', tuluw: 'Бүрдсэн' },
+            { ner: 'ХХХ хүлээлцэх акт', tuluw: 'Бүрдсэн' },
+            { ner: 'ХХХ бүртгэлийн маягт', tuluw: 'Бүрдсэн' },
+        ],
+    },
+    {
+        ner: 'ХАБЭА-н журам',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'Ерөнхий журам', tuluw: 'Хэсэгчлэн' },
+            { ner: 'Тусгай журам (тээвэр)', tuluw: 'Хэсэгчлэн' },
+            { ner: 'Журмын мэдэгдэл', tuluw: 'Хэсэгчлэн' },
+        ],
+    },
+    {
+        ner: 'ХАБЭА-н зааварчилгаа',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'Жолоочийн зааварчилгаа', tuluw: 'Бүрдсэн' },
+            { ner: 'Ачааны зааварчилгаа', tuluw: 'Бүрдсэн' },
+            { ner: 'Галын аюулгүй байдлын заавар', tuluw: 'Бүрдсэн' },
+        ],
+    },
+    {
+        ner: 'Сургалтын ПТП',
+        tuluw: 'Хэсэгчлэн',
+        docs: [
+            { ner: 'Жилийн сургалтын төлөвлөгөө', tuluw: 'Хянагдаж байна' },
+            { ner: 'Сургалтын хуваарь', tuluw: 'Хянагдаж байна' },
+            { ner: 'Сургалтын тайлан', tuluw: 'Дутуу', tailbar: 'Дутуу' },
+        ],
+    },
+    {
+        ner: 'Ажлын байрны тодорхойлолт',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'Жолоочийн ажлын байрны тодорхойлолт', tuluw: 'Бүрдсэн' },
+            { ner: 'Агуулахын ажилтны тодорхойлолт', tuluw: 'Бүрдсэн' },
+        ],
+    },
+    {
+        ner: 'Ажилтны хувийн хэрэг бүртгэл',
+        tuluw: 'Хэсэгчлэн',
+        docs: [
+            { ner: 'ХАБЭА сургалтын гэрчилгээ', tuluw: 'Хэсэгчлэн' },
+            { ner: 'Эрүүл мэндийн үзлэгийн хуудас', tuluw: 'Хэсэгчлэн' },
+            { ner: 'Гарын үсэг зурсан зааварчилгаа', tuluw: 'Хэсэгчлэн' },
+        ],
+    },
+    {
+        ner: 'ХАБЭА үйл ажиллагааг зохион байгуулах багц дэвтэр',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'Аюулгүй ажиллагааны төлөвлөгөө', tuluw: 'Бүрдсэн' },
+            { ner: 'Хяналт шалгалтын дэвтэр', tuluw: 'Бүрдсэн' },
+            { ner: 'Зөрчил арилгах дэвтэр', tuluw: 'Бүрдсэн' },
+        ],
+    },
+    {
+        ner: 'ХАБЭА-н төсөв',
+        tuluw: 'Хэсэгчлэн',
+        docs: [
+            { ner: 'Жилийн ХАБЭА төсөв', tuluw: 'Бүрдсэн' },
+            { ner: 'Зарцуулалтын тайлан', tuluw: 'Дутуу', tailbar: 'Дутуу' },
+        ],
+    },
+    {
+        ner: 'Галын аюулгүй байдал',
+        tuluw: 'Бүрдсэн',
+        docs: [
+            { ner: 'Галын аюулгүй байдлын паспорт', tuluw: 'Дутуу' },
+            { ner: 'Нүүлгэн шилжүүлэх төлөвлөгөө', tuluw: 'Дутуу' },
+            { ner: 'Гал унтраагчийн бүртгэл', tuluw: 'Дутуу' },
+        ],
+    },
+    {
+        ner: 'Дотоод хяналт шалгалт зохион байгуулах',
+        tuluw: 'Хэсэгчлэн',
+        docs: [
+            { ner: 'Хяналтын хуваарь', tuluw: 'Бүрдсэн' },
+            { ner: 'Хяналтын тэмдэглэл', tuluw: 'Бүрдсэн' },
+            { ner: 'Зөрчил арилгах тушаал', tuluw: 'Дутуу', tailbar: 'Дутуу' },
+        ],
+    },
+];
+
 // ─── Байгууллага (Organization) ─────────────────────────────────
 
 /** Байгууллагын тохиргооны ганц баримтын тогтмол id. */
