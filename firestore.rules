@@ -821,6 +821,8 @@ service cloud.firestore {
     // hse_* collection-ууд: админ эсвэл hseAccess эрхтэй ажилтан унших/бичих.
     match /hse_hazards/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_hazard_categories/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_take5/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_jha/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_tasks/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_incidents/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_alerts/{docId} { allow read, write: if isHseAllowed(); }

@@ -4,6 +4,8 @@
 export const HSE_COLLECTIONS = {
     hazards: 'hse_hazards',
     hazardCategories: 'hse_hazard_categories',
+    take5: 'hse_take5',
+    jha: 'hse_jha',
     tasks: 'hse_tasks',
     incidents: 'hse_incidents',
     alerts: 'hse_alerts',
@@ -101,6 +103,74 @@ export function hazardStatusTone(s: HazardStatus): HseTone {
         case 'Хаагдсан':
             return 'green';
     }
+}
+
+// ─── Ажлын аюулын үнэлгээ (TAKE 5) ──────────────────────────────
+
+/** TAKE 5 — ажил эхлэхийн өмнө бөглөх 8 асуулт. */
+export const TAKE5_QUESTIONS = [
+    'Та уг ажлыг хийхэд ур чадвар, мэдлэг хэрэгтэй байна уу?',
+    'Таны ажлын байр эмх цэгцгүй байна уу?',
+    'Та өргөх тоног төхөөрөмж, багаж хэрэгсэл ашиглах уу?',
+    'Та 1.3м-ээс дээш өндөрт ажиллах уу?',
+    'Та ядралттай байна уу?',
+    'Таниас АСА тест аваагүй юу?',
+    'Таны ажлын хувцас, НБХХ дутуу байна уу?',
+    'Таны ашиглах ТТ, ММ аюулгүйн шаардлага хангахгүй байна уу?',
+] as const;
+
+/** Асуултад ТИЙМ гэж хариулсан тохиолдолд авах залруулах арга хэмжээ. */
+export const TAKE5_MEASURES = [
+    'Ахлах ажилтандаа мэдэгдэж зааварчилгаа ав.',
+    'Ажлын байрыг цэгцэлнэ.',
+    'Зөвхөн өргөх тоног төхөөрөмж ажиллуулах зөвшөөрөгдсөн ажилтан гүйцэтгэнэ. ААШ хийнэ.',
+    'Өндөрт ажиллах зөвшөөрөл удирдлагаасаа авна.',
+    'Ахлах ажилтандаа мэдэгдэж бүрэн амарна.',
+    'Ахлах ажилтнаараа АСА тест хийлгэнэ.',
+    'Дутуу ажлын хувцас, НБХХ-ээ авч бүрэн өмсөнө.',
+    'Ахлах ажилтанд мэдэгдэнэ.',
+] as const;
+
+export interface Take5Assessment {
+    id: string;
+    ajiltanId?: string; // Нэр (employee)
+    albanTushaal?: string; // Албан тушаал
+    bairshil?: string; // Байршил
+    ognoo: string; // Огноо YYYY-MM-DD
+    /** 8 асуултын хариулт: true=Тийм, false=Үгүй, null=хоосон. */
+    hariult: (boolean | null)[];
+    tailbar?: string;
+    createdAt?: number;
+}
+
+/** ТИЙМ хариултын тоо (засах арга хэмжээ шаардсан). */
+export function take5FlaggedCount(a: Pick<Take5Assessment, 'hariult'>): number {
+    return (a.hariult || []).filter((h) => h === true).length;
+}
+
+// ─── Ажлын аюулын дүн шинжилгээ (ААДШ / JHA) ─────────────────────
+
+/** ААДШ хийсэн багийн нэг гишүүн. */
+export interface JhaMember {
+    ner: string;
+    kompani?: string;
+    albanTushaal?: string;
+    ognoo?: string;
+}
+
+export interface Jha {
+    id: string;
+    dugaar?: string; // ААДШ №
+    ajil: string; // Гүйцэтгэх ажил
+    bairshil?: string; // Байршил
+    haanaHiih?: string; // Хаана хийх
+    tonogHeregtei?: boolean; // Техник, тоног төхөөрөмж хэрэгтэй эсэх
+    surgaltHeregtei?: boolean; // Сургалт шаардлагатай эсэх
+    sertifikatHeregtei?: boolean; // Сертификат, үнэмлэх хэрэгтэй эсэх
+    ersdeliinBurtgel?: boolean; // Эрсдэлийн бүртгэлд оруулах шаардлагатай юу
+    gishuud: JhaMember[]; // ААДШ хийсэн багийн гишүүд
+    tailbar?: string;
+    createdAt?: number;
 }
 
 // ─── Даалгавар (аюулаас авто үүснэ) ─────────────────────────────
