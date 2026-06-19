@@ -8,6 +8,10 @@ export const HSE_COLLECTIONS = {
     jha: 'hse_jha',
     tasks: 'hse_tasks',
     incidents: 'hse_incidents',
+    incidentReports: 'hse_incident_reports',
+    incidentNotices: 'hse_incident_notices',
+    explanations: 'hse_explanations',
+    incidentInvestigations: 'hse_incident_investigations',
     alerts: 'hse_alerts',
     violations: 'hse_violations',
     violationCategories: 'hse_violation_categories',
@@ -239,6 +243,289 @@ export function injuryTone(l: InjuryLevel): HseTone {
         case 'Гэмтэлгүй':
             return 'green';
     }
+}
+
+// ─── Аюултай тохиолдол бүртгэх, мэдээлэх хуудас (TT-HSE-03.00.01) ─
+
+/** Осолдогчийн биеийн байдал (checkbox). */
+export const VICTIM_CONDITIONS = [
+    'Ухаан алдсан',
+    'Амьсгалж байгаа',
+    'Зүрх цохилж байгаа',
+    'Ноотой цус алдсан',
+    'Нуруу гэмтсэн',
+    'Яс хугарсан',
+    'Чихнээс цус гарсан',
+    'Юмны завсар хавчигдсан',
+] as const;
+
+/** Ямар тусламж шаардлагатай вэ (checkbox). */
+export const HELP_TYPES = [
+    'Яаралтай тусламж',
+    'Гал / Аврах',
+    'Цагдаа / Замын',
+    'Бусад',
+] as const;
+
+/** Шаардлагатай тоног, төхөөрөмж (checkbox). */
+export const RESCUE_EQUIPMENT = [
+    'Тайрах төхөөрөмж',
+    'Өргөх машин / кран',
+    'Аврах хэрэгсэл',
+    'Аврах чиргүүл',
+    'Бусад',
+] as const;
+
+export interface IncidentReport {
+    id: string;
+    duudlagaOgnoo?: string; // Дуудлага авсан огноо, цаг
+    medeelegch?: string; // Дуудлага өгсөн хүний нэр, албан тушаал
+    utas?: string; // Бусад холбоо барих утас
+    bairshil?: string; // Осол болсон газрын байршил
+    medeelel?: string; // Ослын тухай мэдээлэл
+    nervegdsen?: string; // Осолд нэрвэгдсэн хүний тоо, нэр, албан тушаал, компани
+    biyeBaidal: string[]; // Осолдогчийн биеийн байдал
+    tuslamj: string[]; // Ямар тусламж шаардлагатай вэ
+    tonog: string[]; // Шаардлагатай тоног, төхөөрөмж
+    huleenAvsan?: string; // Дуудлага хүлээн авсан ажилтны нэр, албан тушаал
+    argaHemjee?: string; // Дуудлагын дагуу авсан арга хэмжээ
+    createdAt?: number;
+}
+
+// ─── Аюултай тохиолдол мэдэгдэх хуудас (TT-HSE-03.00.02) ─────────
+
+/** Аюултай тохиолдлын төрөл (checkbox). */
+export const INCIDENT_NOTICE_TYPES = [
+    '1-р зэргийн гэмтэл',
+    'Хөнгөн ажилд шилжүүлэх гэмтэл',
+    'Анхны тусламж авсан гэмтэл',
+    '1-р зэргийн гэмтэлд хүргэж болзошгүй тохиолдол',
+    'Эмчилгийн тусламж авсан гэмтэл',
+    'Осолд дөхсөн тохиолдол',
+    'Хөдөлмөрийн чадвар түр алдалт',
+    'Осолд дөхсөн ноцтой тохиолдол',
+] as const;
+
+export const WORKER_TYPES = ['Үндсэн ажилтан', 'Гэрээт ажилтан'] as const;
+export type WorkerType = (typeof WORKER_TYPES)[number];
+
+export interface IncidentNotice {
+    id: string;
+    kompani?: string; // Компанийн нэр
+    udirdlaga?: string; // Алба, хэсгийн удирдлага
+    torluud: string[]; // Аюултай тохиолдлын төрөл
+    bairshil?: string; // Аюултай тохиолдол гарсан байршил
+    ognoo?: string; // Огноо, цаг
+    ajil?: string; // Тохиолдол болох үед гүйцэтгэж байсан ажил
+    tailbar?: string; // Аюултай тохиолдлын талаархи тайлбар
+    gemtsenNer?: string; // Гэмтсэн ажилтны овог, нэр
+    albanTushaal?: string; // Албан тушаал
+    alba?: string; // Алба, хэсэг
+    ajiltnyTorol?: WorkerType; // Үндсэн / Гэрээт ажилтан
+    gemtelMedeelel?: string; // Гэмтлийн тухай мэдээлэл
+    yaaraltaiArga?: string; // Яаралтай арга хэмжээ авсан эсэх
+    zurguud?: string[]; // ФОТО ЗУРАГ
+    createdAt?: number;
+}
+
+// ─── Тайлбар авах хуудас ────────────────────────────────────────
+
+export interface Explanation {
+    id: string;
+    garagchNer?: string; // Тайлбар гаргагчийн овог нэр
+    albanTushaal?: string; // Албан тушаал
+    alba?: string; // Алба, хэсэг
+    ognoo?: string; // Огноо
+    holbogdohOsol?: string; // Холбогдох осол / тохиолдол
+    asuudal?: string; // Тайлбар авч буй асуудал
+    tailbar?: string; // Тайлбарын үндсэн агуулга
+    createdAt?: number;
+}
+
+// ─── Аюултай тохиолдлын судалгааны тайлан (TT-HSE-03.00.03) ──────
+
+/** Гэмтлийн үр дагаврын зэрэг. */
+export const INCIDENT_SEVERITY = ['Маш бага', 'Бага', 'Дунд зэрэг', 'Их', 'Ноцтой'] as const;
+export type IncidentSeverity = (typeof INCIDENT_SEVERITY)[number];
+
+/** Тохиолдлын магадлал. */
+export const INCIDENT_PROBABILITY = ['Ховор', 'Хааяа нэг', 'Боломжтой', 'Элбэг', 'Байнга байгаа'] as const;
+
+/** Эрсдэлийн үнэлгээний матрицын эцсийн зэрэг. */
+export const FINAL_RISK_LEVELS = ['Бага', 'Дунд', 'Их', 'Ноцтой'] as const;
+export type FinalRiskLevel = (typeof FINAL_RISK_LEVELS)[number];
+
+export function finalRiskTone(r: FinalRiskLevel): HseTone {
+    switch (r) {
+        case 'Бага':
+            return 'green';
+        case 'Дунд':
+            return 'amber';
+        case 'Их':
+            return 'red';
+        case 'Ноцтой':
+            return 'red';
+    }
+}
+
+// ICAM аргачлал — нөлөөлсөн хүчин зүйлс (3-р бүлэг)
+export const ICAM_ENV_CONDITIONS = [
+    'Шуугиан',
+    'Гэрэл',
+    'Доргион',
+    'Бүдрэх, хальтрах, унах аюул',
+    'Эмх замбараагүй орчин',
+    'Тоос, утаа',
+    'Агааржуулалт',
+    'Эмх цэгц',
+    'Химийн бодис',
+    'Зураг төсөл, хийц загвар буруу',
+    'Байгалийн гамшиг',
+    'Бусад',
+] as const;
+
+export const ICAM_EQUIPMENT = [
+    'Буруу ТТ, багаж хэрэгсэл ашигласан',
+    'Засвар, үйлчилгээ хангалтгүй',
+    'Хамгаалалт, хаалт хангалтгүй',
+    'Тоног төхөөрөмжийн гэмтэл, эвдрэл',
+    'Материал, тоног төхөөрөмж хэт хүнд, эвгүй',
+    'Сургалт хангалтгүй хийгдсэн',
+    'Элэгдэл, хорогдол',
+    'Хаалт/хамгаалалт байхгүй, хангалтгүй',
+    'Сигнал систем байхгүй, ажиллахгүй',
+    'Орц, гарц алдаатай',
+    'Нөөцгүй',
+    'Бусад',
+] as const;
+
+export const ICAM_ORG_FACTORS = [
+    'Аюулыг үнэлээгүй',
+    'Бүтэц, үүрэг хариуцлага оновчгүй',
+    'Аюул мэдээлээгүй',
+    'ААБ хийгээгүй / Хангалтгүй хийсэн',
+    'Хяналтын арга хэмжээ хангалтгүй / Аваагүй',
+    'Сургалт хийгээгүй, хангалтгүй',
+    'Ажлын заавар, технологи өөрчлөгдсөн',
+    'Худалдан авалт чанаргүй',
+    'Удирдлага хяналт муу тавьсан',
+    'Ур чадваргүй, туршлагагүй ажилтан томилсон',
+    'Үүрэг даалгавар тодорхойлгүй өгсөн',
+    'Бусад',
+] as const;
+
+export const ICAM_HUMAN_FACTORS = [
+    'Журам, дүрэм, ААЗ мөрдөөгүй',
+    'Ядарсан, нойрмоглосон',
+    'Ажлыг буруу арга барил',
+    'Харилцаа холбоо муу, буруу ойлгосон',
+    'Согтууруулах ундаа, мансууруулах бодис',
+    'Хугацаа / төлөвлөгөөт үйл ажиллагааны шахалт',
+    'Анхаарал сарнилт, стресс, хувийн асуудал',
+    'Ур чадваргүй',
+    'Буруу сэдэл, хандлагатай / Хайхрамжгүй хандсан',
+    'Үүрэг даалгаврын бус ажил хийсэн',
+    'Цагийн зохион байгуулалт / Илүү цаг ажиллуулах',
+    'Бусад',
+] as const;
+
+export const ICAM_SUBSTANDARD_ACTS = [
+    'Тоног төхөөрөмжийг зөвшөөрөлгүй ажиллуулсан',
+    'Анхааруулга өгөгдөөгүй, буруу өгсөн',
+    'Хамгаалалт буруу хийсэн',
+    'Хурдаа тохируулаагүй',
+    'Хамгаалах багаж, хэрэгслийг гэмтээсэн',
+    'Хамгаалалтын багаж, хэрэгслийг авсан, тайлсан',
+    'Гэмтэлтэй тоног төхөөрөмж ашигласан',
+    'НБХХ-ийг буруу ашигласан',
+    'Буруу авсан',
+    'Буруу байрлуулсан, паркалсан',
+    'Буруу өргөсөн',
+    'Тохиромжгүй байрлалд ажилласан',
+    'Бусад',
+] as const;
+
+export const ICAM_RULES = [
+    'Журам, дүрэмгүй / Журам, дүрэм хангалтгүй',
+    'Журмыг дагаж мөрдөх байдал хангалтгүй',
+    'Өөрчлөлтийн удирдлагын алдаа',
+    'Аюулыг удирдахдаа гаргасан алдаа буюу зөрчил',
+    'Ажиллах аргын алдаа буюу зөрчил',
+    'Хөдөлмөрийн эрүүл ахуй',
+    'Холбогдох шаардлагатай зөвшөөрөл байхгүй',
+    'Тэмдэг тэмдэглэгээ хангалтгүй',
+] as const;
+
+/** 1.1 Хүний мэдээлэл — осолд өртсөн хүн. */
+export interface InvestigationPerson {
+    ner?: string; // Овог нэр
+    kompani?: string; // Компани
+    albanTushaal?: string; // Албан тушаал
+    ortsonBaidal?: string; // Өртсөн байдал
+    nas?: string; // Нас
+    ajilSan?: string; // Ажилласан газар, жил
+}
+
+/** 1.2 Судалгааны баг — судалгаа хийсэн ажилтан. */
+export interface InvestigationTeamMember {
+    ner?: string; // Овог нэр
+    albanTushaal?: string; // Албан тушаал
+    bagBurelduuleh?: string; // Баг бүрэлдэхүүн (үүрэг)
+    kompani?: string; // Компани
+}
+
+/** 4. Сэргийлэх / залруулах арга хэмжээ — нэг мөр. */
+export interface CorrectiveAction {
+    noloolsonHuchin?: string; // Нөлөөлсөн хүчин зүйл
+    argaHemjee?: string; // Дахин гарахаас сэргийлэх арга хэмжээ
+    hariutsah?: string; // Хэн хариуцах
+    hugatsaa?: string; // Хэзээ хийх
+    duussanOgnoo?: string; // Дуссан огноо
+}
+
+export interface IncidentInvestigation {
+    id: string;
+    // 1. Дэлгэрэнгүй мэдээлэл
+    dugaar?: string; // №
+    ajliinNer?: string; // Ажлын нэр
+    ognoo?: string; // Огноо
+    tsag?: string; // Цаг
+    hariutsahAjiltan?: string; // Хариуцсан ажилтан
+    bairshil?: string; // Байршил
+    tovch?: string; // Товч (юу болсон)
+    // 1.1 Хүний мэдээлэл
+    hunMedeelel: InvestigationPerson[];
+    // 1.2 Судалгааны баг
+    sudalgaaBag: InvestigationTeamMember[];
+    // Хохирлын тодорхойлолт
+    gemtelTodorhoiloolt?: string; // Гэмтлийн тодорхойлолт
+    baigaliHohirol?: string; // Байгаль / Орчны хохирол
+    omchEvdrel?: string; // Өмчийн эвдрэл
+    oronNutagHohirol?: string; // Орон нутгийн иргэн, мал амьтны хохирол
+    tohioldoTodorhoiloolt?: string; // Аюултай тохиолдлын тодорхойлолт
+    subject?: string; // Субъект
+    hiisenSurgalt?: string; // Хийдсэн сургалт
+    gazarArgaHemjee?: string; // Газар дээр нь авсан арга хэмжээ
+    // 2. Шалтгаан болон үр дагавар
+    suurShaltgaan?: string; // Суурь шалтгаан
+    shuudShaltgaan?: string; // Шууд шалтгаан
+    garsanUrDagavar?: IncidentSeverity; // Гарсан үр дагавар
+    garchBolohUrDagavar?: IncidentSeverity; // Гарч болох үр дагавар
+    tohioldohMagadlal?: string; // Тохиолдлын магадлал
+    garchBolohErsdel?: FinalRiskLevel; // Гарч болох эрсдэл (эцсийн)
+    // 3. ICAM аргачлал
+    icamEnv: string[];
+    icamEquipment: string[];
+    icamOrg: string[];
+    icamHuman: string[];
+    icamActs: string[];
+    icamRules: string[];
+    // 4. Сэргийлэх / залруулах арга хэмжээ
+    argaHemjeeNuud: CorrectiveAction[];
+    // Тайлан баталгаажуулах
+    batalgaaNer?: string; // Овог, нэр
+    zurguud?: string[]; // Зураг / будуувч / гар зураг
+    createdAt?: number;
 }
 
 // ─── Зөрчил ─────────────────────────────────────────────────────

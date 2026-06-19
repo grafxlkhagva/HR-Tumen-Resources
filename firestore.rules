@@ -825,6 +825,10 @@ service cloud.firestore {
     match /hse_jha/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_tasks/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_incidents/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_incident_reports/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_incident_notices/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_explanations/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_incident_investigations/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_alerts/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_violations/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_violation_categories/{docId} { allow read, write: if isHseAllowed(); }
