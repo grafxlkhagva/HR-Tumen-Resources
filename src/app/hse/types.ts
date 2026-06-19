@@ -579,14 +579,23 @@ export function violationStatusTone(s: ViolationStatus): HseTone {
 export const ALERT_DEPARTMENTS = ['Жолооч', 'Агуулах', 'Менежмент', 'ХАБЭА', 'Бусад'] as const;
 export type AlertDepartment = (typeof ALERT_DEPARTMENTS)[number];
 
+/** Аюултай тохиолдлын сэрэмжлүүлэг (TT-HSE-03.00.05). */
 export interface HseAlert {
     id: string;
-    desc: string; // тайлбар
-    heltes: AlertDepartment;
-    ognoo: string;
+    desc: string; // Аюултай тохиолдлын тухай мэдээлэл
+    heltes?: AlertDepartment; // хэлтэс (хуучин бүртгэлд)
+    albaNer?: string; // Алба, хэсгийн нэр
+    angilal?: string; // Ангилал
+    tohioldoOgnoo?: string; // Аюултай тохиолдол гарсан огноо
+    noloolsonHuchin?: string; // Нөлөөлсөн хүчин зүйлс
+    surgamj?: string; // Сургамж
+    ognoo: string; // бүртгэсэн огноо
     hereglegchId?: string; // бүртгэсэн
-    imgUrl?: string;
+    imgUrl?: string; // Зураг 1
+    img2Url?: string; // Зураг 2
     videoUrl?: string;
+    tanilcahIds?: string[]; // танилцах ажилтнууд
+    tanilcsanIds?: string[]; // танилцсан (гарын үсэг зурсан) ажилтнууд
     createdAt?: number;
 }
 
