@@ -1,7 +1,6 @@
 import {
     LayoutDashboard,
     TriangleAlert,
-    ListChecks,
     Siren,
     ShieldAlert,
     Bell,
@@ -37,10 +36,7 @@ export const HSE_NAV: HseNavGroup[] = [
     },
     {
         title: 'Эрсдэл',
-        items: [
-            { href: '/hse/hazards', label: 'Аюул, эрсдэл', icon: TriangleAlert },
-            { href: '/hse/tasks', label: 'Арга хэмжээ', icon: ListChecks },
-        ],
+        items: [{ href: '/hse/hazards', label: 'Аюул', icon: TriangleAlert }],
     },
     {
         title: 'Осол, зөрчил',

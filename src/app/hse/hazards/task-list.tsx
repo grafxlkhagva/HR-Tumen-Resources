@@ -6,7 +6,6 @@ import { Search } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
-    PageHeader,
     DataTable,
     DataTableHeader,
     DataTableColumn,
@@ -34,7 +33,7 @@ import {
     type HseTask,
 } from '../types';
 
-export default function HseTasksPage() {
+export function TaskList() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const { nameOf } = useHseEmployees();
@@ -70,12 +69,13 @@ export default function HseTasksPage() {
     };
 
     return (
-        <div className="p-page space-y-6">
-            <PageHeader
-                title="Арга хэмжээ"
-                description="Аюул, эрсдэлийг бууруулах арга хэмжээний даалгавар"
-                hideBreadcrumbs
-            />
+        <section className="space-y-4">
+            <div>
+                <h2 className="text-subtitle font-semibold">Арга хэмжээ</h2>
+                <p className="text-caption text-muted-foreground">
+                    Аюул, эрсдэлийг бууруулах арга хэмжээний даалгавар
+                </p>
+            </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
@@ -150,6 +150,6 @@ export default function HseTasksPage() {
                     </DataTableBody>
                 )}
             </DataTable>
-        </div>
+        </section>
     );
 }

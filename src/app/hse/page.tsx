@@ -88,7 +88,7 @@ export default function HseDashboardPage() {
                     title="Хийгдэх арга хэмжээ"
                     value={stats.openTasks}
                     icon={ListChecks}
-                    href="/hse/tasks"
+                    href="/hse/hazards"
                     isLoading={tasksLoading}
                 />
             </StatGrid>
