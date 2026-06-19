@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText, ImageIcon } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -28,6 +28,7 @@ import {
 import { EmployeeMultiSelect } from '../components/employee-select';
 import { createHseDoc, updateHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, SCHEDULE_STATUSES, type Training } from '../types';
+import { useTrainingTemplates } from './use-training-templates';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -42,10 +43,10 @@ export function TrainingForm({
 }) {
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const { templates, isLoading: templatesLoading } = useTrainingTemplates();
     const [saving, setSaving] = React.useState(false);
 
-    const [garchig, setGarchig] = React.useState('');
-    const [angilal, setAngilal] = React.useState('');
+    const [zagvarId, setZagvarId] = React.useState<string>('');
     const [tuluw, setTuluw] = React.useState<Training['tuluw']>('Төлөвлөгдсөн');
     const [huvaar, setHuvaar] = React.useState(todayStr());
     const [hamragdahIds, setHamragdahIds] = React.useState<string[]>([]);
@@ -55,16 +56,14 @@ export function TrainingForm({
     React.useEffect(() => {
         if (!open) return;
         if (training) {
-            setGarchig(training.garchig);
-            setAngilal(training.angilal || '');
+            setZagvarId(training.zagvarId || '');
             setTuluw(training.tuluw);
             setHuvaar(training.huvaar);
             setHamragdahIds(training.hamragdahIds || []);
             setHamragdsanIds(training.hamragdsanIds || []);
             setTailbar(training.tailbar || '');
         } else {
-            setGarchig('');
-            setAngilal('');
+            setZagvarId('');
             setTuluw('Төлөвлөгдсөн');
             setHuvaar(todayStr());
             setHamragdahIds([]);
@@ -73,17 +72,25 @@ export function TrainingForm({
         }
     }, [open, training]);
 
+    const selectedTemplate = React.useMemo(
+        () => templates.find((t) => t.id === zagvarId),
+        [templates, zagvarId],
+    );
+
     const handleSave = async () => {
         if (!firestore) return;
-        if (!garchig.trim()) {
-            toast({ title: 'Сургалтын гарчиг оруулна уу.', variant: 'destructive' });
+        if (!selectedTemplate) {
+            toast({ title: 'Сургалтын загвар сонгоно уу.', variant: 'destructive' });
             return;
         }
         setSaving(true);
         try {
             const payload = {
-                garchig: garchig.trim(),
-                angilal: angilal.trim() || null,
+                zagvarId: selectedTemplate.id,
+                garchig: selectedTemplate.ner,
+                angilal: selectedTemplate.angilal || null,
+                imgUrl: selectedTemplate.imgUrl || null,
+                pdfUrl: selectedTemplate.pdfUrl || null,
                 tuluw,
                 huvaar,
                 hamragdahIds,
@@ -95,7 +102,7 @@ export function TrainingForm({
                 toast({ title: 'Сургалт шинэчлэгдлээ.' });
             } else {
                 await createHseDoc(firestore, HSE_COLLECTIONS.training, payload);
-                toast({ title: 'Сургалт бүртгэгдлээ.' });
+                toast({ title: 'Сургалт хуваарилагдлаа.' });
             }
             onOpenChange(false);
         } catch {
@@ -109,28 +116,88 @@ export function TrainingForm({
         <AppDialog open={open} onOpenChange={onOpenChange}>
             <AppDialogContent size="lg">
                 <AppDialogHeader>
-                    <AppDialogTitle>{training ? 'Сургалт засах' : 'Шинэ сургалт'}</AppDialogTitle>
-                    <AppDialogDescription>Сургалтын мэдээллийг бөглөнө үү.</AppDialogDescription>
+                    <AppDialogTitle>
+                        {training ? 'Сургалт засах' : 'Сургалт хуваарилах'}
+                    </AppDialogTitle>
+                    <AppDialogDescription>
+                        Загвар сонгож, ажилтнуудад хуваарилна.
+                    </AppDialogDescription>
                 </AppDialogHeader>
                 <AppDialogBody className="space-y-4">
-                    <FormFieldWrapper label="Гарчиг" required>
-                        <Input
-                            value={garchig}
-                            onChange={(e) => setGarchig(e.target.value)}
-                            placeholder="Сургалтын нэр..."
-                        />
+                    <FormFieldWrapper label="Сургалтын загвар" required>
+                        <Select value={zagvarId} onValueChange={setZagvarId} disabled={templatesLoading}>
+                            <SelectTrigger>
+                                <SelectValue
+                                    placeholder={
+                                        templatesLoading ? 'Ачааллаж байна...' : 'Загвар сонгох'
+                                    }
+                                />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {templates.length === 0 ? (
+                                    <div className="px-2 py-1.5 text-caption text-muted-foreground">
+                                        Загвар алга — эхлээд Загвар табад нэмнэ үү
+                                    </div>
+                                ) : (
+                                    templates.map((t) => (
+                                        <SelectItem key={t.id} value={t.id}>
+                                            {t.ner}
+                                        </SelectItem>
+                                    ))
+                                )}
+                            </SelectContent>
+                        </Select>
                     </FormFieldWrapper>
 
-                    <FormRow columns={3}>
-                        <FormFieldWrapper label="Ангилал">
-                            <Input
-                                value={angilal}
-                                onChange={(e) => setAngilal(e.target.value)}
-                                placeholder="Жишээ: Галын аюулгүй байдал"
-                            />
-                        </FormFieldWrapper>
+                    {selectedTemplate && (
+                        <div className="flex flex-wrap items-center gap-3 rounded-md border bg-muted/30 p-3">
+                            {selectedTemplate.imgUrl && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={selectedTemplate.imgUrl}
+                                    alt={selectedTemplate.ner}
+                                    className="h-16 w-16 rounded object-cover"
+                                />
+                            )}
+                            <div className="min-w-0 flex-1 space-y-1">
+                                <p className="truncate text-sm font-medium">{selectedTemplate.ner}</p>
+                                {selectedTemplate.angilal && (
+                                    <p className="truncate text-micro text-muted-foreground">
+                                        {selectedTemplate.angilal}
+                                    </p>
+                                )}
+                                <div className="flex items-center gap-3 text-micro text-muted-foreground">
+                                    {selectedTemplate.imgUrl && (
+                                        <span className="inline-flex items-center gap-1">
+                                            <ImageIcon className="h-3 w-3" /> зураг
+                                        </span>
+                                    )}
+                                    {selectedTemplate.pdfUrl ? (
+                                        <a
+                                            href={selectedTemplate.pdfUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1 text-error hover:underline"
+                                        >
+                                            <FileText className="h-3 w-3" /> PDF материал
+                                        </a>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1">
+                                            <FileText className="h-3 w-3" /> PDF алга
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <FormRow columns={2}>
                         <FormFieldWrapper label="Хуваарь">
-                            <Input type="date" value={huvaar} onChange={(e) => setHuvaar(e.target.value)} />
+                            <Input
+                                type="date"
+                                value={huvaar}
+                                onChange={(e) => setHuvaar(e.target.value)}
+                            />
                         </FormFieldWrapper>
                         <FormFieldWrapper label="Төлөв">
                             <Select value={tuluw} onValueChange={(v) => setTuluw(v as Training['tuluw'])}>

@@ -251,15 +251,29 @@ export function scheduleStatusTone(s: ScheduleStatus): HseTone {
     }
 }
 
+/** Сургалтын загвар — зураг, PDF материал агуулна. Жагсаалтад хуваарилахдаа сонгоно. */
+export interface TrainingTemplate {
+    id: string;
+    ner: string; // загварын нэр / гарчиг
+    angilal?: string;
+    tailbar?: string;
+    imgUrl?: string; // сургалтын зураг
+    pdfUrl?: string; // сургалтын материал (PDF)
+    createdAt?: number;
+}
+
 export interface Training {
     id: string;
-    garchig: string; // сургалтын гарчиг / нэр
+    zagvarId?: string; // сонгосон загвар
+    garchig: string; // сургалтын гарчиг / нэр (загвараас авна)
     angilal?: string;
     tuluw: ScheduleStatus;
     hamragdahIds: string[]; // хамрагдах ажилтнууд
     hamragdsanIds: string[]; // хамрагдсан ажилтнууд
     huvaar: string; // хуваарьт огноо
     tailbar?: string;
+    imgUrl?: string; // загвараас хуулсан зураг
+    pdfUrl?: string; // загвараас хуулсан материал (PDF)
     createdAt?: number;
 }
 

@@ -34,6 +34,13 @@ service firebase.storage {
         && request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)');
     }
 
+    // ХАБЭА — зураг эсвэл PDF баримт (сургалтын материал гэх мэт)
+    function isValidHseUpload() {
+      return request.resource.size < 25 * 1024 * 1024
+        && (request.resource.contentType.matches('image/(jpeg|jpg|png|webp|gif)')
+            || request.resource.contentType == 'application/pdf');
+    }
+
     // Ажилтны гэрэл зураг — админ нэмэх (add-employee), нэвтэрсэн унших
     match /employee-photos/{userId}/{fileName} {
       allow read: if request.auth != null;
@@ -178,7 +185,7 @@ service firebase.storage {
     // ХАБЭА (HSE) зураг/файл — админ эсвэл hseAccess эрхтэй ажилтан
     match /hse/{path=**} {
       allow read: if isHseStaff();
-      allow write: if isHseStaff() && isValidImageUpload();
+      allow write: if isHseStaff() && isValidHseUpload();
     }
 
     // Default: дээрх тусгай дүрмүүдэд ороогүй бүх зам хориглоно
