@@ -287,15 +287,29 @@ export const BRIEFING_TYPES = [
 ] as const;
 export type BriefingType = (typeof BRIEFING_TYPES)[number];
 
+/** Зааварчилгааны загвар — зураг, PDF материал агуулна. Жагсаалтад хуваарилахдаа сонгоно. */
+export interface BriefingTemplate {
+    id: string;
+    ner: string; // загварын нэр / гарчиг
+    torol: BriefingType;
+    tailbar?: string;
+    imgUrl?: string; // зааварчилгааны зураг
+    pdfUrl?: string; // зааварчилгааны материал (PDF)
+    createdAt?: number;
+}
+
 export interface Briefing {
     id: string;
-    garchig: string; // зааварчилгааны гарчиг
+    zagvarId?: string; // сонгосон загвар
+    garchig: string; // зааварчилгааны гарчиг (загвараас авна)
     torol: BriefingType;
     tuluw: ScheduleStatus;
     tanilcahIds: string[]; // танилцах ажилтнууд
     tanilcsanIds: string[]; // танилцсан ажилтнууд
     huvaar: string;
     tailbar?: string;
+    imgUrl?: string; // загвараас хуулсан зураг
+    pdfUrl?: string; // загвараас хуулсан материал (PDF)
     createdAt?: number;
 }
 
