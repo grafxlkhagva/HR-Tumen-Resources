@@ -63,6 +63,7 @@ export function HazardForm({
     const [ognoo, setOgnoo] = React.useState(todayStr());
     const [haritslahId, setHaritslahId] = React.useState<string | undefined>();
     const [imgUrl, setImgUrl] = React.useState<string | undefined>();
+    const [videoUrl, setVideoUrl] = React.useState('');
 
     React.useEffect(() => {
         if (!open) return;
@@ -76,6 +77,7 @@ export function HazardForm({
             setOgnoo(hazard.ognoo);
             setHaritslahId(hazard.haritslahId);
             setImgUrl(hazard.imgUrl);
+            setVideoUrl(hazard.videoUrl || '');
         } else {
             setDesc('');
             setAngilal(categories[0]?.ner || '');
@@ -86,6 +88,7 @@ export function HazardForm({
             setOgnoo(todayStr());
             setHaritslahId(undefined);
             setImgUrl(undefined);
+            setVideoUrl('');
         }
     }, [open, hazard, categories]);
 
@@ -111,21 +114,14 @@ export function HazardForm({
                 ognoo,
                 haritslahId: haritslahId || null,
                 imgUrl: imgUrl || null,
+                videoUrl: videoUrl.trim() || null,
             };
             if (hazard) {
                 await updateHseDoc(firestore, HSE_COLLECTIONS.hazards, hazard.id, payload);
                 toast({ title: 'Аюул шинэчлэгдлээ.' });
             } else {
-                const hazardId = await createHseDoc(firestore, HSE_COLLECTIONS.hazards, payload);
-                // Эрсдэлийг бууруулах арга хэмжээг автоматаар үүсгэнэ.
-                await createHseDoc(firestore, HSE_COLLECTIONS.tasks, {
-                    hazardId,
-                    title: `Эрсдэл бууруулах: ${desc.trim()}`,
-                    haritslahId: haritslahId || null,
-                    ognoo,
-                    tuluw: 'Нээлттэй',
-                });
-                toast({ title: 'Аюул бүртгэгдэж, арга хэмжээ үүслээ.' });
+                await createHseDoc(firestore, HSE_COLLECTIONS.hazards, payload);
+                toast({ title: 'Аюул бүртгэгдлээ.' });
             }
             onOpenChange(false);
         } catch (e) {
@@ -243,9 +239,18 @@ export function HazardForm({
                         <EmployeeSelect value={haritslahId} onChange={setHaritslahId} />
                     </FormFieldWrapper>
 
-                    <FormFieldWrapper label="Зураг">
-                        <ImageUpload value={imgUrl} onChange={setImgUrl} folder="hazards" />
-                    </FormFieldWrapper>
+                    <FormRow columns={2}>
+                        <FormFieldWrapper label="Зураг">
+                            <ImageUpload value={imgUrl} onChange={setImgUrl} folder="hazards" />
+                        </FormFieldWrapper>
+                        <FormFieldWrapper label="Видео холбоос" hint="YouTube эсвэл бусад видео URL">
+                            <Input
+                                value={videoUrl}
+                                onChange={(e) => setVideoUrl(e.target.value)}
+                                placeholder="https://..."
+                            />
+                        </FormFieldWrapper>
+                    </FormRow>
                 </AppDialogBody>
                 <AppDialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

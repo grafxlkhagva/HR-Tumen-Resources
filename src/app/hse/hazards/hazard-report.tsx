@@ -12,7 +12,7 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { TriangleAlert, ShieldAlert, FolderOpen, ListChecks } from 'lucide-react';
+import { TriangleAlert, ShieldAlert, FolderOpen, CheckCircle2 } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { StatCard, StatGrid } from '@/components/patterns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,9 +20,7 @@ import { Progress } from '@/components/ui/progress';
 import {
     HSE_COLLECTIONS,
     HAZARD_STATUSES,
-    TASK_STATUSES,
     type Hazard,
-    type HseTask,
 } from '../types';
 
 const RISK_LEVELS: { id: 'Өндөр' | 'Дунд' | 'Бага'; color: string }[] = [
@@ -48,27 +46,19 @@ export function HazardReport() {
                 : null,
         [firestore],
     );
-    const tasksQuery = useMemoFirebase(
-        () =>
-            firestore
-                ? query(collection(firestore, HSE_COLLECTIONS.tasks), orderBy('createdAt', 'desc'))
-                : null,
-        [firestore],
-    );
 
-    const { data: hazards, isLoading: hazardsLoading } = useCollection<Hazard>(hazardsQuery);
-    const { data: tasks, isLoading: tasksLoading } = useCollection<HseTask>(tasksQuery);
+    const { data: hazards, isLoading } = useCollection<Hazard>(hazardsQuery);
 
     const hz = React.useMemo(() => hazards || [], [hazards]);
-    const tk = React.useMemo(() => tasks || [], [tasks]);
 
     const stats = React.useMemo(() => {
         const open = hz.filter((h) => h.tuluw !== 'Хаагдсан').length;
         const high = hz.filter((h) => h.ersdel === 'Өндөр' && h.tuluw !== 'Хаагдсан').length;
-        const done = tk.filter((t) => t.tuluw === 'Дуусгасан').length;
-        const pct = tk.length ? Math.round((done / tk.length) * 100) : 0;
-        return { total: hz.length, open, high, done, taskTotal: tk.length, pct };
-    }, [hz, tk]);
+        const resolved = hz.filter((h) => h.tuluw === 'Хаагдсан').length;
+        const corrected = hz.filter((h) => !!h.zalruulga).length;
+        const pct = hz.length ? Math.round((resolved / hz.length) * 100) : 0;
+        return { total: hz.length, open, high, resolved, corrected, pct };
+    }, [hz]);
 
     const riskData = React.useMemo(
         () =>
@@ -93,14 +83,14 @@ export function HazardReport() {
     return (
         <div className="space-y-6">
             <StatGrid columns={4}>
-                <StatCard title="Нийт аюул" value={stats.total} icon={TriangleAlert} isLoading={hazardsLoading} />
-                <StatCard title="Нээлттэй аюул" value={stats.open} icon={FolderOpen} isLoading={hazardsLoading} />
-                <StatCard title="Өндөр эрсдэл" value={stats.high} icon={ShieldAlert} isLoading={hazardsLoading} />
+                <StatCard title="Нийт аюул" value={stats.total} icon={TriangleAlert} isLoading={isLoading} />
+                <StatCard title="Нээлттэй аюул" value={stats.open} icon={FolderOpen} isLoading={isLoading} />
+                <StatCard title="Өндөр эрсдэл" value={stats.high} icon={ShieldAlert} isLoading={isLoading} />
                 <StatCard
-                    title="Арга хэмжээний биелэлт"
+                    title="Шийдвэрлэлт"
                     value={`${stats.pct}%`}
-                    icon={ListChecks}
-                    isLoading={tasksLoading}
+                    icon={CheckCircle2}
+                    isLoading={isLoading}
                 />
             </StatGrid>
 
@@ -162,27 +152,31 @@ export function HazardReport() {
 
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-subtitle">Арга хэмжээний явц</CardTitle>
+                    <CardTitle className="text-subtitle">Шийдвэрлэлтийн явц</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-1.5">
                         <div className="flex items-center justify-between text-caption">
-                            <span className="text-muted-foreground">Биелэлт</span>
+                            <span className="text-muted-foreground">Хаагдсан / Нийт</span>
                             <span className="font-medium tabular-nums">
-                                {stats.done}/{stats.taskTotal} ({stats.pct}%)
+                                {stats.resolved}/{stats.total} ({stats.pct}%)
                             </span>
                         </div>
                         <Progress value={stats.pct} />
                     </div>
                     <div className="grid grid-cols-3 gap-3">
-                        {TASK_STATUSES.map((s) => (
-                            <div key={s} className="rounded-lg border p-3 text-center">
-                                <p className="text-title font-semibold tabular-nums">
-                                    {tk.filter((t) => t.tuluw === s).length}
-                                </p>
-                                <p className="text-micro text-muted-foreground">{s}</p>
-                            </div>
-                        ))}
+                        <div className="rounded-lg border p-3 text-center">
+                            <p className="text-title font-semibold tabular-nums">{stats.open}</p>
+                            <p className="text-micro text-muted-foreground">Нээлттэй</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                            <p className="text-title font-semibold tabular-nums">{stats.corrected}</p>
+                            <p className="text-micro text-muted-foreground">Залруулгатай</p>
+                        </div>
+                        <div className="rounded-lg border p-3 text-center">
+                            <p className="text-title font-semibold tabular-nums">{stats.resolved}</p>
+                            <p className="text-micro text-muted-foreground">Хаагдсан</p>
+                        </div>
                     </div>
                 </CardContent>
             </Card>

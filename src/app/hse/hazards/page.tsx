@@ -4,7 +4,6 @@ import * as React from 'react';
 import { PageHeader } from '@/components/patterns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { HazardList } from './hazard-list';
-import { TaskList } from './task-list';
 import { HazardReport } from './hazard-report';
 
 export default function HazardsPage() {
@@ -22,9 +21,8 @@ export default function HazardsPage() {
                     <TabsTrigger value="report">Тайлан</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="list" className="space-y-8">
+                <TabsContent value="list">
                     <HazardList />
-                    <TaskList />
                 </TabsContent>
 
                 <TabsContent value="report">

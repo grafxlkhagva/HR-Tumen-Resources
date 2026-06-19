@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { TriangleAlert, Siren, ListChecks, ShieldAlert, ArrowRight } from 'lucide-react';
+import { TriangleAlert, Siren, CheckCircle2, ShieldAlert, ArrowRight } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { PageHeader, StatCard, StatGrid } from '@/components/patterns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,7 +13,6 @@ import {
     HSE_COLLECTIONS,
     type Hazard,
     type Incident,
-    type HseTask,
     hazardStatusTone,
     riskTone,
     incidentStatusTone,
@@ -30,26 +29,19 @@ export default function HseDashboardPage() {
         () => (firestore ? query(collection(firestore, HSE_COLLECTIONS.incidents), orderBy('createdAt', 'desc')) : null),
         [firestore],
     );
-    const tasksQuery = useMemoFirebase(
-        () => (firestore ? query(collection(firestore, HSE_COLLECTIONS.tasks), orderBy('createdAt', 'desc')) : null),
-        [firestore],
-    );
-
     const { data: hazards, isLoading: hazardsLoading } = useCollection<Hazard>(hazardsQuery);
     const { data: incidents, isLoading: incidentsLoading } = useCollection<Incident>(incidentsQuery);
-    const { data: tasks, isLoading: tasksLoading } = useCollection<HseTask>(tasksQuery);
 
     const stats = React.useMemo(() => {
         const hz = hazards || [];
         const inc = incidents || [];
-        const tk = tasks || [];
         return {
             openHazards: hz.filter((h) => h.tuluw !== 'Хаагдсан').length,
             highRisk: hz.filter((h) => h.ersdel === 'Өндөр' && h.tuluw !== 'Хаагдсан').length,
             openIncidents: inc.filter((i) => i.tuluw !== 'Хаагдсан' && i.tuluw !== 'Цуцлагдсан').length,
-            openTasks: tk.filter((t) => t.tuluw !== 'Дуусгасан').length,
+            corrected: hz.filter((h) => !!h.zalruulga).length,
         };
-    }, [hazards, incidents, tasks]);
+    }, [hazards, incidents]);
 
     const recentHazards = (hazards || []).slice(0, 5);
     const recentIncidents = (incidents || []).slice(0, 5);
@@ -85,11 +77,11 @@ export default function HseDashboardPage() {
                     isLoading={incidentsLoading}
                 />
                 <StatCard
-                    title="Хийгдэх арга хэмжээ"
-                    value={stats.openTasks}
-                    icon={ListChecks}
+                    title="Залруулсан аюул"
+                    value={stats.corrected}
+                    icon={CheckCircle2}
                     href="/hse/hazards"
-                    isLoading={tasksLoading}
+                    isLoading={hazardsLoading}
                 />
             </StatGrid>
 

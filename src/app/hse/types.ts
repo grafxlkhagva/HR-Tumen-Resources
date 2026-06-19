@@ -50,6 +50,15 @@ export const DEFAULT_HAZARD_CATEGORIES: Omit<HazardCategory, 'id'>[] = [
     { ner: 'Тээврийн аюул', tone: 'amber' },
 ];
 
+/** Аюулын залруулга (хариу арга хэмжээ) — аюул бүрд нэг залруулга. */
+export interface HazardCorrection {
+    desc: string; // залруулгын тайлбар
+    zasagchId?: string; // хэн залруулсан (employee id)
+    ognoo?: string; // залруулсан огноо YYYY-MM-DD
+    imgUrl?: string; // залруулгын зураг
+    videoUrl?: string; // залруулгын видео холбоос
+}
+
 export interface Hazard {
     id: string;
     code?: string; // ID Дугаар (АЮ-2024-001)
@@ -64,7 +73,9 @@ export interface Hazard {
     ognoo: string; // YYYY-MM-DD
     hereglegchId?: string; // бүртгэсэн (employee id)
     haritslahId?: string; // хариуцагч (employee id)
-    imgUrl?: string;
+    imgUrl?: string; // анхны аюулын зураг
+    videoUrl?: string; // анхны аюулын видео холбоос
+    zalruulga?: HazardCorrection | null; // залруулга
     createdAt?: number;
 }
 

@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, ChevronRight } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -150,6 +151,7 @@ export function HazardList() {
             <DataTable>
                 <DataTableHeader>
                     <DataTableRow>
+                        <DataTableColumn>Дэлгэрэнгүй</DataTableColumn>
                         <DataTableColumn>Тайлбар</DataTableColumn>
                         <DataTableColumn>Ангилал</DataTableColumn>
                         <DataTableColumn>Байршил</DataTableColumn>
@@ -161,13 +163,22 @@ export function HazardList() {
                     </DataTableRow>
                 </DataTableHeader>
                 {isLoading ? (
-                    <DataTableLoading columns={8} />
+                    <DataTableLoading columns={9} />
                 ) : filtered.length === 0 ? (
-                    <DataTableEmpty columns={8} message="Аюулын бүртгэл алга" />
+                    <DataTableEmpty columns={9} message="Аюулын бүртгэл алга" />
                 ) : (
                     <DataTableBody>
                         {filtered.map((h) => (
                             <DataTableRow key={h.id}>
+                                <DataTableCell>
+                                    <Link
+                                        href={`/hse/hazards/${h.id}`}
+                                        className="inline-flex items-center gap-0.5 text-caption font-medium text-info hover:underline"
+                                    >
+                                        Дэлгэрэнгүй
+                                        <ChevronRight className="h-3.5 w-3.5" />
+                                    </Link>
+                                </DataTableCell>
                                 <DataTableCell className="max-w-[280px]">
                                     <span className="line-clamp-2">{h.desc}</span>
                                 </DataTableCell>
