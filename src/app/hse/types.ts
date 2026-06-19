@@ -21,6 +21,8 @@ export const HSE_COLLECTIONS = {
     briefings: 'hse_briefings',
     briefingTemplates: 'hse_briefing_templates',
     inspections: 'hse_inspections',
+    inspectionChecklists: 'hse_inspection_checklists',
+    nonconformities: 'hse_nonconformities',
     ppe: 'hse_ppe',
     documents: 'hse_documents',
     orgInfo: 'hse_org_info',
@@ -719,6 +721,57 @@ export interface Inspection {
     ilrel?: string; // илрэл / дүгнэлт
     imgUrl?: string;
     tailbar?: string;
+    createdAt?: number;
+}
+
+// ─── ХАБЭА-н хяналтын хуудас (TT-HSE-04.00.01) ──────────────────
+
+/** Хяналтын хуудасны хариултын утга. */
+export const CHECKLIST_ANSWERS = ['Тийм', 'Үгүй', 'Хамаарахгүй'] as const;
+export type ChecklistAnswerValue = (typeof CHECKLIST_ANSWERS)[number];
+
+export function checklistAnswerTone(v?: ChecklistAnswerValue | null): HseTone {
+    if (v === 'Тийм') return 'green';
+    if (v === 'Үгүй') return 'red';
+    if (v === 'Хамаарахгүй') return 'gray';
+    return 'gray';
+}
+
+/** Асуулт бүрийн хариулт (хариулт + тэмдэглэл). */
+export interface ChecklistAnswer {
+    answer?: ChecklistAnswerValue | null;
+    note?: string;
+}
+
+export interface InspectionChecklist {
+    id: string;
+    shalgasanId?: string; // Хяналт хийсэн
+    talbaruud?: string; // Хяналт хийсэн ажлын талбарууд
+    udirdlagaId?: string; // Хяналтыг хамтран хийсэн удирдлага
+    ognoo: string; // Хяналт хийсэн огноо
+    answers: Record<string, ChecklistAnswer>; // асуултын код → хариулт
+    createdAt?: number;
+}
+
+// ─── Үл тохирол арилгасан тухай мэдээний хуудас (TT-HSE-04.00.02) ─
+
+export interface NonconformityItem {
+    bairshil?: string; // Байршил
+    ilrel?: string; // Илэрсэн үл тохирол
+    fotoUmno?: string; // Фото зураг (Өмнө)
+    fotoDaraa?: string; // Фото зураг (Дараа)
+    avahArga?: string; // Авах арга хэмжээ
+    avsanArga?: string; // Авсан арга хэмжээ
+    bielsen?: boolean; // арга хэмжээ биелсэн эсэх
+}
+
+export interface Nonconformity {
+    id: string;
+    garchig?: string; // тайлбар гарчиг (жагсаалтад харагдах)
+    ognoo: string; // огноо
+    hariutsagchId?: string; // Хариуцсан ажилтан
+    items: NonconformityItem[]; // үл тохирлын мөрүүд
+    bielegguiTailbar?: string; // Биелээгүй тухай тайлбар
     createdAt?: number;
 }
 
