@@ -24,6 +24,7 @@ export const HSE_COLLECTIONS = {
     inspectionChecklists: 'hse_inspection_checklists',
     nonconformities: 'hse_nonconformities',
     ppe: 'hse_ppe',
+    ppeIssues: 'hse_ppe_issues',
     documents: 'hse_documents',
     orgInfo: 'hse_org_info',
     orgConfig: 'hse_org_config',
@@ -858,6 +859,54 @@ export function ppeStatusTone(s: PpeStatus): HseTone {
         case 'Буцаагдсан':
             return 'gray';
     }
+}
+
+// ─── Ажлын хувцас, НБХХ-ийг олгосон бүртгэл (TT-HSE-07.00.01) ────
+
+/** Олгох боломжтой ажлын хувцас, НБХХ-ийн төрлүүд. */
+export const PPE_ISSUE_ITEMS = [
+    'Ажлын цамц өмд',
+    'Өвлийн цамц',
+    'Өвлийн өмд',
+    'Тунгалаг нүдний шил',
+    'Хар нүдний шил',
+    'Каск',
+    'Өвлийн гутал',
+    'Зуны гутал',
+    'Арьсан бээлий',
+    'Цахилгаанчдын хантааз',
+    'Хантааз',
+    'Бусад',
+] as const;
+
+/** Найтлэг үндэслэл — ажилтны хүлээн зөвшөөрөх нөхцөлүүд. */
+export const PPE_ISSUE_TERMS = [
+    'Ажлын хувцас, НБХХ-ийг Компани хангана.',
+    'Ажлын хувцас, НБХХ нь Компанийн өмч бөгөөд ажлын гэрээ дуусгавар болох үед компанид буцаан өгнө.',
+    'Ажлын хувцас, НБХХ-ийг санаатайгаар урах, гэмтээх, гээх, үрэгдүүлсэн тохиолдолд ажилтнаар нөхөн төлүүлнэ.',
+    'Компанийн олгосон ажлын хувцас, НБХХ урагдсан, элэгдсэн, гэмтсэн тохиолдол бүрийг нэн даруй мэдэгдэнэ.',
+    'Компанийн олгосон ажлын хувцас, НБХХ-ийг журмын дагуу хэрэглэж, зөв хадгална.',
+    'Ажлын хувцас, НБХХ-ийг хэрэглэгч нь хувийн шаардлага, хэмжээгээ хүлээж авах ба шаардлага хангаагүй тохиолдолд солиулна.',
+] as const;
+
+export interface PpeIssueItem {
+    torol: string; // Ажлын хувцас, НБХХ-ийн төрөл
+    too?: number; // Тоо ширхэг
+    huleenAvsan?: boolean; // Хүлээн авсан (гарын үсэг)
+    huleelgenOgson?: boolean; // Хүлээлгэн өгсөн (гарын үсэг)
+    ognoo?: string; // Огноо
+}
+
+export interface PpeIssue {
+    id: string;
+    ajiltanId?: string; // Овог нэр (ажилтан)
+    tasag?: string; // Тасаг
+    huviinDugaar?: string; // Хувийн дугаар
+    albanTushaal?: string; // Албан тушаал
+    zuvshoorov?: boolean; // Найтлэг үндэслэлийг хүлээн зөвшөөрсөн (гарын үсэг)
+    items: PpeIssueItem[]; // олгосон хэрэгслүүд
+    ognoo: string; // бүртгэсэн огноо
+    createdAt?: number;
 }
 
 // ─── Баримт бичиг (Documents) ───────────────────────────────────

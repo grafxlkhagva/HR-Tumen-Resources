@@ -841,6 +841,7 @@ service cloud.firestore {
     match /hse_inspection_checklists/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_nonconformities/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_ppe/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_ppe_issues/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_documents/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_org_info/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_org_config/{docId} { allow read, write: if isHseAllowed(); }
