@@ -109,7 +109,7 @@ export function SendEmailDialog({
         import('firebase/firestore').then(({ getDoc }) => {
             getDoc(ownerRef).then((snap) => {
                 if (!cancelled && snap.exists()) {
-                    setOwnerData({ id: snap.id, ...(snap.data() as Employee) });
+                    setOwnerData({ ...(snap.data() as Employee), id: snap.id });
                 }
             });
         });

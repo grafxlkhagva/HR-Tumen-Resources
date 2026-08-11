@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table';
 import { Plus, LayoutGrid, List, Briefcase } from 'lucide-react';
 import {
-    DEFAULT_PIPELINE,
+    TUMEN_PIPELINE,
     formatMoney,
     getStage,
     type Company,
@@ -25,6 +25,12 @@ import {
 } from '../_types';
 import { NewDealDialog } from './new-deal-dialog';
 import { DealKanban } from './_components/deal-kanban';
+import {
+    DaysChip,
+    SourceChip,
+    SourceTypeBadge,
+    daysInStage,
+} from './_components/deal-badges';
 import { cn } from '@/lib/utils';
 
 type ViewMode = 'kanban' | 'table';
@@ -55,14 +61,11 @@ export default function CrmDealsPage() {
     );
     const { data: companies } = useCollection<Company>(companiesRef);
 
-    const contactNames = React.useMemo(() => {
-        const map = new Map<string, string>();
-        (contacts || []).forEach((c) => {
-            const parts = [c.lastName, c.firstName].filter(Boolean);
-            map.set(c.id, parts.length > 0 ? parts.join(' ') : c.email || c.id);
-        });
+    const companiesById = React.useMemo(() => {
+        const map = new Map<string, Company>();
+        (companies || []).forEach((c) => map.set(c.id, c));
         return map;
-    }, [contacts]);
+    }, [companies]);
 
     const companyNames = React.useMemo(() => {
         const map = new Map<string, string>();
@@ -77,7 +80,7 @@ export default function CrmDealsPage() {
 
     const weightedAmount = React.useMemo(() => {
         return (deals || []).reduce((sum, d) => {
-            const stage = getStage(DEFAULT_PIPELINE, d.stageId);
+            const stage = getStage(TUMEN_PIPELINE, d.stageId);
             return sum + (d.amount || 0) * (stage?.probability ?? 0);
         }, 0);
     }, [deals]);
@@ -86,10 +89,10 @@ export default function CrmDealsPage() {
         <div className="flex h-full flex-col">
             <header className="flex items-center justify-between border-b px-6 py-4 gap-4">
                 <div className="min-w-0">
-                    <h1 className="text-lg font-semibold tracking-tight">Гэрээ</h1>
+                    <h1 className="text-lg font-semibold tracking-tight">💼 Deal Pipeline</h1>
                     <p className="text-xs text-muted-foreground">
                         {deals
-                            ? `${deals.length} гэрээ · Нийт ${formatMoney(totalAmount)} · Жинлэгдсэн ${formatMoney(weightedAmount)}`
+                            ? `${deals.length} deal · Нийт ${formatMoney(totalAmount)} · Жинлэгдсэн ${formatMoney(weightedAmount)}`
                             : 'Ачаалж байна...'}
                     </p>
                 </div>
@@ -101,7 +104,7 @@ export default function CrmDealsPage() {
                         onClick={() => setIsAddOpen(true)}
                     >
                         <Plus className="h-4 w-4 mr-1.5" />
-                        Шинэ гэрээ
+                        Шинэ deal
                     </Button>
                 </div>
             </header>
@@ -116,17 +119,9 @@ export default function CrmDealsPage() {
                 ) : !deals || deals.length === 0 ? (
                     <EmptyState onAdd={() => setIsAddOpen(true)} />
                 ) : view === 'kanban' ? (
-                    <DealKanban
-                        deals={deals}
-                        contactNames={contactNames}
-                        companyNames={companyNames}
-                    />
+                    <DealKanban deals={deals} companiesById={companiesById} />
                 ) : (
-                    <DealTable
-                        deals={deals}
-                        contactNames={contactNames}
-                        companyNames={companyNames}
-                    />
+                    <DealTable deals={deals} companyNames={companyNames} />
                 )}
             </div>
 
@@ -181,11 +176,9 @@ function ViewToggle({
 
 function DealTable({
     deals,
-    contactNames,
     companyNames,
 }: {
     deals: Deal[];
-    contactNames: Map<string, string>;
     companyNames: Map<string, string>;
 }) {
     return (
@@ -193,52 +186,60 @@ function DealTable({
             <Table>
                 <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                        <TableHead className="w-[280px]">Нэр</TableHead>
+                        <TableHead className="w-[240px]">Нэр</TableHead>
+                        <TableHead>Шат</TableHead>
+                        <TableHead>MQL/SQL</TableHead>
+                        <TableHead>Суваг</TableHead>
+                        <TableHead>KAM</TableHead>
                         <TableHead className="text-right">Дүн</TableHead>
-                        <TableHead>Үе шат</TableHead>
+                        <TableHead className="text-right">Хоног</TableHead>
                         <TableHead>Байгууллага</TableHead>
-                        <TableHead>Харилцагч</TableHead>
-                        <TableHead>Хаах огноо</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {deals.map((d) => {
-                        const stage = getStage(DEFAULT_PIPELINE, d.stageId);
+                        const stage = getStage(TUMEN_PIPELINE, d.stageId);
                         return (
                             <TableRow key={d.id} className="hover:bg-muted/30">
                                 <TableCell>
                                     <Link
                                         href={`/crm/deals/${d.id}`}
-                                        className="text-sm font-medium hover:text-cyan-700"
+                                        className="text-sm font-medium hover:text-cyan-700 dark:hover:text-cyan-400"
                                     >
                                         {d.name}
                                     </Link>
                                 </TableCell>
-                                <TableCell className="text-right tabular-nums text-sm">
-                                    {formatMoney(d.amount, d.currency)}
-                                </TableCell>
                                 <TableCell>
                                     {stage && (
                                         <span
-                                            className="inline-flex items-center gap-1.5 text-xs"
-                                            style={{ color: stage.color }}
+                                            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap"
+                                            style={{
+                                                color: stage.color,
+                                                backgroundColor: `${stage.color}1a`,
+                                                borderColor: `${stage.color}33`,
+                                            }}
                                         >
-                                            <span
-                                                className="inline-block h-2 w-2 rounded-full"
-                                                style={{ backgroundColor: stage.color }}
-                                            />
                                             {stage.label}
                                         </span>
                                     )}
                                 </TableCell>
+                                <TableCell>
+                                    <SourceTypeBadge deal={d} />
+                                </TableCell>
+                                <TableCell>
+                                    <SourceChip source={d.source} />
+                                </TableCell>
+                                <TableCell className="text-sm text-muted-foreground">
+                                    {d.kam || '—'}
+                                </TableCell>
+                                <TableCell className="text-right tabular-nums text-sm">
+                                    {formatMoney(d.amount, d.currency)}
+                                </TableCell>
+                                <TableCell className="text-right">
+                                    <DaysChip days={daysInStage(d)} />
+                                </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
                                     {d.companyId ? companyNames.get(d.companyId) || '—' : '—'}
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    {d.contactId ? contactNames.get(d.contactId) || '—' : '—'}
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground">
-                                    {d.closeDate || '—'}
                                 </TableCell>
                             </TableRow>
                         );
@@ -256,9 +257,9 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
                 <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10">
                     <Briefcase className="h-7 w-7 text-cyan-600" />
                 </div>
-                <h3 className="text-base font-semibold">Гэрээ байхгүй байна</h3>
+                <h3 className="text-base font-semibold">Deal байхгүй байна</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    Эхний гэрээгээ нэмж борлуулалтын pipeline-аа эхлүүл.
+                    Эхний deal-ээ нэмж борлуулалтын pipeline-аа эхлүүл.
                 </p>
                 <Button
                     size="sm"
@@ -266,7 +267,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
                     onClick={onAdd}
                 >
                     <Plus className="h-4 w-4 mr-1.5" />
-                    Шинэ гэрээ
+                    Шинэ deal
                 </Button>
             </div>
         </div>

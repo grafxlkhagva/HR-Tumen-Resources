@@ -4,6 +4,7 @@ import * as React from 'react';
 import { collection, orderBy, query } from 'firebase/firestore';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { Skeleton } from '@/components/ui/skeleton';
+import { AnalyticsTabs } from '../analytics/_components/analytics-tabs';
 import {
     Briefcase,
     CheckSquare,
@@ -146,6 +147,8 @@ export default function CrmReportsPage() {
                     </p>
                 </div>
             </header>
+
+            <AnalyticsTabs />
 
             <div className="flex-1 overflow-auto">
                 <div className="p-6 space-y-6">

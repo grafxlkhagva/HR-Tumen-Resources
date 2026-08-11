@@ -41,10 +41,13 @@ import {
     FileText,
 } from 'lucide-react';
 import {
+    DEAL_SOURCES,
     DEFAULT_CURRENCY,
-    DEFAULT_PIPELINE,
+    KAM_LIST,
+    TUMEN_PIPELINE,
     formatMoney,
     getStage,
+    normalizeStageId,
     type Company,
     type Contact,
     type Deal,
@@ -52,9 +55,13 @@ import {
     type Ticket,
 } from '../../_types';
 import type { Employee } from '@/types';
+import { moveDealStage } from '../../_lib/crm-actions';
+import { useKamScope } from '../../_lib/use-kam-scope';
 import { ActivityTimeline } from '../../_components/activity-timeline';
 import { TicketsCard } from '../../_components/tickets-card';
 import { QuotesCard } from '../../_components/quotes-card';
+import { StageReasonDialog } from '../_components/stage-reason-dialog';
+import { SourceTypeBadge, DaysChip, daysInStage } from '../_components/deal-badges';
 
 function fullContactName(c: Contact): string {
     const parts = [c.lastName, c.firstName].filter(Boolean);
@@ -78,6 +85,7 @@ export default function DealDetailPage() {
     const router = useRouter();
     const { firestore } = useFirebase();
     const { toast } = useToast();
+    const { actor } = useKamScope();
     const id = Array.isArray(params.id) ? params.id[0] : params.id;
 
     const dealRef = useMemoFirebase(
@@ -140,30 +148,73 @@ export default function DealDetailPage() {
         [companies, deal?.companyId],
     );
 
+    const [reasonStage, setReasonStage] = React.useState<'pending' | 'lost' | null>(null);
+
     const update = React.useCallback(
-        (patch: Partial<Deal>) => {
+        (patch: Record<string, unknown>) => {
             if (!dealRef) return;
-            const next: Record<string, unknown> = {
+            updateDocumentNonBlocking(dealRef, {
                 ...patch,
                 updatedAt: serverTimestamp(),
-            };
-            if (patch.stageId) {
-                const stage = getStage(DEFAULT_PIPELINE, patch.stageId);
-                if (stage?.outcome) {
-                    next.closedAt = serverTimestamp();
-                } else {
-                    next.closedAt = null;
-                }
-            }
-            updateDocumentNonBlocking(dealRef, next);
+            });
         },
         [dealRef],
+    );
+
+    /** Шат солих — ЗӨВХӨН moveDealStage (авто даалгавар, компани ахиулах, аудит). */
+    const doMoveStage = React.useCallback(
+        async (newStageId: string, reason?: string) => {
+            if (!firestore || !deal) return;
+            try {
+                const res = await moveDealStage(
+                    firestore,
+                    actor,
+                    deal,
+                    newStageId,
+                    reason,
+                    linkedCompany ?? null,
+                );
+                if (res.ok) {
+                    const stage = getStage(TUMEN_PIPELINE, newStageId);
+                    toast({
+                        title: 'Амжилттай',
+                        description: `"${deal.name}" → ${stage?.label ?? newStageId}`,
+                    });
+                } else {
+                    toast({
+                        variant: 'destructive',
+                        title: 'Алдаа',
+                        description: res.error || 'Шат солиход алдаа гарлаа.',
+                    });
+                }
+            } catch {
+                toast({
+                    variant: 'destructive',
+                    title: 'Алдаа',
+                    description: 'Шат солиход алдаа гарлаа.',
+                });
+            }
+        },
+        [firestore, deal, actor, linkedCompany, toast],
+    );
+
+    const handleStageClick = React.useCallback(
+        (newStageId: string) => {
+            if (!deal) return;
+            if (newStageId === normalizeStageId(deal.stageId)) return;
+            if (newStageId === 'pending' || newStageId === 'lost') {
+                setReasonStage(newStageId);
+                return;
+            }
+            void doMoveStage(newStageId);
+        },
+        [deal, doMoveStage],
     );
 
     const handleDelete = React.useCallback(() => {
         if (!dealRef) return;
         deleteDocumentNonBlocking(dealRef);
-        toast({ title: 'Устгагдлаа', description: 'Гэрээг устгалаа.' });
+        toast({ title: 'Амжилттай', description: 'Deal-ийг устгалаа.' });
         router.push('/crm/deals');
     }, [dealRef, toast, router]);
 
@@ -186,7 +237,7 @@ export default function DealDetailPage() {
                 <div className="h-14 w-14 rounded-2xl bg-muted flex items-center justify-center">
                     <Briefcase className="h-7 w-7 text-muted-foreground" />
                 </div>
-                <h2 className="text-base font-semibold">Гэрээ олдсонгүй</h2>
+                <h2 className="text-base font-semibold">Deal олдсонгүй</h2>
                 <Button variant="outline" size="sm" asChild>
                     <Link href="/crm/deals">Жагсаалт руу буцах</Link>
                 </Button>
@@ -194,7 +245,8 @@ export default function DealDetailPage() {
         );
     }
 
-    const stage = getStage(DEFAULT_PIPELINE, deal.stageId);
+    const currentStageId = normalizeStageId(deal.stageId);
+    const stage = getStage(TUMEN_PIPELINE, deal.stageId);
 
     return (
         <div className="flex h-full flex-col">
@@ -205,7 +257,7 @@ export default function DealDetailPage() {
                             <ArrowLeft className="h-4 w-4" />
                         </Link>
                     </Button>
-                    <div className="h-9 w-9 rounded-lg bg-cyan-50 flex items-center justify-center shrink-0">
+                    <div className="h-9 w-9 rounded-lg bg-cyan-50 dark:bg-cyan-950 flex items-center justify-center shrink-0">
                         <Briefcase className="h-4 w-4 text-cyan-600" />
                     </div>
                     <div className="min-w-0">
@@ -225,6 +277,8 @@ export default function DealDetailPage() {
                             <span className="font-medium text-foreground tabular-nums">
                                 {formatMoney(deal.amount, deal.currency)}
                             </span>
+                            <SourceTypeBadge deal={deal} />
+                            <DaysChip days={daysInStage(deal)} />
                         </div>
                     </div>
                 </div>
@@ -242,7 +296,7 @@ export default function DealDetailPage() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Гэрээ устгах уу?</AlertDialogTitle>
+                            <AlertDialogTitle>Deal устгах уу?</AlertDialogTitle>
                             <AlertDialogDescription>
                                 Энэ үйлдэл буцаагдахгүй. {deal.name}-ийг устгана.
                             </AlertDialogDescription>
@@ -260,18 +314,16 @@ export default function DealDetailPage() {
                 </AlertDialog>
             </header>
 
-            {/* Stage stepper */}
+            {/* Stage stepper — TUMEN_PIPELINE дарааллаар, pending/lost шалтгаан асууна */}
             <div className="border-b px-6 py-3 bg-muted/20 overflow-x-auto">
                 <div className="flex items-center gap-1.5 min-w-fit">
-                    {DEFAULT_PIPELINE.stages.map((s) => {
-                        const isActive = s.id === deal.stageId;
+                    {TUMEN_PIPELINE.stages.map((s) => {
+                        const isActive = s.id === currentStageId;
                         return (
                             <button
                                 key={s.id}
                                 type="button"
-                                onClick={() => {
-                                    if (!isActive) update({ stageId: s.id });
-                                }}
+                                onClick={() => handleStageClick(s.id)}
                                 className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium border transition-colors hover:border-cyan-300"
                                 style={{
                                     borderColor: isActive ? s.color : undefined,
@@ -288,6 +340,11 @@ export default function DealDetailPage() {
                         );
                     })}
                 </div>
+                {deal.lostReason && (currentStageId === 'lost' || currentStageId === 'pending') && (
+                    <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">
+                        Шалтгаан: {deal.lostReason}
+                    </p>
+                )}
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -310,9 +367,6 @@ export default function DealDetailPage() {
                                 </TabsTrigger>
                                 <TabsTrigger value="notes" className="rounded-none">
                                     Тэмдэглэл
-                                </TabsTrigger>
-                                <TabsTrigger value="quotes" className="rounded-none" disabled>
-                                    Үнийн санал
                                 </TabsTrigger>
                             </TabsList>
 
@@ -370,7 +424,7 @@ export default function DealDetailPage() {
                                     Байгууллага
                                 </h3>
                                 <div className="flex items-center gap-2.5">
-                                    <div className="h-9 w-9 rounded-lg bg-cyan-50 flex items-center justify-center shrink-0">
+                                    <div className="h-9 w-9 rounded-lg bg-cyan-50 dark:bg-cyan-950 flex items-center justify-center shrink-0">
                                         <Building2 className="h-4 w-4 text-cyan-600" />
                                     </div>
                                     <div className="min-w-0">
@@ -390,7 +444,8 @@ export default function DealDetailPage() {
                         {!linkedContact && !linkedCompany && (
                             <div className="rounded-xl border bg-card p-4">
                                 <p className="text-xs text-muted-foreground">
-                                    Холбогдсон харилцагч эсвэл байгууллага байхгүй. Зүүн талаас сонгож холбоно уу.
+                                    Холбогдсон харилцагч эсвэл байгууллага байхгүй. Зүүн талаас
+                                    сонгож холбоно уу.
                                 </p>
                             </div>
                         )}
@@ -400,6 +455,20 @@ export default function DealDetailPage() {
                     </aside>
                 </div>
             </div>
+
+            <StageReasonDialog
+                open={!!reasonStage}
+                onOpenChange={(o) => {
+                    if (!o) setReasonStage(null);
+                }}
+                stage={reasonStage ?? 'lost'}
+                dealName={deal.name}
+                onConfirm={(reason) => {
+                    const s = reasonStage;
+                    setReasonStage(null);
+                    if (s) void doMoveStage(s, reason);
+                }}
+            />
         </div>
     );
 }
@@ -415,7 +484,7 @@ function PropertiesCard({
     contacts: Contact[];
     companies: Company[];
     employeeMap: Map<string, string>;
-    onChange: (patch: Partial<Deal>) => void;
+    onChange: (patch: Record<string, unknown>) => void;
 }) {
     const contactOptions = React.useMemo(
         () => [
@@ -455,7 +524,7 @@ function PropertiesCard({
                     onSave={(v) => {
                         const cleaned = v.replace(/[^\d.-]/g, '');
                         const n = cleaned ? Number(cleaned) : null;
-                        if (n === null || isNaN(n)) onChange({ amount: undefined });
+                        if (n === null || isNaN(n)) onChange({ amount: null });
                         else onChange({ amount: n });
                     }}
                 />
@@ -477,13 +546,101 @@ function PropertiesCard({
                 </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        MQL/SQL
+                    </Label>
+                    <select
+                        className="w-full h-8 rounded-md border bg-background px-2 text-sm"
+                        value={deal.sourceType === 'sql' ? 'sql' : 'mql'}
+                        onChange={(e) => onChange({ sourceType: e.target.value })}
+                    >
+                        <option value="sql">📤 SQL</option>
+                        <option value="mql">🌐 MQL</option>
+                    </select>
+                </div>
+                <div className="space-y-1.5">
+                    <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Суваг
+                    </Label>
+                    <select
+                        className="w-full h-8 rounded-md border bg-background px-2 text-sm"
+                        value={deal.source || ''}
+                        onChange={(e) => onChange({ source: e.target.value || null })}
+                    >
+                        <option value="">—</option>
+                        {Object.entries(DEAL_SOURCES).map(([id, label]) => (
+                            <option key={id} value={id}>
+                                {label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="space-y-1.5">
+                <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    KAM
+                </Label>
+                <select
+                    className="w-full h-8 rounded-md border bg-background px-2 text-sm"
+                    value={deal.kam || ''}
+                    onChange={(e) => onChange({ kam: e.target.value || null })}
+                >
+                    <option value="">— Сонгоогүй —</option>
+                    {KAM_LIST.map((k) => (
+                        <option key={k} value={k}>
+                            {k}
+                        </option>
+                    ))}
+                </select>
+            </div>
+
+            <EditableField
+                label="Чиглэл"
+                value={deal.direction}
+                onSave={(v) => onChange({ direction: v || null })}
+            />
+
+            <EditableField
+                label="Ачааны төрөл"
+                value={deal.cargo}
+                onSave={(v) => onChange({ cargo: v || null })}
+            />
+
+            <EditableField
+                label="Утас"
+                value={deal.phone}
+                onSave={(v) => onChange({ phone: v || null })}
+            />
+
+            <EditableField
+                label="Үнийн санал өгөх огноо"
+                value={deal.quoteDue}
+                type="date"
+                onSave={(v) => onChange({ quoteDue: v || null })}
+                icon={<Calendar className="h-3.5 w-3.5" />}
+            />
+
             <EditableField
                 label="Хаах огноо"
                 value={deal.closeDate}
                 type="date"
-                onSave={(v) => onChange({ closeDate: v || undefined })}
+                onSave={(v) => onChange({ closeDate: v || null })}
                 icon={<Calendar className="h-3.5 w-3.5" />}
             />
+
+            {deal.lostReason && (
+                <div className="space-y-1">
+                    <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Шалтгаан (pending/lost)
+                    </Label>
+                    <div className="text-sm text-rose-600 dark:text-rose-400">
+                        {deal.lostReason}
+                    </div>
+                </div>
+            )}
 
             <div className="space-y-1.5">
                 <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -492,7 +649,7 @@ function PropertiesCard({
                 <SearchableSelect
                     options={contactOptions}
                     value={deal.contactId || ''}
-                    onValueChange={(v) => onChange({ contactId: v || undefined })}
+                    onValueChange={(v) => onChange({ contactId: v || null })}
                     placeholder="— Сонгох —"
                 />
             </div>
@@ -504,7 +661,7 @@ function PropertiesCard({
                 <SearchableSelect
                     options={companyOptions}
                     value={deal.companyId || ''}
-                    onValueChange={(v) => onChange({ companyId: v || undefined })}
+                    onValueChange={(v) => onChange({ companyId: v || null })}
                     placeholder="— Сонгох —"
                 />
             </div>
@@ -524,11 +681,21 @@ function PropertiesCard({
                 </Label>
                 <div className="text-sm inline-flex items-center gap-1.5 text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
-                    {formatDate(
-                        deal.createdAt as unknown as { seconds: number } | null,
-                    )}
+                    {formatDate(deal.createdAt as unknown as { seconds: number } | null)}
                 </div>
             </div>
+
+            {deal.quotedAt && (
+                <div className="space-y-1">
+                    <Label className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                        Үнийн санал илгээсэн
+                    </Label>
+                    <div className="text-sm inline-flex items-center gap-1.5 text-muted-foreground">
+                        <Calendar className="h-3.5 w-3.5" />
+                        {formatDate(deal.quotedAt as unknown as { seconds: number } | null)}
+                    </div>
+                </div>
+            )}
 
             {deal.closedAt && (
                 <div className="space-y-1">
@@ -537,9 +704,7 @@ function PropertiesCard({
                     </Label>
                     <div className="text-sm inline-flex items-center gap-1.5 text-muted-foreground">
                         <Calendar className="h-3.5 w-3.5" />
-                        {formatDate(
-                            deal.closedAt as unknown as { seconds: number } | null,
-                        )}
+                        {formatDate(deal.closedAt as unknown as { seconds: number } | null)}
                     </div>
                 </div>
             )}

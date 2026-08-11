@@ -56,3 +56,4 @@ scripts/key/*.json
 
 # Local reference (SaaS-ийн туршилгын төслийн хувилбар — production-руу хуулж буй эх сурвалж)
 /Туршилга/
+/public/prototype-crm.json

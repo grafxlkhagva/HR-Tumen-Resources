@@ -4,21 +4,26 @@ import * as React from 'react';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { formatMoney, type Deal, type PipelineStage } from '../../_types';
+import {
+    DEAL_STAGE_HINT,
+    formatMoney,
+    type Deal,
+    type PipelineStage,
+} from '../../_types';
 import { DealCard } from './deal-card';
 
 interface DealColumnProps {
     stage: PipelineStage;
     deals: Deal[];
-    contactNames: Map<string, string>;
     companyNames: Map<string, string>;
+    onQuoteSend: (deal: Deal, amount?: number) => Promise<void>;
 }
 
 export function DealColumn({
     stage,
     deals,
-    contactNames,
     companyNames,
+    onQuoteSend,
 }: DealColumnProps) {
     const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
@@ -26,11 +31,12 @@ export function DealColumn({
     const weightedAmount = totalAmount * stage.probability;
 
     const ids = deals.map((d) => d.id);
+    const hint = DEAL_STAGE_HINT[stage.id];
 
     return (
         <div className="flex w-72 shrink-0 flex-col rounded-xl bg-muted/30 border">
             <header
-                className="flex items-center justify-between gap-2 px-3 py-2.5 border-b"
+                className="px-3 py-2.5 border-b"
                 style={{ borderTopLeftRadius: '0.75rem', borderTopRightRadius: '0.75rem' }}
             >
                 <div className="flex items-center gap-2 min-w-0">
@@ -43,6 +49,11 @@ export function DealColumn({
                         {deals.length}
                     </span>
                 </div>
+                {hint && (
+                    <p className="mt-0.5 pl-4 text-[10px] leading-tight text-muted-foreground/70">
+                        {hint}
+                    </p>
+                )}
             </header>
 
             <div className="px-3 py-2 border-b text-[11px] text-muted-foreground bg-background/50">
@@ -64,7 +75,7 @@ export function DealColumn({
                 ref={setNodeRef}
                 className={cn(
                     'flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto transition-colors',
-                    isOver && 'bg-cyan-50/50',
+                    isOver && 'bg-cyan-50/50 dark:bg-cyan-950/20',
                 )}
             >
                 <SortableContext items={ids} strategy={verticalListSortingStrategy}>
@@ -73,19 +84,17 @@ export function DealColumn({
                             key={deal.id}
                             deal={deal}
                             stage={stage}
-                            contactName={
-                                deal.contactId ? contactNames.get(deal.contactId) : undefined
-                            }
                             companyName={
                                 deal.companyId ? companyNames.get(deal.companyId) : undefined
                             }
+                            onQuoteSend={stage.id === 'lead' ? onQuoteSend : undefined}
                         />
                     ))}
                 </SortableContext>
 
                 {deals.length === 0 && (
                     <div className="text-center text-[11px] text-muted-foreground/60 py-6">
-                        Хоосон
+                        —
                     </div>
                 )}
             </div>

@@ -52,9 +52,40 @@ export interface Company {
     notes?: string;
     hubspotId?: string;
     hubspotOwnerName?: string;
+    // ── Tumen funnel талбарууд ──
+    /** lead/contacted/qualified/quote/customer/loyal/lost */
+    funnelStage?: FunnelStage;
+    /** Inbound / International / Project&Dist */
+    segment?: string;
+    /** Эрхэлсэн KAM-ын нэр (Sheets-тэй таарна). */
+    kam?: string;
+    /** web/facebook/call/referral/existing */
+    source?: string;
+    sourceDetail?: string;
+    registerNo?: string;
+    tariff?: string;
+    /** Шалгуур: чиглэл */
+    qRoute?: string;
+    /** Шалгуур: ачааны төрөл */
+    qCargo?: string;
+    /** Шалгуур: хэмжээ/давтамж */
+    qVolume?: string;
+    /** Шалгуур: хугацаа */
+    qTiming?: string;
+    lostReason?: string;
+    firstContactAt?: Timestamp;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
+
+export type FunnelStage =
+    | 'lead'
+    | 'contacted'
+    | 'qualified'
+    | 'quote'
+    | 'customer'
+    | 'loyal'
+    | 'lost';
 
 export const LIFECYCLE_STAGE_LABELS: Record<LifecycleStage, string> = {
     subscriber: 'Захиалагч',
@@ -139,28 +170,84 @@ export interface Deal {
     hubspotOwnerName?: string;
     /** HubSpot-ийн оригинал stage нэр (mapping-аас гарсан). */
     hubspotStageOriginal?: string;
+    // ── Tumen deal талбарууд ──
+    /** mql (лийд тайлангаас) | sql (гараар/идэвхтэй эрэлхийлсэн). */
+    sourceType?: 'mql' | 'sql';
+    /** facebook/form/email/callpro/referral/upsell/other */
+    source?: string;
+    /** Чиглэл (маршрут). */
+    direction?: string;
+    /** Ачааны төрөл. */
+    cargo?: string;
+    phone?: string;
+    customerType?: string;
+    /** pending/lost руу шилжихэд заавал бөглөх шалтгаан. */
+    lostReason?: string;
+    /** Үнийн санал илгээсэн огноо (opportunity руу шилжихэд). */
+    quotedAt?: Timestamp;
+    /** Үнийн санал өгөх ёстой хугацаа (lead үед тавина). YYYY-MM-DD */
+    quoteDue?: string;
+    /** Sheets лийд синкийн давхардалгүй түлхүүр — гараар үүсгэсэн deal-д байхгүй. */
+    leadKey?: string;
+    /** Эрхэлсэн KAM-ын нэр. */
+    kam?: string;
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
 
-/** MVP-д нэг үндсэн pipeline. Дараа нь crm_pipelines collection руу нүүнэ. */
-export const DEFAULT_PIPELINE: Pipeline = {
+/**
+ * Түмэн Тээх deal самбар — прототипийн (Logistic Dashboards/crm) яг загвар.
+ * Lead → Opportunity → Won, хажуугаар нь Pending / Lost (шалтгаан заавал).
+ */
+export const TUMEN_PIPELINE: Pipeline = {
     id: 'default',
-    name: 'Үндсэн',
+    name: 'Түмэн Тээх',
     stages: [
-        { id: 'appointment', label: 'Уулзалт төлөвлөсөн', probability: 0.2, color: '#0ea5e9' },
-        { id: 'qualified', label: 'Чанартай лид', probability: 0.4, color: '#6366f1' },
-        { id: 'presentation', label: 'Танилцуулга', probability: 0.6, color: '#8b5cf6' },
-        { id: 'decision', label: 'Шийдвэр', probability: 0.8, color: '#f59e0b' },
-        { id: 'closed_won', label: 'Хаасан · амжилттай', probability: 1.0, color: '#10b981', outcome: 'won' },
-        { id: 'closed_lost', label: 'Хаасан · амжилтгүй', probability: 0, color: '#ef4444', outcome: 'lost' },
+        { id: 'lead', label: '📥 Хүсэлт', probability: 0.2, color: '#0ea5e9' },
+        { id: 'opportunity', label: '💰 Үнийн санал илгээсэн', probability: 0.6, color: '#6366f1' },
+        { id: 'won', label: '✅ Амжилттай', probability: 1.0, color: '#10b981', outcome: 'won' },
+        { id: 'pending', label: '⏳ Хүлээгдэж байгаа', probability: 0.4, color: '#f59e0b' },
+        { id: 'lost', label: '✗ Алдсан', probability: 0, color: '#ef4444', outcome: 'lost' },
     ],
 };
+
+/** Хуучин нэрээр импортолсон газруудад — одоо Түмэн pipeline-ийг заана. */
+export const DEFAULT_PIPELINE = TUMEN_PIPELINE;
+
+export const DEAL_STAGE_HINT: Record<string, string> = {
+    lead: 'Шинэ хүсэлт — үнийн санал өгөх огноо тавь',
+    opportunity: 'Санал дөнгөж илгээсэн',
+    pending: 'Хариу хүлээж буй — шалтгаантай',
+    won: 'Гэрээ хийсэн · амжилттай',
+    lost: 'Алдсан — шалтгаантай',
+};
+
+/** Хуучин (HubSpot-маягийн) stage ID → Түмэн stage ID. */
+export const LEGACY_STAGE_MAP: Record<string, string> = {
+    appointment: 'lead',
+    qualified: 'lead',
+    presentation: 'opportunity',
+    decision: 'opportunity',
+    closed_won: 'won',
+    closed_lost: 'lost',
+    // Sheets синкийн нэмэлт үеүд
+    prospect: 'lead',
+    carrier: 'lost',
+};
+
+/** Ямар ч stageId-г Түмэн pipeline-ийн хүчинтэй ID руу буулгана. */
+export function normalizeStageId(stageId: string): string {
+    if (TUMEN_PIPELINE.stages.some((s) => s.id === stageId)) return stageId;
+    return LEGACY_STAGE_MAP[stageId] ?? 'lead';
+}
 
 export const DEFAULT_CURRENCY = 'MNT';
 
 export function getStage(pipeline: Pipeline, stageId: string): PipelineStage | undefined {
-    return pipeline.stages.find((s) => s.id === stageId);
+    return (
+        pipeline.stages.find((s) => s.id === stageId) ??
+        pipeline.stages.find((s) => s.id === normalizeStageId(stageId))
+    );
 }
 
 export function formatMoney(amount?: number, currency: string = DEFAULT_CURRENCY): string {
@@ -220,10 +307,30 @@ export interface Activity {
     meetingLocation?: string;
     /** task — Title (товч нэр). */
     title?: string;
+    // ── Tumen талбарууд ──
+    /** task — төрөл (дуудлага/уулзалт/үнийн санал/гэрээ/дагах/бичиг/бусад). */
+    taskType?: TumenTaskType;
+    /** task — эрэмбэ (өндөр/дунд/бага). */
+    priority?: TumenTaskPriority;
+    /** Эрхэлсэн KAM-ын нэр (scoping-д). */
+    kam?: string;
+    /** meeting — уулзалт эсвэл дуудлага (календарийн өнгө). */
+    meetingKind?: 'уулзалт' | 'дуудлага';
 
     createdAt?: Timestamp;
     updatedAt?: Timestamp;
 }
+
+export type TumenTaskType =
+    | 'дуудлага'
+    | 'уулзалт'
+    | 'үнийн санал'
+    | 'гэрээ'
+    | 'дагах'
+    | 'бичиг'
+    | 'бусад';
+
+export type TumenTaskPriority = 'өндөр' | 'дунд' | 'бага';
 
 export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
     note: 'Тэмдэглэл',
@@ -560,6 +667,274 @@ export function substituteVariables(
     ctx: EmailVariableContext,
 ): string {
     return template.replace(VAR_REGEX, (_, path: string) => lookup(ctx, path));
+}
+
+// ─────────────────────────────────────── TUMEN CRM (Flask прототипоос)
+
+/** Компанийн funnel дараалал (прототипийн STAGES + lost). */
+export const FUNNEL_STAGES: FunnelStage[] = [
+    'lead',
+    'contacted',
+    'qualified',
+    'quote',
+    'customer',
+    'loyal',
+];
+
+/** Funnel самбарт харагдах идэвхтэй үеүд. */
+export const ACTIVE_FUNNEL_STAGES: FunnelStage[] = ['lead', 'contacted', 'qualified', 'quote'];
+
+export const FUNNEL_STAGE_LABELS: Record<FunnelStage, string> = {
+    lead: 'Lead · Шинэ сонирхол',
+    contacted: 'Contacted · Холбогдсон',
+    qualified: 'Qualified · Боломжит',
+    quote: 'Quote · Үнийн санал',
+    customer: 'Customer · Харилцагч',
+    loyal: 'Loyal · Үнэнч',
+    lost: 'Lost · Алдсан',
+};
+
+export const FUNNEL_STAGE_COLORS: Record<FunnelStage, string> = {
+    lead: 'bg-sky-100 text-sky-700 border-sky-200',
+    contacted: 'bg-indigo-100 text-indigo-700 border-indigo-200',
+    qualified: 'bg-violet-100 text-violet-700 border-violet-200',
+    quote: 'bg-amber-100 text-amber-700 border-amber-200',
+    customer: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+    loyal: 'bg-teal-100 text-teal-700 border-teal-200',
+    lost: 'bg-rose-100 text-rose-700 border-rose-200',
+};
+
+/** pending/lost руу шилжихэд сонгуулах шалтгаанууд. */
+export const LOST_REASONS = ['Үнэ', 'Хугацаа', 'Өрсөлдөгч', 'Хариу өгсөнгүй', 'Бусад'];
+
+/** Компанийн эх сурвалж. */
+export const COMPANY_SOURCES: Record<string, string> = {
+    web: 'Вэб форм',
+    facebook: 'Facebook',
+    call: 'Дуудлага',
+    referral: 'Санал болголт',
+    existing: 'Одоо байгаа',
+};
+
+/** Deal-ийн эх сурвалж. */
+export const DEAL_SOURCES: Record<string, string> = {
+    facebook: 'Facebook',
+    form: 'Вэб форм',
+    email: 'И-мэйл',
+    callpro: 'CallPro',
+    referral: 'Санал болголт',
+    upsell: 'Хуучин харилцагч (upsell)',
+    other: 'Бусад',
+};
+
+// ── KAM / баг / зорилт ──
+
+export const KAM_LIST = ['Нямдорж', 'Баяраа', 'Амар', 'Одонтунгалаг', 'Отгонбаатар'];
+
+export const TEAM_OF: Record<string, string> = {
+    Нямдорж: 'Орон нутаг',
+    Баяраа: 'Орон нутаг',
+    Амар: 'Олон улс',
+    Одонтунгалаг: 'Төсөл/Түгээлт',
+    Отгонбаатар: 'Төсөл/Түгээлт',
+};
+
+export const TEAMS = ['Орон нутаг', 'Олон улс', 'Төсөл/Түгээлт'];
+
+/** 2026 оны зорилт — ₮M ашгаар (прототипийн app.py-гийн утга, яг таг). */
+export const TARGET_2026 = {
+    monthly: [75, 75, 105, 120, 135, 135, 120, 165, 165, 165, 135, 105],
+    total: 1500,
+    kam: { Нямдорж: 533, Баяраа: 253, Амар: 182, Одонтунгалаг: 95, Отгонбаатар: 438 } as Record<string, number>,
+    team: { 'Орон нутаг': 786, 'Олон улс': 182, 'Төсөл/Түгээлт': 533 } as Record<string, number>,
+};
+
+/** Sheets шийт → сегмент. */
+export const SEG_MAP: Record<string, string> = {
+    Автокран: 'Inbound',
+    Барло: 'Inbound',
+    Дотор: 'Inbound',
+    'Орон нутаг': 'Inbound',
+    'Олон улс': 'International',
+    Төсөл: 'Project&Dist',
+    Түгээлт: 'Project&Dist',
+    Цемент: 'Project&Dist',
+    Элс: 'Project&Dist',
+};
+
+export const SEGMENTS = ['Inbound', 'International', 'Project&Dist'];
+
+// ── Даалгаврын төрөл/эрэмбэ ──
+
+export const TUMEN_TASK_TYPES: { id: TumenTaskType; label: string }[] = [
+    { id: 'дуудлага', label: '📞 Дуудлага' },
+    { id: 'уулзалт', label: '🤝 Уулзалт' },
+    { id: 'үнийн санал', label: '💰 Үнийн санал' },
+    { id: 'гэрээ', label: '📄 Гэрээ' },
+    { id: 'дагах', label: '🔄 Дагах' },
+    { id: 'бичиг', label: '📎 Бичиг баримт' },
+    { id: 'бусад', label: '✔ Бусад' },
+];
+
+export const TUMEN_TASK_TYPE_LABEL: Record<TumenTaskType, string> = Object.fromEntries(
+    TUMEN_TASK_TYPES.map((t) => [t.id, t.label]),
+) as Record<TumenTaskType, string>;
+
+export const TUMEN_TASK_PRIORITIES: { id: TumenTaskPriority; label: string }[] = [
+    { id: 'өндөр', label: '🔴 Өндөр' },
+    { id: 'дунд', label: '🟡 Дунд' },
+    { id: 'бага', label: '⚪ Бага' },
+];
+
+// ── NPS судалгаа ──
+
+export type NpsZone = 'promoter' | 'passive' | 'detractor';
+
+export interface Survey {
+    id: string;
+    companyId?: string;
+    /** Компани нэрээр холбох (Sheets синкээс ирсэн бол). */
+    companyName?: string;
+    /** 0–10 */
+    score: number;
+    zone: NpsZone;
+    note?: string;
+    ownerId?: string;
+    createdAt?: Timestamp;
+}
+
+export function npsZone(score: number): NpsZone {
+    if (score >= 9) return 'promoter';
+    if (score >= 7) return 'passive';
+    return 'detractor';
+}
+
+export const NPS_ZONE_LABELS: Record<NpsZone, string> = {
+    promoter: 'Дэмжигч (9-10)',
+    passive: 'Дунд (7-8)',
+    detractor: 'Шүүмжлэгч (0-6)',
+};
+
+// ── Тээвэрчин ──
+
+export interface Carrier {
+    id: string;
+    /** Жолоочийн нэр (orders.driver-тэй таарна). */
+    name: string;
+    /** Чирэгч. */
+    trailer?: string;
+    phone?: string;
+    /** Өглөг үлдэгдэл (₮). */
+    balance?: number;
+    note?: string;
+    createdAt?: Timestamp;
+    updatedAt?: Timestamp;
+}
+
+// ── Аудит лог ──
+
+export type AuditAction = 'create' | 'update' | 'delete' | 'stage' | 'sync';
+
+export interface AuditEntry {
+    id: string;
+    userId?: string;
+    userName?: string;
+    action: AuditAction;
+    /** Аль collection/төрөл дээр (ж: crm_deals). */
+    entity: string;
+    entityId?: string;
+    detail?: string;
+    createdAt?: Timestamp;
+}
+
+// ── Захиалга (Sheets синк) ба агрегатууд ──
+
+export interface CrmOrder {
+    id: string;
+    company: string;
+    /** Нэрийн нормчилсон түлхүүр (жижиг үсэг, ххк/хк/llc/ltd хассан). */
+    companyKey: string;
+    kam?: string;
+    sheet?: string;
+    segment?: string;
+    orderDate?: string;
+    month: number;
+    year: number;
+    /** Захиалагч НӨАТ-гүй (₮). */
+    revenue: number;
+    /** Ашиг (₮). */
+    profit: number;
+    invNo?: string;
+    /** Жолооч нэр. */
+    driver?: string;
+    /** Чирэгч. */
+    trailer?: string;
+    /** Тээвэрчин үнэ (₮). */
+    carrierPrice?: number;
+    /** year*100+month — эрэмбэлэх/шүүхэд. */
+    ym: number;
+    syncedAt?: Timestamp;
+}
+
+/** Жилийн агрегат — crm_order_stats/{year}. */
+export interface OrderYearStats {
+    id: string;
+    year: number;
+    revenue: number;
+    profit: number;
+    trips: number;
+    customers: number;
+    /** 12 элементтэй массивууд (0-индекс = 1-р сар). */
+    monthlyRevenue: number[];
+    monthlyProfit: number[];
+    monthlyTrips: number[];
+    byKam: Record<string, { revenue: number; profit: number; trips: number }>;
+    byTeam: Record<string, { revenue: number; profit: number; trips: number }>;
+    bySegment: Record<string, { revenue: number; profit: number; trips: number }>;
+    updatedAt?: Timestamp;
+}
+
+/** Компанийн агрегат — crm_company_stats/{companyKey-hash}. */
+export interface CompanyStats {
+    id: string;
+    name: string;
+    companyKey: string;
+    /** Холбогдсон crm_companies doc (нэрээр таарвал). */
+    companyId?: string;
+    kam?: string;
+    segment?: string;
+    /** Жил бүрийн дүн. Түлхүүр: '2022'...'2026'. */
+    years: Record<
+        string,
+        { revenue: number; profit: number; trips: number; monthlyRevenue: number[] }
+    >;
+    /** Хамгийн сүүлийн захиалгын ym. */
+    lastYm?: number;
+    updatedAt?: Timestamp;
+}
+
+/** Тээвэрчний агрегат — crm_carrier_stats/{driverKey}. */
+export interface CarrierStats {
+    id: string;
+    name: string;
+    trailers: string[];
+    trips: number;
+    /** Тээвэрчин үнийн нийлбэр (₮). */
+    totalPrice: number;
+    years: Record<string, { trips: number; totalPrice: number }>;
+    lastYm?: number;
+    updatedAt?: Timestamp;
+}
+
+/** Синкийн төлөв — crm_settings/sync. */
+export interface SyncStatus {
+    lastSyncAt?: Timestamp;
+    status?: 'ok' | 'error' | 'running';
+    message?: string;
+    orderCount?: number;
+    companyCount?: number;
+    newCompanies?: number;
+    leadDeals?: number;
 }
 
 /** UI-д харуулах хувьсагчдын жагсаалт. */

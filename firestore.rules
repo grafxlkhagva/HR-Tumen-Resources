@@ -80,6 +80,16 @@ service cloud.firestore {
       return isAdmin() || isHseUser();
     }
 
+    function isCrmUser() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/employees/$(request.auth.uid)).data.get('crmAccess', false) == true;
+    }
+
+    function isCrmAllowed() {
+      return isAdmin() || isCrmUser();
+    }
+
     // ─── TMS Тээврийн удирдлагын талбар түвшний баталгаажуулалт ─────────
     // Хортой client-аар сөрөг үнэ, буруу status, хэт том массив бичүүлэхээс
     // сэргийлнэ. Optional талбарууд байвал л шалгаж, байхгүй бол тойрно.
@@ -815,6 +825,31 @@ service cloud.firestore {
                         && request.resource.data.type == resource.data.type
                         && request.resource.data.status == 'submitted');
       allow delete: if isAdmin();
+    }
+
+    // ─── CRM (Харилцагчийн удирдлага — Түмэн Тээх) ──────────────────────
+    // crm_* collection-ууд: админ эсвэл crmAccess эрхтэй ажилтан.
+    match /crm_contacts/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_companies/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_deals/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_tickets/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_activities/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_products/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_quotes/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_email_templates/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_surveys/{docId} { allow read, write: if isCrmAllowed(); }
+    match /crm_carriers/{docId} { allow read, write: if isCrmAllowed(); }
+    // Sheets синкийн үр дүн — энгийн хэрэглэгч зөвхөн унших; админ (client-side синк) бичиж болно.
+    match /crm_orders/{docId} { allow read: if isCrmAllowed(); allow write: if isAdmin(); }
+    match /crm_order_stats/{docId} { allow read: if isCrmAllowed(); allow write: if isAdmin(); }
+    match /crm_company_stats/{docId} { allow read: if isCrmAllowed(); allow write: if isAdmin(); }
+    match /crm_carrier_stats/{docId} { allow read: if isCrmAllowed(); allow write: if isAdmin(); }
+    match /crm_settings/{docId} { allow read: if isCrmAllowed(); allow write: if isAdmin(); }
+    // Аудит лог — нэмэх боломжтой, засах/устгах хориотой; унших нь админ.
+    match /crm_audit/{docId} {
+      allow read: if isAdmin();
+      allow create: if isCrmAllowed();
+      allow update, delete: if false;
     }
 
     // ─── ХАБЭА (HSE — Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) ───────────

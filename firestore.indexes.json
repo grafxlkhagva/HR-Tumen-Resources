@@ -1,6 +1,30 @@
 {
   "indexes": [
     {
+      "collectionGroup": "crm_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyKey", "order": "ASCENDING" },
+        { "fieldPath": "ym", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crm_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "driver", "order": "ASCENDING" },
+        { "fieldPath": "ym", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crm_orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "year", "order": "ASCENDING" },
+        { "fieldPath": "ym", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "documents",
       "queryScope": "COLLECTION",
       "fields": [

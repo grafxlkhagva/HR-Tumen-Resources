@@ -123,6 +123,8 @@ export interface Employee {
     newsAccess?: boolean;
     /** CRM (Харилцагчийн удирдлага) модулд нэвтрэх эрхтэй эсэх */
     crmAccess?: boolean;
+    /** CRM дээрх KAM нэр (Sheets дата-тай таарна, ж: "Нямдорж"). Хоосон бол scoping байхгүй. */
+    crmKamName?: string;
     /** Бизнес төлөвлөгөө модулд нэвтрэх эрхтэй эсэх */
     businessPlanAccess?: boolean;
     /** Төслүүд модулд нэвтрэх эрхтэй эсэх */

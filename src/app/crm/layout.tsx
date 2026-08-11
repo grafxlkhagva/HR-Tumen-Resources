@@ -23,6 +23,15 @@ import {
     Mail,
     BarChart3,
     Upload,
+    LayoutDashboard,
+    Filter,
+    CalendarDays,
+    ClipboardCheck,
+    LineChart,
+    Gauge,
+    CalendarRange,
+    Truck,
+    ScrollText,
 } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
@@ -32,37 +41,54 @@ type NavItem = {
     href: string;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
+    /** Зөвхөн админ (захирал) харна. */
+    adminOnly?: boolean;
 };
 
 const navSections: { title: string; items: NavItem[] }[] = [
     {
+        title: 'Самбар',
+        items: [
+            { href: '/crm/dashboard', label: 'Хяналт', icon: LayoutDashboard },
+            { href: '/crm/deals', label: 'Deal', icon: Briefcase },
+            { href: '/crm/funnel', label: 'Funnel', icon: Filter },
+            { href: '/crm/tasks', label: 'Даалгавар', icon: ClipboardCheck },
+            { href: '/crm/calendar', label: 'Календарь', icon: CalendarDays },
+        ],
+    },
+    {
         title: 'CRM',
         items: [
+            { href: '/crm/companies', label: 'Компаниуд', icon: Building2 },
             { href: '/crm/contacts', label: 'Харилцагчид', icon: Users },
-            { href: '/crm/companies', label: 'Байгууллагууд', icon: Building2 },
-            { href: '/crm/deals', label: 'Гэрээ', icon: Briefcase },
-            { href: '/crm/tickets', label: 'Дэмжлэг', icon: LifeBuoy },
+            { href: '/crm/tickets', label: 'Гомдол/Дэмжлэг', icon: LifeBuoy },
             { href: '/crm/activities', label: 'Үйл ажиллагаа', icon: ListChecks },
         ],
     },
     {
         title: 'Sales',
         items: [
-            { href: '/crm/products', label: 'Бараа/Үйлчилгээ', icon: Package },
             { href: '/crm/quotes', label: 'Үнийн санал', icon: FileSpreadsheet },
+            { href: '/crm/products', label: 'Бараа/Үйлчилгээ', icon: Package },
             { href: '/crm/email-templates', label: 'Имэйл загвар', icon: Mail },
         ],
     },
     {
-        title: 'Insights',
+        title: 'Аналитик',
         items: [
+            { href: '/crm/analytics', label: 'Шинжилгээ', icon: LineChart },
+            { href: '/crm/performance', label: 'Гүйцэтгэл', icon: Gauge },
             { href: '/crm/reports', label: 'Тайлан', icon: BarChart3 },
+            { href: '/crm/year/2026', label: 'Он жилээр', icon: CalendarRange },
+            { href: '/crm/carriers', label: 'Тээвэрчин', icon: Truck },
         ],
     },
     {
         title: 'Tools',
         items: [
             { href: '/crm/import', label: 'HubSpot импорт', icon: Upload },
+            { href: '/crm/import-prototype', label: 'Прототип импорт', icon: Upload, adminOnly: true },
+            { href: '/crm/audit', label: 'Аудит лог', icon: ScrollText, adminOnly: true },
         ],
     },
 ];
@@ -168,9 +194,13 @@ function CrmShell({ children }: { children: React.ReactNode }) {
                             <div className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 {section.title}
                             </div>
-                            {section.items.map(({ href, label, icon: Icon }) => {
+                            {section.items
+                                .filter((item) => !item.adminOnly || employeeProfile?.role === 'admin')
+                                .map(({ href, label, icon: Icon }) => {
                                 const isActive =
-                                    pathname === href || pathname.startsWith(`${href}/`);
+                                    pathname === href ||
+                                    pathname.startsWith(`${href}/`) ||
+                                    (href.startsWith('/crm/year') && pathname.startsWith('/crm/year'));
                                 return (
                                     <Link
                                         key={href}

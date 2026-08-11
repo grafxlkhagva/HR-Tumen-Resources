@@ -25,11 +25,15 @@ import { SearchableSelect } from '@/components/ui/searchable-select';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import {
+    DEAL_SOURCES,
     DEFAULT_CURRENCY,
-    DEFAULT_PIPELINE,
+    KAM_LIST,
+    TUMEN_PIPELINE,
     type Company,
     type Contact,
 } from '../_types';
+import { logAudit } from '../_lib/crm-actions';
+import { useKamScope } from '../_lib/use-kam-scope';
 
 interface NewDealDialogProps {
     open: boolean;
@@ -48,6 +52,8 @@ function fullContactName(c: Contact): string {
     return parts.length > 0 ? parts.join(' ') : c.email || c.id;
 }
 
+const NONE = '__none__';
+
 export function NewDealDialog({
     open,
     onOpenChange,
@@ -60,31 +66,33 @@ export function NewDealDialog({
     const { firestore } = useFirebase();
     const { user } = useUser();
     const { toast } = useToast();
+    const { kamName, actor } = useKamScope();
     const [isSaving, setIsSaving] = React.useState(false);
 
-    const [form, setForm] = React.useState(() => ({
-        name: '',
-        amount: '',
-        currency: DEFAULT_CURRENCY,
-        stageId: initialStageId || DEFAULT_PIPELINE.stages[0].id,
-        contactId: initialContactId || '',
-        companyId: initialCompanyId || '',
-        closeDate: '',
-    }));
+    const emptyForm = React.useCallback(
+        () => ({
+            name: '',
+            amount: '',
+            currency: DEFAULT_CURRENCY,
+            stageId: initialStageId || 'lead',
+            contactId: initialContactId || '',
+            companyId: initialCompanyId || '',
+            sourceType: 'sql' as 'sql' | 'mql',
+            source: 'other',
+            kam: kamName || '',
+            direction: '',
+            cargo: '',
+            phone: '',
+            quoteDue: '',
+        }),
+        [initialStageId, initialContactId, initialCompanyId, kamName],
+    );
+
+    const [form, setForm] = React.useState(emptyForm);
 
     React.useEffect(() => {
-        if (open) {
-            setForm({
-                name: '',
-                amount: '',
-                currency: DEFAULT_CURRENCY,
-                stageId: initialStageId || DEFAULT_PIPELINE.stages[0].id,
-                contactId: initialContactId || '',
-                companyId: initialCompanyId || '',
-                closeDate: '',
-            });
-        }
-    }, [open, initialStageId, initialContactId, initialCompanyId]);
+        if (open) setForm(emptyForm());
+    }, [open, emptyForm]);
 
     const contactOptions = React.useMemo(
         () => [
@@ -100,7 +108,7 @@ export function NewDealDialog({
 
     const companyOptions = React.useMemo(
         () => [
-            { value: '', label: '— Сонгоогүй —' },
+            { value: '', label: '— шинэ/тодорхойгүй —' },
             ...companies.map((c) => ({ value: c.id, label: c.name })),
         ],
         [companies],
@@ -116,7 +124,7 @@ export function NewDealDialog({
                 toast({
                     variant: 'destructive',
                     title: 'Дутуу мэдээлэл',
-                    description: 'Гэрээний нэр шаардлагатай.',
+                    description: 'Deal-ийн гарчиг шаардлагатай.',
                 });
                 return;
             }
@@ -135,42 +143,54 @@ export function NewDealDialog({
             setIsSaving(true);
             try {
                 const ref = collection(firestore, 'crm_deals');
-                addDocumentNonBlocking(ref, {
+                const promise = addDocumentNonBlocking(ref, {
                     name,
                     amount: amount,
                     currency: form.currency,
-                    pipelineId: DEFAULT_PIPELINE.id,
+                    pipelineId: TUMEN_PIPELINE.id,
                     stageId: form.stageId,
                     contactId: form.contactId || null,
                     companyId: form.companyId || null,
-                    closeDate: form.closeDate || null,
+                    sourceType: form.sourceType,
+                    source: form.source || 'other',
+                    kam: form.kam || null,
+                    direction: form.direction.trim() || null,
+                    cargo: form.cargo.trim() || null,
+                    phone: form.phone.trim() || null,
+                    quoteDue: form.quoteDue || null,
                     ownerId: user?.uid || null,
                     createdAt: serverTimestamp(),
                     updatedAt: serverTimestamp(),
                 });
-                toast({ title: 'Амжилттай', description: 'Шинэ гэрээ нэмэгдлээ.' });
+                void Promise.resolve(promise).then((docRef) => {
+                    if (docRef) {
+                        logAudit(firestore, actor, 'create', 'crm_deals', docRef.id, name);
+                    }
+                });
+                toast({ title: 'Амжилттай', description: 'Шинэ deal нэмэгдлээ.' });
                 onOpenChange(false);
             } finally {
                 setIsSaving(false);
             }
         },
-        [firestore, form, user, toast, onOpenChange],
+        [firestore, form, user, actor, toast, onOpenChange],
     );
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[560px]">
+            <DialogContent className="sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Шинэ гэрээ</DialogTitle>
+                    <DialogTitle>Шинэ deal</DialogTitle>
                     <DialogDescription>
-                        Нэр, дүн, үе шатыг сонгоно уу. Бичлэг үүссэний дараа дэлгэрэнгүй талбарыг засна.
+                        Хүсэлт/боломжийг бүртгэж pipeline-д оруулна. MQL = гаднаас ирсэн, SQL =
+                        бид холбогдсон.
                     </DialogDescription>
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-1.5">
                         <Label htmlFor="name" className="text-xs">
-                            Нэр <span className="text-rose-600">*</span>
+                            Гарчиг <span className="text-rose-600">*</span>
                         </Label>
                         <Input
                             id="name"
@@ -178,8 +198,155 @@ export function NewDealDialog({
                             onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                             disabled={isSaving}
                             autoFocus
-                            placeholder="Жишээ: Ачааны автомашин ханган нийлүүлэх гэрээ"
+                            placeholder="ж: Олон улс — шинэ чиглэл"
                         />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">MQL/SQL</Label>
+                            <Select
+                                value={form.sourceType}
+                                onValueChange={(v) =>
+                                    setForm((p) => ({ ...p, sourceType: v as 'sql' | 'mql' }))
+                                }
+                                disabled={isSaving}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="sql">📤 SQL (бид холбогдсон)</SelectItem>
+                                    <SelectItem value="mql">🌐 MQL (гаднаас)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Суваг</Label>
+                            <Select
+                                value={form.source}
+                                onValueChange={(v) => setForm((p) => ({ ...p, source: v }))}
+                                disabled={isSaving}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {Object.entries(DEAL_SOURCES).map(([id, label]) => (
+                                        <SelectItem key={id} value={id}>
+                                            {label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Шат</Label>
+                            <Select
+                                value={form.stageId}
+                                onValueChange={(v) => setForm((p) => ({ ...p, stageId: v }))}
+                                disabled={isSaving}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {TUMEN_PIPELINE.stages.map((s) => (
+                                        <SelectItem key={s.id} value={s.id}>
+                                            {s.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">KAM</Label>
+                            <Select
+                                value={form.kam || NONE}
+                                onValueChange={(v) =>
+                                    setForm((p) => ({ ...p, kam: v === NONE ? '' : v }))
+                                }
+                                disabled={isSaving}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="— Сонгох —" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value={NONE}>— Сонгоогүй —</SelectItem>
+                                    {KAM_LIST.map((k) => (
+                                        <SelectItem key={k} value={k}>
+                                            {k}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="direction" className="text-xs">
+                                Чиглэл
+                            </Label>
+                            <Input
+                                id="direction"
+                                value={form.direction}
+                                onChange={(e) =>
+                                    setForm((p) => ({ ...p, direction: e.target.value }))
+                                }
+                                disabled={isSaving}
+                                placeholder="УБ → Дархан"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="cargo" className="text-xs">
+                                Ачааны төрөл
+                            </Label>
+                            <Input
+                                id="cargo"
+                                value={form.cargo}
+                                onChange={(e) =>
+                                    setForm((p) => ({ ...p, cargo: e.target.value }))
+                                }
+                                disabled={isSaving}
+                                placeholder="ж: барилгын материал"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label htmlFor="phone" className="text-xs">
+                                Утас
+                            </Label>
+                            <Input
+                                id="phone"
+                                value={form.phone}
+                                onChange={(e) =>
+                                    setForm((p) => ({ ...p, phone: e.target.value }))
+                                }
+                                disabled={isSaving}
+                                placeholder="99xxxxxx"
+                                inputMode="tel"
+                            />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="quoteDue" className="text-xs">
+                                📅 Үнийн санал өгөх огноо
+                            </Label>
+                            <Input
+                                id="quoteDue"
+                                type="date"
+                                value={form.quoteDue}
+                                onChange={(e) =>
+                                    setForm((p) => ({ ...p, quoteDue: e.target.value }))
+                                }
+                                disabled={isSaving}
+                            />
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-3">
@@ -202,9 +369,7 @@ export function NewDealDialog({
                             <Label className="text-xs">Валют</Label>
                             <Select
                                 value={form.currency}
-                                onValueChange={(v) =>
-                                    setForm((p) => ({ ...p, currency: v }))
-                                }
+                                onValueChange={(v) => setForm((p) => ({ ...p, currency: v }))}
                                 disabled={isSaving}
                             >
                                 <SelectTrigger>
@@ -221,29 +386,19 @@ export function NewDealDialog({
                         </div>
                     </div>
 
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">Үе шат</Label>
-                        <Select
-                            value={form.stageId}
-                            onValueChange={(v) =>
-                                setForm((p) => ({ ...p, stageId: v }))
-                            }
-                            disabled={isSaving}
-                        >
-                            <SelectTrigger>
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {DEFAULT_PIPELINE.stages.map((s) => (
-                                    <SelectItem key={s.id} value={s.id}>
-                                        {s.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-
                     <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Компани</Label>
+                            <SearchableSelect
+                                options={companyOptions}
+                                value={form.companyId}
+                                onValueChange={(v) =>
+                                    setForm((p) => ({ ...p, companyId: v }))
+                                }
+                                placeholder="— шинэ/тодорхойгүй —"
+                                disabled={isSaving}
+                            />
+                        </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Холбогдох харилцагч</Label>
                             <SearchableSelect
@@ -256,34 +411,6 @@ export function NewDealDialog({
                                 disabled={isSaving}
                             />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Холбогдох байгууллага</Label>
-                            <SearchableSelect
-                                options={companyOptions}
-                                value={form.companyId}
-                                onValueChange={(v) =>
-                                    setForm((p) => ({ ...p, companyId: v }))
-                                }
-                                placeholder="— Сонгох —"
-                                disabled={isSaving}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                        <Label htmlFor="closeDate" className="text-xs">
-                            Хаах огноо
-                        </Label>
-                        <Input
-                            id="closeDate"
-                            type="date"
-                            value={form.closeDate}
-                            onChange={(e) =>
-                                setForm((p) => ({ ...p, closeDate: e.target.value }))
-                            }
-                            disabled={isSaving}
-                            className="w-fit"
-                        />
                     </div>
 
                     <DialogFooter>
@@ -301,7 +428,7 @@ export function NewDealDialog({
                             disabled={isSaving}
                         >
                             {isSaving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                            Хадгалах
+                            + Нэмэх
                         </Button>
                     </DialogFooter>
                 </form>
