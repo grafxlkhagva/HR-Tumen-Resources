@@ -1,25 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth, useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { useAuth, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Loader2, Building, Eye, EyeOff } from 'lucide-react';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { Loader2, Eye, EyeOff, AlertCircle, ArrowRight, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { getDoc, doc } from 'firebase/firestore';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-
+import { BrandPanel } from './_components/brand-panel';
+import { SYSTEM_MODULES } from './_components/modules';
 
 function isEmail(input: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -41,7 +35,10 @@ export default function LoginPage() {
     ({ firestore }) => (firestore ? doc(firestore, 'company', 'profile') : null),
     []
   );
-  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc(companyProfileRef);
+  const { data: companyProfile, isLoading: isLoadingProfile } = useDoc<{
+    name?: string;
+    logoUrl?: string;
+  }>(companyProfileRef);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,92 +96,159 @@ export default function LoginPage() {
     }
   };
 
+  const companyName = companyProfile?.name || 'Түмэн Тээх';
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-8">
-      <Card className="w-full max-w-sm rounded-2xl border-0 shadow-xl">
-        <CardHeader className="text-center space-y-2 pb-2">
-          <div className="mb-2 flex flex-col items-center gap-4">
+    <div className="min-h-screen bg-card lg:grid lg:grid-cols-[1.25fr_1fr] xl:grid-cols-[1.4fr_1fr]">
+      <BrandPanel companyName={companyName} isLoadingProfile={isLoadingProfile} />
+
+      {/* Баруун тал — нэвтрэх форм */}
+      <main className="flex flex-col justify-center bg-card px-5 py-10 sm:px-8 sm:py-14 lg:min-h-screen lg:px-12 xl:px-16">
+        <div
+          className="mx-auto w-full max-w-[400px] animate-fade-in-up motion-reduce:animate-none"
+          style={{ animationDelay: '120ms', animationFillMode: 'both' }}
+        >
+          <div className="flex items-center gap-3">
+            {/* Байгууллагын өөрийн лого (Тохиргоо → Брэндинг дэх logoUrl) */}
             {isLoadingProfile ? (
-              <>
-                <Skeleton className="h-16 w-16 rounded-2xl" />
-                <Skeleton className="h-7 w-40" />
-              </>
+              <Skeleton className="h-11 w-11 rounded-xl" />
             ) : (
-              <>
-                <Avatar className="h-16 w-16 rounded-2xl ring-4 ring-primary/5">
-                  <AvatarImage src={companyProfile?.logoUrl} alt={companyProfile?.name} />
-                  <AvatarFallback className="rounded-2xl bg-primary/10">
-                    <Building className="h-8 w-8 text-primary" />
-                  </AvatarFallback>
-                </Avatar>
-                <CardTitle className="text-xl sm:text-2xl font-semibold tracking-tight">
-                  {companyProfile?.name || 'Teal HR'}-т нэвтрэх
-                </CardTitle>
-              </>
+              <Avatar className="h-11 w-11 rounded-xl ring-1 ring-border">
+                <AvatarImage src={companyProfile?.logoUrl} alt="" />
+                <AvatarFallback className="rounded-xl bg-primary/10">
+                  <Building className="h-5 w-5 text-primary" aria-hidden="true" />
+                </AvatarFallback>
+              </Avatar>
             )}
+            <div>
+              <h2 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground sm:text-[28px]">
+                Системд нэвтрэх
+              </h2>
+            </div>
           </div>
-          <CardDescription className="text-sm leading-relaxed">
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
             Өөрийн нэвтрэх нэр эсвэл имэйл хаягаар нэвтэрнэ үү.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="pt-2">
-          <form onSubmit={handleLogin} className="space-y-4">
+          </p>
+
+          <form onSubmit={handleLogin} className="mt-7 space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="identifier">Ажилтны код эсвэл имэйл</Label>
+              <Label htmlFor="identifier" className="text-foreground">
+                Ажилтны код эсвэл имэйл
+              </Label>
               <Input
                 id="identifier"
                 type="text"
                 placeholder="Код эсвэл имэйл хаяг"
                 required
+                autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 disabled={isLoading}
+                aria-invalid={!!error}
+                aria-describedby={error ? 'login-error' : undefined}
+                className="h-11 text-[15px]"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Нууц үг</Label>
+              <Label htmlFor="password" className="text-foreground">
+                Нууц үг
+              </Label>
               <div className="relative">
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className="pr-10"
+                  aria-invalid={!!error}
+                  aria-describedby={error ? 'login-error' : undefined}
+                  className="h-11 pr-12 text-[15px]"
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-0 h-full w-10 text-muted-foreground hover:text-foreground"
+                  aria-label={showPassword ? 'Нууц үг нуух' : 'Нууц үг харах'}
+                  aria-pressed={showPassword}
+                  aria-controls="password"
+                  className="absolute right-0 top-0 h-11 w-11 rounded-l-none text-muted-foreground hover:text-foreground"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
-                    <EyeOff className="h-4 w-4" />
+                    <EyeOff className="h-4 w-4" aria-hidden="true" />
                   ) : (
-                    <Eye className="h-4 w-4" />
+                    <Eye className="h-4 w-4" aria-hidden="true" />
                   )}
-                  <span className="sr-only">
-                    {showPassword ? 'Нууц үг нуух' : 'Нууц үг харах'}
-                  </span>
                 </Button>
               </div>
             </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+
+            {/* Алдааны өнгийг --destructive token-оос салгав: түүнийг компанийн
+                брэндийн тохиргоо ажиллах үед дарж бичдэг тул улаан хэвээр байхыг баталгаажуулна. */}
+            {error && (
+              <p
+                id="login-error"
+                role="alert"
+                className="flex items-start gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2.5 text-sm leading-snug text-red-700 dark:text-red-300"
+              >
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                <span>{error}</span>
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="h-11 w-full text-[15px]"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : null}
               Нэвтрэх
+              {!isLoading && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-      <div className="mt-6 text-center text-sm text-muted-foreground">
-        Анхны админ уу?{' '}
-        <Link href="/signup" className="font-medium text-foreground underline underline-offset-2 hover:text-primary transition-colors">
-          Бүртгүүлэх
-        </Link>
-      </div>
+
+          <p className="mt-8 text-center text-sm text-muted-foreground">
+            Анхны админ уу?{' '}
+            <Link
+              href="/signup"
+              className="rounded-sm font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            >
+              Бүртгүүлэх
+            </Link>
+          </p>
+
+          {/* Утсан дээр модулиудыг формын доор нам хэлбэрээр харуулна */}
+          <div className="mt-10 border-t border-border pt-6 lg:hidden">
+            <h3 className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Системийн модулиуд
+            </h3>
+            <ul className="mt-3 flex flex-wrap gap-1.5">
+              {SYSTEM_MODULES.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <li
+                    key={m.id}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
+                  >
+                    <Icon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                    {m.label}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          <p className="mt-8 text-center text-[11px] text-muted-foreground">
+            {companyName} · Дотоод удирдлагын систем
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
