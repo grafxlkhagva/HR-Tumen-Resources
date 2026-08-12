@@ -18,6 +18,12 @@ export interface AuthContext {
     uid: string;
     companyId: string;
     role: string;
+    /**
+     * employees/{uid} doc байгаа эсэх. Гадны хэрэглэгч (жолооч/захиалагчийн
+     * апп-ын token) Firebase Auth-д хүчинтэй ч ажилтан БИШ — дотоод үйлдэл
+     * хийдэг route-ууд заавал үүнийг шалгана.
+     */
+    isEmployee: boolean;
 }
 
 export interface AuthResult {
@@ -105,15 +111,17 @@ export async function requireTenantAuth(
 
     // Get role from employee doc (single-tenant — top-level `employees` collection)
     let role: string = (decoded.role as string) || 'employee';
+    let isEmployee = false;
     try {
         const db = getFirebaseAdminFirestore();
         const empSnap = await db.collection('employees').doc(decoded.uid).get();
         if (empSnap.exists) {
+            isEmployee = true;
             const data = empSnap.data();
             if (data?.role) role = data.role;
         }
     } catch {
-        // Fail-open: role default
+        // Fail-open: role default (isEmployee=false хэвээр)
     }
 
     return {
@@ -121,6 +129,7 @@ export async function requireTenantAuth(
             uid: decoded.uid,
             companyId: 'default',
             role,
+            isEmployee,
         },
     };
 }

@@ -1,4 +1,5 @@
 import { JobApplication, RecruitmentStage, Candidate } from '@/types/recruitment';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 
 type NotificationType = 'STAGE_CHANGE' | 'INTERVIEW_SCHEDULED' | 'REJECTION' | 'OFFER';
 
@@ -119,9 +120,7 @@ export async function sendSMS(
     try {
         const response = await fetch('/api/sms', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: await getJsonAuthHeaders(),
             body: JSON.stringify({
                 to: formattedPhone,
                 text: text,

@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AddCustomerDialog } from './add-customer-dialog';
+import { LinkRequestsSection } from './link-requests-section';
 import { TMS_CUSTOMERS_COLLECTION } from '@/app/tms/types';
 import type { TmsCustomer } from '@/app/tms/types';
 import { Loader2, Plus, Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -85,6 +86,9 @@ export default function TmsCustomersPage() {
       </div>
 
       <div className="flex-1 p-4 sm:p-6 space-y-4">
+        {/* Захиалагчийн апп-ын холболтын хүсэлтүүд (байвал) */}
+        <LinkRequestsSection />
+
         {/* Харилцагчид хайх шүүх */}
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

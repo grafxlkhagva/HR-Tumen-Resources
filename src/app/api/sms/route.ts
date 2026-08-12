@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getFirebaseAdminFirestore } from '@/lib/firebase-admin';
+import { requireTenantAuth } from '@/lib/api/auth-middleware';
 
 interface SmsConfig {
     token: string;
@@ -42,6 +43,13 @@ async function getSmsConfig(): Promise<SmsConfig | null> {
 
 export async function POST(request: Request) {
     try {
+        // Зөвхөн ажилтан SMS илгээнэ — өмнө нь auth шалгалтгүй нээлттэй relay байсан.
+        const authResult = await requireTenantAuth(request, { rateLimit: 'write' });
+        if ('error' in authResult && authResult.error) return authResult.response;
+        if (!authResult.auth?.isEmployee) {
+            return NextResponse.json({ error: 'Зөвшөөрөлгүй хандалт.' }, { status: 403 });
+        }
+
         const body = await request.json();
         const { to, text } = body;
 

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useFirebase } from '@/firebase';
+import { getJsonAuthHeaders } from '@/lib/api/client-auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { RecruitmentStage, StageType, MessageTemplate } from '@/types/recruitment';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,7 +168,7 @@ export function RecruitmentSettings() {
         try {
             const res = await fetch('/api/sms', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: await getJsonAuthHeaders(),
                 body: JSON.stringify({
                     to: testPhone.trim(),
                     text: 'HR систем: SMS тест амжилттай! 🎉',

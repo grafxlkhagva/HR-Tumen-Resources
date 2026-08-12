@@ -13,7 +13,16 @@ service cloud.firestore {
     function isSignedIn() {
       return request.auth != null;
     }
-    
+
+    // Ажилтан мөн эсэх: employees/{uid} doc байгаа эсэхээр тогтооно.
+    // Гадны хэрэглэгч (жолооч, захиалагч) Firebase Auth-д нэвтэрсэн ч employees
+    // doc-гүй тул дотоод collection-уудад хүрэхгүй. isSignedIn()-ийг дотоод
+    // өгөгдөл хамгаалахад ШУУД БҮҮ ХЭРЭГЛЭ — isEmployee() ашиглана.
+    function isEmployee() {
+      return isSignedIn() &&
+             exists(/databases/$(database)/documents/employees/$(request.auth.uid));
+    }
+
     function isAdmin() {
       return isSignedIn() && 
              exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
@@ -42,6 +51,13 @@ service cloud.firestore {
 
     function isOwnDriver(driverId) {
       return isDriver() && getDriverId() == driverId;
+    }
+
+    // ─── Захиалагчийн Flutter app — Custom claim role='customer' ────────────
+    // Claims-ийг зөвхөн /api/mobile/v1/customer/auth/register (Admin SDK) оноодог.
+    function isCustomer() {
+      return isSignedIn() &&
+             request.auth.token.get('role', '') == 'customer';
     }
 
     // Жолоочийн зөвхөн доорх (өөрийн) талбаруудыг шинэчлэх зөвшөөрнө.
@@ -122,10 +138,18 @@ service cloud.firestore {
     // Консолд "Error loading documents" гарах нь хэвийн: консол request.auth илгээдэггүй тул isSignedIn()=false.
     // Дэлгэрэнгүй: docs/FIRESTORE_ROLES.md хэсэг 5.
     match /employees/{employeeId} {
-      allow read: if isSignedIn() ||
+      // Гадны хэрэглэгч (жолооч/захиалагч) ажилтнуудын PII уншихгүй.
+      allow read: if isEmployee() ||
         (exists(/databases/$(database)/documents/system/signup_config) &&
          get(/databases/$(database)/documents/system/signup_config).data.get('open', false) == true);
-      allow create: if isSignedIn();
+      // Үүсгэх: админ (шинэ ажилтан бүртгэх) эсвэл signup нээлттэй үед анхны
+      // админ өөрийн doc-оо үүсгэнэ. isSignedIn() байсныг хатуужуулав —
+      // өмнө нь ямар ч нэвтэрсэн хэрэглэгч өөртөө role='admin' doc үүсгэж
+      // эрх ахиулах боломжтой байсан.
+      allow create: if isAdmin() ||
+        (isOwner(employeeId) &&
+         exists(/databases/$(database)/documents/system/signup_config) &&
+         get(/databases/$(database)/documents/system/signup_config).data.get('open', false) == true);
       // Owners can update their profile, but cannot change privileged fields.
       allow update: if isAdmin() || (
         isOwner(employeeId) &&
@@ -143,82 +167,82 @@ service cloud.firestore {
 
     // Subcollections of employees
     match /employees/{employeeId}/{subcollection}/{docId} {
-       allow read: if isOwner(employeeId) || isAdmin();
+       allow read: if (isEmployee() && isOwner(employeeId)) || isAdmin();
        // Avoid over-broad writes for sensitive subcollections that have their own rules.
-       allow write: if (isOwner(employeeId) || isAdmin()) &&
+       allow write: if ((isEmployee() && isOwner(employeeId)) || isAdmin()) &&
          !(subcollection in ['questionnaire', 'vacationRequests']);
     }
 
     // Onboarding / Offboarding процессууд
     match /onboarding_processes/{processId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
     match /{path=**}/offboarding_processes/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     match /employees/{employeeId}/point_profile/{docId} {
-       allow read, write: if isSignedIn();
+       allow read, write: if isEmployee();
     }
 
     // Allow mentors/buddies to update assigned programs (e.g. mark tasks as done)
     match /employees/{employeeId}/assignedPrograms/{programId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow create, delete: if isAdmin();
-      allow update: if isSignedIn();
+      allow update: if isEmployee();
     }
 
     // --- Points & Social System Rules ---
     match /recognition_posts/{postId} {
-      allow read, create: if isSignedIn();
-      allow update: if isSignedIn() && (
-        isAdmin() || 
+      allow read, create: if isEmployee();
+      allow update: if isEmployee() && (
+        isAdmin() ||
         request.auth.uid == (resource.data.fromUserId) ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
       );
-      allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == (resource.data.fromUserId));
+      allow delete: if isAdmin() || (isEmployee() && request.auth.uid == (resource.data.fromUserId));
     }
 
     match /posts/{postId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow create, delete: if isNewsAllowed();
       allow update: if isNewsAllowed() || 
-                    (isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
+                    (isEmployee() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']));
     }
 
     match /points_config/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     match /point_transactions/{txId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
-      allow create: if isSignedIn();
+      allow read: if isEmployee() && (isAdmin() || request.auth.uid == resource.data.userId);
+      allow create: if isEmployee();
     }
 
     match /rewards/{rewardId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     match /redemption_requests/{requestId} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
-      allow create: if isSignedIn();
+      allow read: if isEmployee() && (isAdmin() || request.auth.uid == resource.data.userId);
+      allow create: if isEmployee();
       allow update: if isAdmin();
     }
 
     match /budget_point_requests/{requestId} {
-      allow create: if isSignedIn();
-      allow read, update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.fromUserId);
+      allow create: if isEmployee();
+      allow read, update, delete: if isEmployee() && (isAdmin() || request.auth.uid == resource.data.fromUserId);
     }
 
 
 
     // Vacation requests rules
     match /employees/{employeeId}/vacationRequests/{requestId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       // Employee creates their own request (pending).
       allow create: if isOwner(employeeId) &&
         request.resource.data.employeeId == employeeId &&
@@ -236,7 +260,7 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
         ) ||
         (
-          isSignedIn() &&
+          isEmployee() &&
           request.auth.uid == resource.data.approverId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
           (
@@ -279,50 +303,52 @@ service cloud.firestore {
 
     // Company-wide policies can be read by any signed-in user, but only managed by admins.
     match /companyPolicies/{policyId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
         allow write: if isAdmin();
     }
 
     // Employee documents: employees can manage their own documents
     match /documents/{docId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && (
+      allow read: if isEmployee();
+      allow create: if isEmployee() && (
         isAdmin() ||
         request.resource.data.metadata.employeeId == request.auth.uid
       );
       allow update: if isAdmin();
       allow delete: if isAdmin() || (
-        isSignedIn() &&
+        isEmployee() &&
         resource.data.metadata.employeeId == request.auth.uid &&
         resource.data.metadata.get('uploadedBy', '') == 'employee'
       );
     }
 
-    // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
-    // Writable only by admins.
+    // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.)
+    // Зөвхөн АЖИЛТАН уншина — isSignedIn() байсныг isEmployee() болгож хатуужуулав.
+    // Учир: жолооч/захиалагч апп-ын хэрэглэгчид Firebase Auth-д нэвтэрсэн байдаг тул
+    // isSignedIn() нь tms_contracts, crm_* зэрэг нууц өгөгдлийг тэдэнд задалж байсан.
     // ⚠️ Firestore дүрэм UNION (OR) семантиктай тул энэ өргөн catch-all нь доор
     // тусад нь `if false` гэж хаасан мэдрэмтгий collection-уудыг ч задалдаг.
     // Тиймээс нууц collection-уудыг ЭНД шууд хасна (OTP hash задрахаас сэргийлнэ).
     match /{refCollection}/{docId} {
-       allow read: if isSignedIn() && refCollection != 'password_resets';
+       allow read: if isEmployee() && refCollection != 'password_resets';
        allow write: if isAdmin() && refCollection != 'password_resets';
     }
 
     // All users can read departments, positions, and company info
     match /departments/{departmentId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
     
     match /positions/{positionId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
 
     // Onboarding program templates are managed by admins
     match /onboardingPrograms/{programId}/{document=**} {
-       allow read: if isSignedIn();
+       allow read: if isEmployee();
        allow write: if isAdmin();
     }
 
@@ -332,31 +358,31 @@ service cloud.firestore {
 
     // Байгууллагын үйлдлүүд (organization actions)
     match /organization_actions/{actionId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     // Тохиргоо (settings/onboarding гэх мэт)
     match /settings/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     // Компанийн түүхэн үйл явдлууд
     match /companyHistory/{eventId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     // company_profile (хэрэв тусгаар collection ашигласан бол)
     match /company_profile/{docId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     // Attendance records can be created by the user, but likely only read by admins or managers
     match /attendance/{attendanceId} {
-      allow create: if isOwner(request.resource.data.employeeId);
+      allow create: if isEmployee() && isOwner(request.resource.data.employeeId);
       allow read, update: if isAdmin();
     }
 
@@ -366,34 +392,34 @@ service cloud.firestore {
 
     // Collection Group rules
     match /{path=**}/assignedPrograms/{docId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
         allow write: if isAdmin();
     }
 
     match /{path=**}/timeOffRequests/{docId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
         allow write: if isAdmin();
     }
 
     match /{path=**}/vacationRequests/{docId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
 
         // Create: owner creates pending request
-        allow create: if isSignedIn() &&
+        allow create: if isEmployee() &&
           request.auth.uid == request.resource.data.employeeId &&
           request.resource.data.status == 'PENDING';
 
         // Update: mirror `employees/{employeeId}/vacationRequests/{requestId}`
         allow update: if isAdmin() ||
           (
-            isSignedIn() &&
+            isEmployee() &&
             request.auth.uid == resource.data.employeeId &&
             resource.data.status == 'PENDING' &&
             request.resource.data.status == 'CANCELLED' &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'updatedAt'])
           ) ||
           (
-            isSignedIn() &&
+            isEmployee() &&
             request.auth.uid == resource.data.approverId &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'decisionAt', 'approvedAt', 'rejectionReason', 'updatedAt']) &&
             (
@@ -429,28 +455,28 @@ service cloud.firestore {
     
     // Document Types - Admin only
     match /er_document_types/{typeId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
     
     // Templates - Admin only for write, all signed-in users can read active templates
     match /er_templates/{templateId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
     
     match /er_workflows/{workflowId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       allow write: if isAdmin();
     }
 
     // ER процессын баримтын төрлүүд (employment-relations settings)
     match /er_process_document_types/{typeId} {
-      allow read: if isSignedIn();
+      allow read: if isEmployee();
       // Admins manage settings. Signed-in users may only bump the numbering counter
       // in a tightly validated way (so document creation can allocate numbers).
       allow create, delete: if isAdmin();
-      allow update: if isAdmin() || (isSignedIn() && (
+      allow update: if isAdmin() || (isEmployee() && (
         // Only allow updating counter-related fields
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'currentNumber',
@@ -502,7 +528,7 @@ service cloud.firestore {
       // - Creator can always read their own documents
       // - Reviewers can read documents they need to review
       // - Admins can read all
-      allow read: if isSignedIn() && (
+      allow read: if isEmployee() && (
         isAdmin() ||
         request.auth.uid == resource.data.creatorId ||
         request.auth.uid == resource.data.employeeId ||
@@ -512,14 +538,14 @@ service cloud.firestore {
       );
       
       // Create: Any signed-in user can create documents
-      allow create: if isSignedIn();
+      allow create: if isEmployee();
       
       // Update access:
       // - Creator can update their own DRAFT documents
       // - Reviewers can update approvalStatus when document is IN_REVIEW
       // - Creator can finalize approval when status is REVIEWED
       // - Admins can update anything
-      allow update: if isSignedIn() && (
+      allow update: if isEmployee() && (
         isAdmin() ||
         // Creator updating their own draft
         (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT') ||
@@ -572,14 +598,14 @@ service cloud.firestore {
       );
       
       // Delete: Only creator can delete their own drafts, or admins
-      allow delete: if isSignedIn() && (
+      allow delete: if isEmployee() && (
         isAdmin() ||
         (request.auth.uid == resource.data.creatorId && resource.data.status == 'DRAFT')
       );
       // Activity Subcollection for Real-time History
       match /activity/{activityId} {
         // Read: Same as parent document (reviewers, creator, admin)
-        allow read: if isSignedIn() && (
+        allow read: if isEmployee() && (
             isAdmin() ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.employeeId ||
@@ -589,7 +615,7 @@ service cloud.firestore {
         );
 
         // Create: Reviewers, Creator, and target Employee (ack) can add logs
-        allow create: if isSignedIn() && (
+        allow create: if isEmployee() && (
             isAdmin() ||
             request.auth.uid == get(/databases/$(database)/documents/er_documents/$(documentId)).data.creatorId ||
             request.auth.uid in get(/databases/$(database)/documents/er_documents/$(documentId)).data.reviewers ||
@@ -624,14 +650,14 @@ service cloud.firestore {
     }
 
     match /evaluation_requests/{requestId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee();
         allow delete: if isAdmin();
     }
     
     match /interviews/{interviewId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
         allow write: if isAdmin();
     }
 
@@ -640,64 +666,64 @@ service cloud.firestore {
     // Projects - All signed-in users can read projects, admins can write
     // Project owners and assigned employees can also update
     match /projects/{projectId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && (
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee() && (
             isAdmin() ||
             request.auth.uid == resource.data.ownerId ||
             request.auth.uid == resource.data.createdBy
         );
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.createdBy);
+        allow delete: if isAdmin() || (isEmployee() && request.auth.uid == resource.data.createdBy);
     }
     
     // Tasks subcollection under projects
     match /projects/{projectId}/tasks/{taskId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && (
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee() && (
             isAdmin() ||
             request.auth.uid == resource.data.ownerId ||
             request.auth.uid in resource.data.get('assigneeIds', [])
         );
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.ownerId);
+        allow delete: if isAdmin() || (isEmployee() && request.auth.uid == resource.data.ownerId);
     }
 
     // Messages subcollection under projects (Project Chat)
     match /projects/{projectId}/messages/{messageId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn() && request.auth.uid == resource.data.senderId;
-        allow delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.senderId);
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee() && request.auth.uid == resource.data.senderId;
+        allow delete: if isAdmin() || (isEmployee() && request.auth.uid == resource.data.senderId);
     }
     
     // Collection Group rules for tasks (for dashboard queries)
     match /{path=**}/tasks/{taskId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
     }
 
     // ─── Санал асуулга (Survey) ─────────────────────────────────────────
     match /surveys/{surveyId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee();
         allow delete: if isAdmin();
     }
 
     match /surveys/{surveyId}/questions/{questionId} {
-        allow read: if isSignedIn();
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if isSignedIn();
+        allow read: if isEmployee();
+        allow create: if isEmployee();
+        allow update: if isEmployee();
+        allow delete: if isEmployee();
     }
 
     match /surveys/{surveyId}/responses/{responseId} {
         allow read: if isAdmin();
-        allow create: if isSignedIn();
+        allow create: if isEmployee();
         allow delete: if isAdmin();
     }
 
     match /survey_templates/{templateId} {
-        allow read: if isSignedIn();
+        allow read: if isEmployee();
         allow create: if isAdmin();
         allow update: if isAdmin();
         allow delete: if isAdmin();
@@ -891,6 +917,51 @@ service cloud.firestore {
     match /hse_org_config/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_surveys/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_videos/{docId} { allow read, write: if isHseAllowed(); }
+
+    // ─── Marketplace — Захиалагчийн апп (mp_* collections) ──────────────
+    // Захиалагчийн бүх БИЧИЛТ зөвхөн API (Admin SDK)-аар явна; доорх read
+    // зөвшөөрлүүд нь зөвхөн realtime listener-ийн боломж (сонголтоор).
+    // Үнийн хана: mp_orders болон quotes дээр driverPrice/driverAmount/margin
+    // талбар ОГТ БАЙХГҮЙ тул захиалагч уншсан ч үнийн мэдээлэл задрахгүй.
+    // offers subcollection (driverAmount агуулдаг) захиалагчид ХААЛТТАЙ.
+
+    match /customer_users/{uid} {
+      allow read: if isTmsAllowed() || (isCustomer() && request.auth.uid == uid);
+      allow write: if isTmsAllowed();
+    }
+
+    match /mp_orders/{orderId} {
+      allow read: if isTmsAllowed()
+                  || (isCustomer() && resource.data.get('createdByUid', '') == request.auth.uid);
+      allow write: if isTmsAllowed();
+
+      // Захиалагчид харагдах, margin нэмэгдсэн үнийн саналууд
+      match /quotes/{quoteId} {
+        allow read: if isTmsAllowed()
+                    || (isCustomer() &&
+                        get(/databases/$(database)/documents/mp_orders/$(orderId))
+                          .data.get('createdByUid', '') == request.auth.uid);
+        allow write: if isTmsAllowed();
+      }
+
+      // Жолоочдын түүхий санал (driverAmount) — захиалагчид хэзээ ч харагдахгүй
+      match /offers/{offerId} {
+        allow read: if isTmsAllowed()
+                    || (isDriver() && resource.data.get('driverId', '') == getDriverId());
+        allow write: if isTmsAllowed();
+      }
+    }
+
+    // Idempotency бүртгэл — зөвхөн Admin SDK
+    match /mp_idempotency/{docId} {
+      allow read, write: if false;
+    }
+
+    // Жолоочийн үнэлгээний түүх — API бичнэ, staff уншина
+    match /mp_driver_ratings/{docId} {
+      allow read: if isTmsAllowed();
+      allow write: if false;
+    }
 
   }
 }
