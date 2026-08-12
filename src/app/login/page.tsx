@@ -151,9 +151,17 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground">
-                Нууц үг
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="text-foreground">
+                  Нууц үг
+                </Label>
+                <Link
+                  href="/forgot-password"
+                  className="rounded-sm text-xs font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  Нууц үгээ мартсан уу?
+                </Link>
+              </div>
               <div className="relative">
                 <Input
                   id="password"

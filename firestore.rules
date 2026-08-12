@@ -299,10 +299,13 @@ service cloud.firestore {
     }
 
     // Reference data (collections ending with 'Types', 'Levels', 'Statuses', etc.) is readable by any signed-in user
-    // Writable only by admins
+    // Writable only by admins.
+    // ⚠️ Firestore дүрэм UNION (OR) семантиктай тул энэ өргөн catch-all нь доор
+    // тусад нь `if false` гэж хаасан мэдрэмтгий collection-уудыг ч задалдаг.
+    // Тиймээс нууц collection-уудыг ЭНД шууд хасна (OTP hash задрахаас сэргийлнэ).
     match /{refCollection}/{docId} {
-       allow read: if isSignedIn();
-       allow write: if isAdmin();
+       allow read: if isSignedIn() && refCollection != 'password_resets';
+       allow write: if isAdmin() && refCollection != 'password_resets';
     }
 
     // All users can read departments, positions, and company info
@@ -825,6 +828,12 @@ service cloud.firestore {
                         && request.resource.data.type == resource.data.type
                         && request.resource.data.status == 'submitted');
       allow delete: if isAdmin();
+    }
+
+    // ─── Нууц үг сэргээх (OTP) — зөвхөн Admin SDK бичиж/уншина ──────────
+    // Клиент талаас ямар ч хандалтыг хориглоно (OTP hash задрахаас сэргийлнэ).
+    match /password_resets/{uid} {
+      allow read, write: if false;
     }
 
     // ─── CRM (Харилцагчийн удирдлага — Түмэн Тээх) ──────────────────────
