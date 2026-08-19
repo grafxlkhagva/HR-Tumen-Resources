@@ -27,7 +27,13 @@ import {
 } from '@/components/ui/select';
 import { StatusBadge } from '../components/status-badge';
 import { deleteHseDoc } from '../services/hse-service';
-import { HSE_COLLECTIONS, SCHEDULE_STATUSES, scheduleStatusTone, type Briefing } from '../types';
+import {
+    HSE_COLLECTIONS,
+    SCHEDULE_STATUSES,
+    scheduleStatusTone,
+    effectiveScheduleStatus,
+    type Briefing,
+} from '../types';
 import { BriefingForm } from './briefing-form';
 
 export function BriefingList() {
@@ -50,7 +56,8 @@ export function BriefingList() {
 
     const filtered = React.useMemo(() => {
         return (briefings || []).filter((b) => {
-            if (statusFilter !== 'all' && b.tuluw !== statusFilter) return false;
+            const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
+            if (statusFilter !== 'all' && eff !== statusFilter) return false;
             if (search && !b.garchig?.toLowerCase().includes(search.toLowerCase())) return false;
             return true;
         });
@@ -141,6 +148,7 @@ export function BriefingList() {
                     <DataTableBody>
                         {filtered.map((b) => {
                             const p = progress(b);
+                            const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
                             return (
                                 <DataTableRow key={b.id}>
                                     <DataTableCell className="font-medium">{b.garchig}</DataTableCell>
@@ -182,8 +190,8 @@ export function BriefingList() {
                                         </div>
                                     </DataTableCell>
                                     <DataTableCell align="center">
-                                        <StatusBadge tone={scheduleStatusTone(b.tuluw)}>
-                                            {b.tuluw}
+                                        <StatusBadge tone={scheduleStatusTone(eff)}>
+                                            {eff}
                                         </StatusBadge>
                                     </DataTableCell>
                                     <DataTableCell align="right">

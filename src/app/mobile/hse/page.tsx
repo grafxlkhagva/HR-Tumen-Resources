@@ -17,6 +17,7 @@ import {
     riskTone,
     violationStatusTone,
     scheduleStatusTone,
+    effectiveScheduleStatus,
     type Training,
     type Briefing,
     type HseAlert,
@@ -164,7 +165,10 @@ export default function MobileHsePage() {
                                         title={t.garchig}
                                         date={t.huvaar}
                                         hasPdf={!!t.pdfUrl}
-                                        badge={<StatusBadge tone={scheduleStatusTone(t.tuluw)}>{t.tuluw}</StatusBadge>}
+                                        badge={(() => {
+                                            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
+                                            return <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>;
+                                        })()}
                                         signed={signed}
                                         actionLabel="Хамрагдсан"
                                         onAcknowledge={() => acknowledge(HSE_COLLECTIONS.training, t.id, 'hamragdsanIds')}
@@ -185,7 +189,10 @@ export default function MobileHsePage() {
                                         subtitle={b.torol}
                                         date={b.huvaar}
                                         hasPdf={!!b.pdfUrl}
-                                        badge={<StatusBadge tone={scheduleStatusTone(b.tuluw)}>{b.tuluw}</StatusBadge>}
+                                        badge={(() => {
+                                            const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
+                                            return <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>;
+                                        })()}
                                         signed={signed}
                                         actionLabel="Танилцсан"
                                         onAcknowledge={() => acknowledge(HSE_COLLECTIONS.briefings, b.id, 'tanilcsanIds')}
@@ -201,6 +208,7 @@ export default function MobileHsePage() {
                                 return (
                                     <AckCard
                                         key={a.id}
+                                        href={`/mobile/hse/alert/${a.id}`}
                                         title={a.desc}
                                         subtitle={a.albaNer || a.angilal}
                                         date={a.tohioldoOgnoo || a.ognoo}

@@ -620,6 +620,27 @@ export function scheduleStatusTone(s: ScheduleStatus): HseTone {
     }
 }
 
+/**
+ * Сургалт/зааварчилгааны төлөвийг хамрагдалт (гарын үсэг зурсан тоо)-оос
+ * автоматаар тодорхойлно. Гараар 'Цуцлагдсан' болгосон бол хадгална.
+ * — Хэн ч зураагүй → Төлөвлөгдсөн
+ * — Зарим нь зурсан → Явагдаж байна
+ * — Хуваарилагдсан бүгд зурсан → Дууссан
+ */
+export function effectiveScheduleStatus(
+    assignedIds: string[] | undefined,
+    signedIds: string[] | undefined,
+    stored?: ScheduleStatus,
+): ScheduleStatus {
+    if (stored === 'Цуцлагдсан') return 'Цуцлагдсан';
+    const assigned = assignedIds ?? [];
+    const total = assigned.length;
+    const done = (signedIds ?? []).filter((id) => assigned.includes(id)).length;
+    if (total > 0 && done >= total) return 'Дууссан';
+    if (done > 0) return 'Явагдаж байна';
+    return 'Төлөвлөгдсөн';
+}
+
 /** Сургалтын загварын төрөл — бүртгэлийн урсгалыг тодорхойлно. */
 export const TRAINING_TYPES = ['Сургалт', 'Урьдчилсан зааварчилгаа'] as const;
 export type TrainingType = (typeof TRAINING_TYPES)[number];

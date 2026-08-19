@@ -13,13 +13,20 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/app/hse/components/status-badge';
 import { SignDialog } from '../../_components/sign-dialog';
-import { HSE_COLLECTIONS, scheduleStatusTone, type Training, type Briefing } from '@/app/hse/types';
+import {
+    HSE_COLLECTIONS,
+    scheduleStatusTone,
+    effectiveScheduleStatus,
+    type Training,
+    type Briefing,
+} from '@/app/hse/types';
 import { ArrowLeft, CalendarDays, CheckCircle2, FileText, GraduationCap, ClipboardCheck, ExternalLink, Eye, PenLine } from 'lucide-react';
 
 type Kind = 'training' | 'briefing';
 
 const KIND_CONFIG: Record<Kind, {
     collection: string;
+    assignField: 'hamragdahIds' | 'tanilcahIds';
     signField: 'hamragdsanIds' | 'tanilcsanIds';
     actionLabel: string;
     sectionTitle: string;
@@ -27,6 +34,7 @@ const KIND_CONFIG: Record<Kind, {
 }> = {
     training: {
         collection: HSE_COLLECTIONS.training,
+        assignField: 'hamragdahIds',
         signField: 'hamragdsanIds',
         actionLabel: 'Хамрагдсан',
         sectionTitle: 'Сургалт',
@@ -34,6 +42,7 @@ const KIND_CONFIG: Record<Kind, {
     },
     briefing: {
         collection: HSE_COLLECTIONS.briefings,
+        assignField: 'tanilcahIds',
         signField: 'tanilcsanIds',
         actionLabel: 'Танилцсан',
         sectionTitle: 'Зааварчилгаа',
@@ -175,11 +184,19 @@ export default function MobileHseItemDetailPage() {
                         <div className="space-y-2">
                             <div className="flex items-start justify-between gap-2">
                                 <h2 className="text-lg font-semibold leading-snug">{item.garchig}</h2>
-                                {item.tuluw && (
-                                    <div className="flex-shrink-0 pt-1">
-                                        <StatusBadge tone={scheduleStatusTone(item.tuluw)}>{item.tuluw}</StatusBadge>
-                                    </div>
-                                )}
+                                {(() => {
+                                    const rec = item as unknown as Record<string, string[] | undefined>;
+                                    const eff = effectiveScheduleStatus(
+                                        rec[cfg.assignField],
+                                        rec[cfg.signField],
+                                        item.tuluw,
+                                    );
+                                    return (
+                                        <div className="flex-shrink-0 pt-1">
+                                            <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                             <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                 {item.torol && (

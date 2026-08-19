@@ -27,7 +27,13 @@ import {
 } from '@/components/ui/select';
 import { StatusBadge } from '../components/status-badge';
 import { deleteHseDoc } from '../services/hse-service';
-import { HSE_COLLECTIONS, SCHEDULE_STATUSES, scheduleStatusTone, type Training } from '../types';
+import {
+    HSE_COLLECTIONS,
+    SCHEDULE_STATUSES,
+    scheduleStatusTone,
+    effectiveScheduleStatus,
+    type Training,
+} from '../types';
 import { TrainingForm } from './training-form';
 
 export function TrainingList() {
@@ -50,7 +56,8 @@ export function TrainingList() {
 
     const filtered = React.useMemo(() => {
         return (trainings || []).filter((t) => {
-            if (statusFilter !== 'all' && t.tuluw !== statusFilter) return false;
+            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
+            if (statusFilter !== 'all' && eff !== statusFilter) return false;
             if (search && !t.garchig?.toLowerCase().includes(search.toLowerCase())) return false;
             return true;
         });
@@ -141,6 +148,7 @@ export function TrainingList() {
                     <DataTableBody>
                         {filtered.map((t) => {
                             const p = progress(t);
+                            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
                             return (
                                 <DataTableRow key={t.id}>
                                     <DataTableCell className="font-medium">{t.garchig}</DataTableCell>
@@ -182,8 +190,8 @@ export function TrainingList() {
                                         </div>
                                     </DataTableCell>
                                     <DataTableCell align="center">
-                                        <StatusBadge tone={scheduleStatusTone(t.tuluw)}>
-                                            {t.tuluw}
+                                        <StatusBadge tone={scheduleStatusTone(eff)}>
+                                            {eff}
                                         </StatusBadge>
                                     </DataTableCell>
                                     <DataTableCell align="right">
