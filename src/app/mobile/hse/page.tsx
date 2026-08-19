@@ -1,0 +1,394 @@
+'use client';
+
+import React, { useMemo } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { collection, query, where, doc, arrayUnion } from 'firebase/firestore';
+import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
+import { useEmployeeProfile } from '@/hooks/use-employee-profile';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
+import { StatusBadge } from '@/app/hse/components/status-badge';
+import {
+    HSE_COLLECTIONS,
+    hazardStatusTone,
+    riskTone,
+    violationStatusTone,
+    scheduleStatusTone,
+    type Training,
+    type Briefing,
+    type HseAlert,
+    type Hazard,
+    type Violation,
+} from '@/app/hse/types';
+import {
+    ArrowLeft,
+    ShieldCheck,
+    ShieldAlert,
+    GraduationCap,
+    ClipboardCheck,
+    Megaphone,
+    AlertTriangle,
+    Ban,
+    CheckCircle2,
+    MapPin,
+    CalendarDays,
+    ChevronRight,
+    FileText,
+    type LucideIcon,
+} from 'lucide-react';
+
+/** createdAt буурахаар эрэмбэлнэ (Firestore composite index зайлсхийж client талд эрэмбэлнэ). */
+function byNewest<T extends { createdAt?: number }>(arr: (T & { id: string })[] | undefined): (T & { id: string })[] {
+    return [...(arr ?? [])].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+}
+
+export default function MobileHsePage() {
+    const { firestore } = useFirebase();
+    const { employeeProfile } = useEmployeeProfile();
+    const uid = employeeProfile?.id;
+
+    // Оноогдсон бичлэгүүдийг ажилтны uid-ээр шүүнэ. Дүрэм нь эдгээр шүүлттэй яг таарна.
+    const trainingQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.training), where('hamragdahIds', 'array-contains', uid)) : null),
+        [firestore, uid],
+    );
+    const briefingQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.briefings), where('tanilcahIds', 'array-contains', uid)) : null),
+        [firestore, uid],
+    );
+    const alertQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.alerts), where('tanilcahIds', 'array-contains', uid)) : null),
+        [firestore, uid],
+    );
+    const hazardQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.hazards), where('haritslahId', '==', uid)) : null),
+        [firestore, uid],
+    );
+    const violationQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.violations), where('haritslahId', '==', uid)) : null),
+        [firestore, uid],
+    );
+
+    const { data: trainings, isLoading: lt } = useCollection<Training>(trainingQuery);
+    const { data: briefings, isLoading: lb } = useCollection<Briefing>(briefingQuery);
+    const { data: alerts, isLoading: la } = useCollection<HseAlert>(alertQuery);
+    const { data: hazards, isLoading: lh } = useCollection<Hazard>(hazardQuery);
+    const { data: violations, isLoading: lv } = useCollection<Violation>(violationQuery);
+
+    const isLoading = !employeeProfile || lt || lb || la || lh || lv;
+
+    const sortedTrainings = useMemo(() => byNewest(trainings), [trainings]);
+    const sortedBriefings = useMemo(() => byNewest(briefings), [briefings]);
+    const sortedAlerts = useMemo(() => byNewest(alerts), [alerts]);
+    const sortedHazards = useMemo(() => byNewest(hazards), [hazards]);
+    const sortedViolations = useMemo(() => byNewest(violations), [violations]);
+
+    const totalCount =
+        sortedTrainings.length + sortedBriefings.length + sortedAlerts.length + sortedHazards.length + sortedViolations.length;
+
+    // Үйлдэл хүлээж буй зүйлсийн тоо: танилцаагүй сургалт/зааварчилгаа/сэрэмжлүүлэг + хаагдаагүй аюул/зөрчил.
+    const pendingCount = useMemo(() => {
+        if (!uid) return 0;
+        const notSigned = (ids?: string[]) => !(ids ?? []).includes(uid);
+        return (
+            sortedTrainings.filter((t) => notSigned(t.hamragdsanIds)).length +
+            sortedBriefings.filter((b) => notSigned(b.tanilcsanIds)).length +
+            sortedAlerts.filter((a) => notSigned(a.tanilcsanIds)).length +
+            sortedHazards.filter((h) => h.tuluw !== 'Хаагдсан').length +
+            sortedViolations.filter((v) => v.tuluw !== 'Хаагдсан').length
+        );
+    }, [uid, sortedTrainings, sortedBriefings, sortedAlerts, sortedHazards, sortedViolations]);
+
+    const acknowledge = (colName: string, id: string, signField: 'hamragdsanIds' | 'tanilcsanIds') => {
+        if (!firestore || !uid) return;
+        updateDocumentNonBlocking(doc(firestore, colName, id), { [signField]: arrayUnion(uid) });
+    };
+
+    return (
+        <div className="flex flex-col min-h-full">
+            {/* Header */}
+            <div className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+                <div className="flex items-center gap-3">
+                    <Link href="/mobile/home">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    </Link>
+                    <div>
+                        <h1 className="text-base font-semibold">ХАБЭА</h1>
+                        <p className="text-xs text-muted-foreground">Танд оноогдсон аюулгүй байдлын зүйлс</p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 p-4 space-y-5">
+                {isLoading ? (
+                    Array.from({ length: 3 }).map((_, i) => (
+                        <Card key={i}>
+                            <CardContent className="p-4">
+                                <Skeleton className="h-5 w-3/4 mb-2" />
+                                <Skeleton className="h-4 w-full mb-3" />
+                                <Skeleton className="h-8 w-28" />
+                            </CardContent>
+                        </Card>
+                    ))
+                ) : totalCount === 0 ? (
+                    <div className="flex flex-col items-center text-center py-16">
+                        <ShieldCheck className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                        <p className="text-sm text-muted-foreground">Танд оноогдсон ХАБЭА-ийн зүйл алга байна</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Үйлдэл шаардсан тойм */}
+                        {pendingCount > 0 && (
+                            <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center gap-3">
+                                <ShieldAlert className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                <p className="text-sm text-red-700">
+                                    <span className="font-semibold">{pendingCount}</span> зүйл таны үйлдлийг хүлээж байна
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Сургалт */}
+                        <Section title="Сургалт" icon={GraduationCap} count={sortedTrainings.length}>
+                            {sortedTrainings.map((t) => {
+                                const signed = !!uid && (t.hamragdsanIds ?? []).includes(uid);
+                                return (
+                                    <AckCard
+                                        key={t.id}
+                                        href={`/mobile/hse/training/${t.id}`}
+                                        title={t.garchig}
+                                        date={t.huvaar}
+                                        hasPdf={!!t.pdfUrl}
+                                        badge={<StatusBadge tone={scheduleStatusTone(t.tuluw)}>{t.tuluw}</StatusBadge>}
+                                        signed={signed}
+                                        actionLabel="Хамрагдсан"
+                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.training, t.id, 'hamragdsanIds')}
+                                    />
+                                );
+                            })}
+                        </Section>
+
+                        {/* Зааварчилгаа */}
+                        <Section title="Зааварчилгаа" icon={ClipboardCheck} count={sortedBriefings.length}>
+                            {sortedBriefings.map((b) => {
+                                const signed = !!uid && (b.tanilcsanIds ?? []).includes(uid);
+                                return (
+                                    <AckCard
+                                        key={b.id}
+                                        href={`/mobile/hse/briefing/${b.id}`}
+                                        title={b.garchig}
+                                        subtitle={b.torol}
+                                        date={b.huvaar}
+                                        hasPdf={!!b.pdfUrl}
+                                        badge={<StatusBadge tone={scheduleStatusTone(b.tuluw)}>{b.tuluw}</StatusBadge>}
+                                        signed={signed}
+                                        actionLabel="Танилцсан"
+                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.briefings, b.id, 'tanilcsanIds')}
+                                    />
+                                );
+                            })}
+                        </Section>
+
+                        {/* Сэрэмжлүүлэг */}
+                        <Section title="Сэрэмжлүүлэг" icon={Megaphone} count={sortedAlerts.length}>
+                            {sortedAlerts.map((a) => {
+                                const signed = !!uid && (a.tanilcsanIds ?? []).includes(uid);
+                                return (
+                                    <AckCard
+                                        key={a.id}
+                                        title={a.desc}
+                                        subtitle={a.albaNer || a.angilal}
+                                        date={a.tohioldoOgnoo || a.ognoo}
+                                        badge={
+                                            <StatusBadge tone={signed ? 'green' : 'red'}>
+                                                {signed ? 'Танилцсан' : 'Танилцаагүй'}
+                                            </StatusBadge>
+                                        }
+                                        signed={signed}
+                                        actionLabel="Танилцсан"
+                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.alerts, a.id, 'tanilcsanIds')}
+                                    />
+                                );
+                            })}
+                        </Section>
+
+                        {/* Хариуцсан аюул */}
+                        <Section title="Хариуцсан аюул" icon={AlertTriangle} count={sortedHazards.length}>
+                            {sortedHazards.map((h) => (
+                                <InfoCard
+                                    key={h.id}
+                                    title={h.desc}
+                                    date={h.ognoo}
+                                    location={h.bairshil}
+                                    badges={
+                                        <>
+                                            <StatusBadge tone={hazardStatusTone(h.tuluw)}>{h.tuluw}</StatusBadge>
+                                            {h.ersdel && <StatusBadge tone={riskTone(h.ersdel)}>{h.ersdel}</StatusBadge>}
+                                        </>
+                                    }
+                                />
+                            ))}
+                        </Section>
+
+                        {/* Хариуцсан зөрчил */}
+                        <Section title="Хариуцсан зөрчил" icon={Ban} count={sortedViolations.length}>
+                            {sortedViolations.map((v) => (
+                                <InfoCard
+                                    key={v.id}
+                                    title={v.desc}
+                                    subtitle={v.angilal}
+                                    date={v.ognoo}
+                                    location={v.bairshil}
+                                    badges={<StatusBadge tone={violationStatusTone(v.tuluw)}>{v.tuluw}</StatusBadge>}
+                                />
+                            ))}
+                        </Section>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/** Ангиллын гарчиг + тоо бүхий хэсэг. Хоосон бол юу ч харуулахгүй. */
+function Section({
+    title,
+    icon: Icon,
+    count,
+    children,
+}: {
+    title: string;
+    icon: LucideIcon;
+    count: number;
+    children: React.ReactNode;
+}) {
+    if (count === 0) return null;
+    return (
+        <section className="space-y-2">
+            <div className="flex items-center gap-2 px-1">
+                <Icon className="h-4 w-4 text-muted-foreground" />
+                <h2 className="text-sm font-semibold">{title}</h2>
+                <span className="text-xs text-muted-foreground">({count})</span>
+            </div>
+            <div className="space-y-2">{children}</div>
+        </section>
+    );
+}
+
+/** Танилцах шаардлагатай карт — дэлгэрэнгүй рүү холбогдож, "Танилцсан/Хамрагдсан" товчтой. */
+function AckCard({
+    href,
+    title,
+    subtitle,
+    date,
+    hasPdf,
+    badge,
+    signed,
+    actionLabel,
+    onAcknowledge,
+}: {
+    href?: string;
+    title: string;
+    subtitle?: string;
+    date?: string;
+    hasPdf?: boolean;
+    badge: React.ReactNode;
+    signed: boolean;
+    actionLabel: string;
+    onAcknowledge: () => void;
+}) {
+    const router = useRouter();
+    const clickable = !!href;
+    return (
+        <Card>
+            <CardContent className="p-4">
+                {/* Дэлгэрэнгүй рүү шилжих хэсэг */}
+                <div
+                    className={clickable ? 'cursor-pointer active:opacity-70 transition-opacity' : ''}
+                    onClick={clickable ? () => router.push(href!) : undefined}
+                >
+                    <div className="flex items-start justify-between gap-2">
+                        <h3 className="font-medium text-sm line-clamp-2">{title}</h3>
+                        <div className="flex-shrink-0">{badge}</div>
+                    </div>
+                    {subtitle && <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{subtitle}</p>}
+                    <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+                        {date && (
+                            <span className="flex items-center gap-1">
+                                <CalendarDays className="h-3 w-3" />
+                                {date}
+                            </span>
+                        )}
+                        {hasPdf && (
+                            <span className="flex items-center gap-1 text-red-600">
+                                <FileText className="h-3 w-3" />
+                                PDF
+                            </span>
+                        )}
+                        {clickable && <ChevronRight className="ml-auto h-4 w-4" />}
+                    </div>
+                </div>
+
+                {/* Танилцсан/Хамрагдсан үйлдэл */}
+                <div className="mt-3 flex items-center justify-end border-t pt-3">
+                    {signed ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
+                            <CheckCircle2 className="h-4 w-4" />
+                            {actionLabel}
+                        </span>
+                    ) : (
+                        <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAcknowledge}>
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            {actionLabel}
+                        </Button>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+/** Зөвхөн харах мэдээллийн карт (аюул / зөрчил). */
+function InfoCard({
+    title,
+    subtitle,
+    date,
+    location,
+    badges,
+}: {
+    title: string;
+    subtitle?: string;
+    date?: string;
+    location?: string;
+    badges: React.ReactNode;
+}) {
+    return (
+        <Card>
+            <CardContent className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-medium text-sm line-clamp-2">{title}</h3>
+                    <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">{badges}</div>
+                </div>
+                {subtitle && <p className="text-xs text-muted-foreground line-clamp-1">{subtitle}</p>}
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                    {location && (
+                        <span className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            {location}
+                        </span>
+                    )}
+                    {date && (
+                        <span className="flex items-center gap-1">
+                            <CalendarDays className="h-3 w-3" />
+                            {date}
+                        </span>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    );
+}

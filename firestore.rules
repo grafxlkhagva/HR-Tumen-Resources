@@ -96,6 +96,17 @@ service cloud.firestore {
       return isAdmin() || isHseUser();
     }
 
+    // Оноогдсон ажилтан өөрийн ID-г "танилцсан/хамрагдсан" массивт нэмэхийг л зөвшөөрнө.
+    // assignField (жишээ tanilcahIds) дотор байгаа ажилтан signField (tanilcsanIds)-д
+    // ЗӨВХӨН өөрийн uid-г нэмнэ — өөр талбар өөрчлөх, бусдын ID нэмэх/хасахыг хориглоно.
+    function canSelfAck(assignField, signField) {
+      return isSignedIn() &&
+             request.auth.uid in resource.data.get(assignField, []) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly([signField]) &&
+             request.resource.data.get(signField, []).hasAll(resource.data.get(signField, [])) &&
+             request.resource.data.get(signField, []).hasOnly(resource.data.get(signField, []).concat([request.auth.uid]));
+    }
+
     function isCrmUser() {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
@@ -889,7 +900,11 @@ service cloud.firestore {
 
     // ─── ХАБЭА (HSE — Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) ───────────
     // hse_* collection-ууд: админ эсвэл hseAccess эрхтэй ажилтан унших/бичих.
-    match /hse_hazards/{docId} { allow read, write: if isHseAllowed(); }
+    // Аюул: хариуцагч ажилтан (haritslahId) өөрт оноогдсоныг унших боломжтой (зөвхөн харах).
+    match /hse_hazards/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('haritslahId', '') == request.auth.uid;
+      allow write: if isHseAllowed();
+    }
     match /hse_hazard_categories/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_take5/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_jha/{docId} { allow read, write: if isHseAllowed(); }
@@ -899,13 +914,32 @@ service cloud.firestore {
     match /hse_incident_notices/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_explanations/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_incident_investigations/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_alerts/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_violations/{docId} { allow read, write: if isHseAllowed(); }
+    // Сэрэмжлүүлэг: танилцах ажилтан унших + "танилцсан" гэж өөрийгөө бүртгэх (tanilcsanIds).
+    match /hse_alerts/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('tanilcahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('tanilcahIds', 'tanilcsanIds');
+    }
+    // Зөрчил: хариуцагч ажилтан унших (зөвхөн харах).
+    match /hse_violations/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('haritslahId', '') == request.auth.uid;
+      allow write: if isHseAllowed();
+    }
     match /hse_violation_categories/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_permits/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_training/{docId} { allow read, write: if isHseAllowed(); }
+    // Сургалт: хамрагдах ажилтан унших + "хамрагдсан" гэж өөрийгөө бүртгэх (hamragdsanIds).
+    match /hse_training/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('hamragdahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('hamragdahIds', 'hamragdsanIds');
+    }
     match /hse_training_templates/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_briefings/{docId} { allow read, write: if isHseAllowed(); }
+    // Зааварчилгаа: танилцах ажилтан унших + "танилцсан" гэж өөрийгөө бүртгэх (tanilcsanIds).
+    match /hse_briefings/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('tanilcahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('tanilcahIds', 'tanilcsanIds');
+    }
     match /hse_briefing_templates/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspections/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspection_checklists/{docId} { allow read, write: if isHseAllowed(); }
