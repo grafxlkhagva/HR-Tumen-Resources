@@ -31,6 +31,7 @@ import { OT_PAYMENT_STATUS_MAP, OT_STATUS_MAP, OT_TYPE_META } from '../constants
 import { useOneTimeDetail } from './use-one-time-detail';
 import { StatusActions } from './status-actions';
 import { StatusTimeline } from './status-timeline';
+import { RouteMap } from './route-map';
 import { MissingFieldsHint } from './missing-fields-hint';
 import { CargoStrip, OpsInfoStrip, PricingPanel, TypeSpecificBlock } from './detail-sections';
 import { CheckpointsSection } from './checkpoints-section';
@@ -105,6 +106,8 @@ export default function OneTimeTransportDetailPage() {
           />
 
           <StatusTimeline transport={t} />
+
+          <RouteMap transport={t} />
 
           <CheckpointsSection transport={t} />
 

@@ -29,6 +29,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select,
   SelectContent,
@@ -56,8 +57,17 @@ import {
 } from './lib';
 import { TypePickerDialog } from './type-picker-dialog';
 import { AddOneTimeTransportDialog } from './add-one-time-transport-dialog';
+import { OtSheetView } from './sheet-view';
+import { BulkActionBar } from './bulk-action-bar';
+import { exportOtCsv } from './csv-export';
 
 const PAGE_SIZE = 50;
+const VIEW_MODE_STORAGE_KEY = 'tms_ott_view_mode';
+
+/** Bulk сонгож болох эсэх — нэхэмжлэгдсэн/төлөгдсөн тээврийг хамгаална */
+function isSelectable(t: TmsOneTimeTransport): boolean {
+  return !t.invoiceNumber && t.status !== 'invoiced' && t.status !== 'paid';
+}
 
 interface EmployeeDoc {
   id: string;
@@ -94,6 +104,30 @@ export default function OneTimeTransportsPage() {
   // ── Dialog state ──────────────────────────────────────────────────
   const [pickerOpen, setPickerOpen] = React.useState(false);
   const [createType, setCreateType] = React.useState<TmsOneTimeTransportType | null>(null);
+
+  // ── View mode (card | sheet) — localStorage-д хадгална ────────────
+  const [viewMode, setViewMode] = React.useState<'card' | 'sheet'>('card');
+  React.useEffect(() => {
+    // SSR-д localStorage байхгүй тул mount дээр уншина
+    const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (saved === 'sheet' || saved === 'card') setViewMode(saved);
+  }, []);
+  const changeViewMode = React.useCallback((mode: 'card' | 'sheet') => {
+    setViewMode(mode);
+    window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  }, []);
+
+  // ── Bulk сонголт ──────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = React.useState<Set<string>>(new Set());
+  const toggleSelected = React.useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+  const clearSelection = React.useCallback(() => setSelectedIds(new Set()), []);
 
   // ── Filters ───────────────────────────────────────────────────────
   const [typeFilter, setTypeFilter] = React.useState<TmsOneTimeTransportType | 'all'>('all');
@@ -137,8 +171,12 @@ export default function OneTimeTransportsPage() {
           (d) => ({ id: d.id, ...d.data() } as TmsOneTimeTransport)
         );
 
-        if (isFirst) setItems(docs);
-        else setItems((prev) => [...prev, ...docs]);
+        if (isFirst) {
+          setItems(docs);
+          setSelectedIds(new Set()); // бүрэн дахин ачаалахад сонголт цэвэрлэнэ
+        } else {
+          setItems((prev) => [...prev, ...docs]);
+        }
         setLastDoc(snap.docs[snap.docs.length - 1] ?? null);
         setHasMore(snap.docs.length === PAGE_SIZE);
       } finally {
@@ -225,6 +263,30 @@ export default function OneTimeTransportsPage() {
     statusFilter !== 'all' ||
     kamFilter !== '__all' ||
     customerFilter !== '__all';
+
+  // ── Bulk select-all (card горим) — зөвхөн сонгож болох мөрүүд ─────
+  const selectableFiltered = React.useMemo(() => filtered.filter(isSelectable), [filtered]);
+  const allSelected =
+    selectableFiltered.length > 0 && selectableFiltered.every((t) => selectedIds.has(t.id));
+  const toggleSelectAll = React.useCallback(() => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (allSelected) selectableFiltered.forEach((t) => next.delete(t.id));
+      else selectableFiltered.forEach((t) => next.add(t.id));
+      return next;
+    });
+  }, [allSelected, selectableFiltered]);
+
+  const selectedTransports = React.useMemo(
+    () => items.filter((t) => selectedIds.has(t.id)),
+    [items, selectedIds]
+  );
+
+  /** Bulk үйлдлийн дараа — сонголт цэвэрлээд эхнээс нь дахин ачаална */
+  const reloadAfterBulk = React.useCallback(() => {
+    setSelectedIds(new Set());
+    loadPage();
+  }, [loadPage]);
 
   return (
     <div className="flex flex-col h-full w-full overflow-auto">
@@ -321,11 +383,57 @@ export default function OneTimeTransportsPage() {
             emptyText="Захиалагч олдсонгүй."
             className="w-[190px]"
           />
+
+          {/* Харагдалт солих + CSV татах */}
+          <div className="ml-auto flex items-center gap-1">
+            {viewMode === 'sheet' && (
+              <Button variant="outline" size="sm" onClick={() => exportOtCsv(filtered)}>
+                📥 CSV татах
+              </Button>
+            )}
+            <Button
+              variant={viewMode === 'card' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => changeViewMode('card')}
+              title="Энгийн харагдалт"
+            >
+              📋 Карт
+            </Button>
+            <Button
+              variant={viewMode === 'sheet' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => changeViewMode('sheet')}
+              title="Spreadsheet — нэг тээвэр нэг мөр, бүх багана"
+            >
+              📊 Sheet
+            </Button>
+          </div>
         </div>
 
+        {viewMode === 'sheet' ? (
+          isLoading ? (
+            <div className="flex items-center justify-center gap-2 rounded-lg border py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Уншиж байна...
+            </div>
+          ) : (
+            <OtSheetView
+              items={filtered}
+              onRowClick={(id) => router.push(`/tms/one-time-transports/${id}`)}
+            />
+          )
+        ) : (
         <DataTable>
           <DataTableHeader>
             <DataTableRow>
+              <DataTableColumn className="w-8">
+                <Checkbox
+                  checked={allSelected}
+                  onCheckedChange={toggleSelectAll}
+                  disabled={selectableFiltered.length === 0}
+                  aria-label="Бүгдийг сонгох"
+                />
+              </DataTableColumn>
               <DataTableColumn>Огноо</DataTableColumn>
               <DataTableColumn>Захиалагч</DataTableColumn>
               <DataTableColumn>КАМ</DataTableColumn>
@@ -338,11 +446,11 @@ export default function OneTimeTransportsPage() {
             </DataTableRow>
           </DataTableHeader>
 
-          {isLoading && <DataTableLoading columns={9} rows={5} />}
+          {isLoading && <DataTableLoading columns={10} rows={5} />}
 
           {!isLoading && filtered.length === 0 && (
             <DataTableEmpty
-              columns={9}
+              columns={10}
               message={
                 hasActiveFilters
                   ? 'Хайлт/шүүлтэд тохирох тээвэр олдсонгүй.'
@@ -383,6 +491,25 @@ export default function OneTimeTransportsPage() {
                     className="cursor-pointer group"
                     onClick={() => router.push(`/tms/one-time-transports/${t.id}`)}
                   >
+                    <DataTableCell className="w-8">
+                      {isSelectable(t) ? (
+                        <div onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            checked={selectedIds.has(t.id)}
+                            onCheckedChange={() => toggleSelected(t.id)}
+                            aria-label={`${t.code || t.id} сонгох`}
+                          />
+                        </div>
+                      ) : (
+                        <span
+                          className="text-muted-foreground"
+                          title="Нэхэмжлэгдсэн тээврийг сонгох боломжгүй"
+                        >
+                          —
+                        </span>
+                      )}
+                    </DataTableCell>
+
                     <DataTableCell>
                       <div className="flex flex-col">
                         <span className="whitespace-nowrap">
@@ -502,6 +629,7 @@ export default function OneTimeTransportsPage() {
             </DataTableBody>
           )}
         </DataTable>
+        )}
 
         {!isLoading && (
           <div className="flex items-center justify-between gap-4">
@@ -522,6 +650,13 @@ export default function OneTimeTransportsPage() {
           </div>
         )}
       </div>
+
+      <BulkActionBar
+        selected={selectedTransports}
+        onClear={clearSelection}
+        onDeleted={reloadAfterBulk}
+        onInvoiced={reloadAfterBulk}
+      />
 
       <TypePickerDialog
         open={pickerOpen}
