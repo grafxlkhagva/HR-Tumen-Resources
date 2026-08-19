@@ -218,6 +218,9 @@ export interface TmsSettings {
   contractCodePrefix?: string;
   contractCodePadding?: number;
   contractCodeCurrentNumber?: number;
+  oneTimeCodePrefix?: string;
+  oneTimeCodePadding?: number;
+  oneTimeCodeCurrentNumber?: number;
   updatedAt?: Timestamp;
 }
 export const TMS_SETTINGS_COLLECTION = 'tms_settings';
@@ -580,3 +583,204 @@ export interface TmsFinanceTransaction {
   createdAt: Timestamp;
   updatedAt?: Timestamp;
 }
+
+// ==================================================================
+// 1 УДААГИЙН ТЭЭВЭР (One-time transports)
+// Prototype (tumentech-tms) shipments/cat/one_time модулиас порт хийсэн.
+// ==================================================================
+
+/** 1 удаагийн тээврийн төрөл: Орон нутаг / Хот доторх / Автокран */
+export type TmsOneTimeTransportType = 'orn_nutag' | 'dotor' | 'avtokran';
+
+/**
+ * 1 удаагийн тээврийн төлөв.
+ * planned → in_progress → completed → invoiced → paid; cancelled хаанаас ч.
+ */
+export type TmsOneTimeTransportStatus =
+  | 'planned'
+  | 'in_progress'
+  | 'completed'
+  | 'invoiced'
+  | 'paid'
+  | 'cancelled';
+
+/** Захиалагчийн төлбөрийн төлөв */
+export type TmsOneTimePaymentStatus = 'unpaid' | 'partial' | 'paid' | 'overdue';
+
+/** Тээвэрчинд төлөх төлбөрийн мөрийн төлөв (КАМ → Санхүү → Төлсөн) */
+export type TmsCarrierPaymentStatus = 'scheduled' | 'approved' | 'paid';
+
+/** Хот доторх — яаралтай зэрэглэл (null = Стандарт) */
+export type TmsOneTimeUrgency = 'urgent' | 'express';
+
+/** Автокран — үнэлгээний нэгж */
+export type TmsCraneRateUnit =
+  | 'per_hour'
+  | 'per_lift'
+  | 'per_unload'
+  | 'per_load_unload'
+  | 'per_day'
+  | 'per_month';
+
+/** Хяналтын цэгийн түлхүүр — validation-д хэрэглэгддэг тул ТОГТСОН */
+export type TmsOneTimeCheckpointKey = 'readiness' | 'loading' | 'transit' | 'unloading';
+
+/** Хяналтын цэгийн бүртгэл — зураг нь Firebase Storage URL (base64 БИШ) */
+export interface TmsTransportCheckpoint {
+  /** ISO datetime — баталгаажуулсан хугацаа */
+  completedAt: string;
+  byEmployeeId?: string | null;
+  byEmployeeName?: string | null;
+  /** Firebase Storage download URL-ууд */
+  photoUrls: string[];
+  /** checklist индекс -> шалгасан эсэх */
+  checklist?: Record<string, boolean>;
+  notes?: string | null;
+  /** Зөвхөн transit — зарцуулсан км */
+  km?: number | null;
+  /** Зөвхөн transit — шатахууны зардал (₮) */
+  fuelAmount?: number | null;
+}
+
+/** Тээвэрчинд төлөх төлбөрийн мөр (урьдчилгаа / үлдэгдэл / нэмэлт) */
+export interface TmsCarrierPayment {
+  id: string;
+  /** 1 = Урьдчилгаа, 2 = Үлдэгдэл, 3+ = Нэмэлт */
+  sequence: number;
+  category: 'advance' | 'final' | 'fuel' | 'extra';
+  status: TmsCarrierPaymentStatus;
+  /** Math.round хийсэн ₮ */
+  amount: number;
+  dueDate?: string | null;
+  paymentDate?: string | null;
+  method?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  /** ISO datetime — массив дотор serverTimestamp() болохгүй */
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/** Нэхэмжлэхийн нэмэлт мөр (төлөвлөгөөнөөс гадуурх нэмэлт төлбөр) */
+export interface TmsExtraInvoiceLine {
+  id: string;
+  date?: string | null;
+  /** НӨАТ-гүй дүн */
+  amount: number;
+  notes?: string | null;
+  createdAt: string;
+}
+
+/** Төрөл тус бүрийн нэмэлт талбарууд (бүгд optional — нэг нэгдсэн interface) */
+export interface TmsOneTimeTransportDetails {
+  // orn_nutag + dotor
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
+  // orn_nutag
+  preferredPickupDate?: string | null;
+  deliveryDeadline?: string | null;
+  // dotor
+  urgency?: TmsOneTimeUrgency | null;
+  // avtokran
+  serviceAddress?: string | null;
+  craneCapacityTons?: number | null;
+  craneServiceType?: string | null;
+  rateUnit?: TmsCraneRateUnit | null;
+  /** Нэгж үнэ (₮) — цаг/өргөлт/хоног гэх мэт нэгжид */
+  unitRate?: number | null;
+  /** Тоо хэмжээ — rateUnit-аас хамаарч цаг/өргөлт/хоног г.м */
+  quantity?: number | null;
+  liftCount?: number | null;
+  setupTimeMin?: number | null;
+  operatorName?: string | null;
+  // бүх төрөлд
+  hasLoader?: boolean | null;
+}
+
+/** 1 удаагийн тээвэр (Орон нутаг / Хот доторх / Автокран) */
+export interface TmsOneTimeTransport {
+  id: string;
+  /** Автомат дугаар — OT-0001 */
+  code?: string;
+  type: TmsOneTimeTransportType;
+  status: TmsOneTimeTransportStatus;
+  paymentStatus?: TmsOneTimePaymentStatus;
+
+  // Захиалагч
+  customerId: string;
+  customerRef?: DocumentReference;
+  customerName?: string;
+  /** Менежер — tms_customers/{id}/employees subcollection-ийн ажилтан */
+  customerEmployeeId?: string | null;
+  customerEmployeeName?: string | null;
+  /** KAM — байгууллагын employees коллекцийн ажилтан */
+  kamEmployeeId?: string | null;
+  kamEmployeeName?: string | null;
+
+  // Томилолт
+  vehicleId?: string | null;
+  vehiclePlate?: string | null;
+  vehicleMakeId?: string | null;
+  vehicleMakeName?: string | null;
+  vehicleTypeId?: string | null;
+  trailerTypeId?: string | null;
+  /** Тэвш / бүхээгийн төрөл — чөлөөт текст */
+  bodyType?: string | null;
+  driverId?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  /** Тээвэрчин компани — чөлөөт текст (ирээдүйд tms_carriers reference болно) */
+  carrierName?: string | null;
+  carrierId?: string | null;
+
+  // Чиглэл
+  origin?: string | null;
+  destination?: string | null;
+  totalDistanceKm?: number | null;
+
+  // Ачаа
+  cargoDescription?: string | null;
+  cargoType?: string | null;
+  packagingTypeId?: string | null;
+  weightKg?: number | null;
+  volumeM3?: number | null;
+
+  // Хугацаа
+  /**
+   * Эхлэх огноо — ISO string (datetime-local).
+   * АНХААР: orderBy('scheduledDate')-д талбар дутуу баримт алга болдог тул
+   * үүсгэхдээ ҮРГЭЛЖ бичнэ (дор хаяж null).
+   */
+  scheduledDate?: string | null;
+  startedAt?: Timestamp | null;
+  completedAt?: Timestamp | null;
+
+  // Мөнгө — бүгд Math.round хийсэн бүхэл ₮
+  /** Захиалагчийн үнэ, НӨАТ-гүй */
+  basePrice?: number;
+  /** ҮРГЭЛЖ round(basePrice / 10) */
+  vatAmount?: number;
+  /** basePrice + vatAmount */
+  totalPrice?: number;
+  /** Тээвэрчинд төлөх нийт өртөг */
+  costPrice?: number;
+  /** Урьдчилгааны хувь — default 50, dotor = 100 */
+  carrierAdvancePct?: number;
+  /** Урьдчилгааны яг дүн (₮) — өгвөл хувиас давуу */
+  carrierAdvanceAmount?: number | null;
+
+  /** Нэхэмжлэхийн дугаар — чөлөөт текст (TMS-д invoice модуль гараагүй) */
+  invoiceNumber?: string | null;
+  notes?: string | null;
+  cancelReason?: string | null;
+
+  details?: TmsOneTimeTransportDetails;
+  checkpoints?: Partial<Record<TmsOneTimeCheckpointKey, TmsTransportCheckpoint>>;
+  carrierPayments?: TmsCarrierPayment[];
+  extraInvoiceLines?: TmsExtraInvoiceLine[];
+
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_ONE_TIME_TRANSPORTS_COLLECTION = 'tms_one_time_transports';

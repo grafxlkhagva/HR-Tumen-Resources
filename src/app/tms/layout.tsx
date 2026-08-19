@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText, Satellite } from 'lucide-react';
+import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText, Satellite, Package } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 import { PortalSwitcher } from '@/components/portal-switcher';
@@ -16,6 +16,7 @@ import { TmsReferenceDataProvider } from './reference-data-context';
 
 const navItems = [
   { href: '/tms/transport-management', label: 'Тээвэрийн удирдлага', icon: Navigation },
+  { href: '/tms/one-time-transports', label: '1 удаагийн тээвэр', icon: Package },
   { href: '/tms/customers', label: 'Харилцагчид', icon: Users },
   { href: '/tms/warehouses', label: 'Агуулах', icon: Warehouse },
   { href: '/tms/drivers', label: 'Тээвэрчин', icon: Truck },

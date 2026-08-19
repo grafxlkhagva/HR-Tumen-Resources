@@ -90,6 +90,9 @@ const settingsSchema = z.object({
   contractCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
   contractCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
   contractCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+  oneTimeCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  oneTimeCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  oneTimeCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
 });
 
 type MakeFormValues = z.infer<typeof makeSchema>;
@@ -258,7 +261,8 @@ export default function TmsSettingsPage() {
     defaultValues: {
       transportCodePrefix: 'TR', transportCodePadding: 5, transportCodeCurrentNumber: 0,
       quotationCodePrefix: 'QU', quotationCodePadding: 5, quotationCodeCurrentNumber: 0,
-      contractCodePrefix: 'CT', contractCodePadding: 5, contractCodeCurrentNumber: 0
+      contractCodePrefix: 'CT', contractCodePadding: 5, contractCodeCurrentNumber: 0,
+      oneTimeCodePrefix: 'OT-', oneTimeCodePadding: 4, oneTimeCodeCurrentNumber: 0
     },
   });
 
@@ -274,6 +278,9 @@ export default function TmsSettingsPage() {
         contractCodePrefix: settings.contractCodePrefix || 'CT',
         contractCodePadding: settings.contractCodePadding || 5,
         contractCodeCurrentNumber: settings.contractCodeCurrentNumber || 0,
+        oneTimeCodePrefix: settings.oneTimeCodePrefix || 'OT-',
+        oneTimeCodePadding: settings.oneTimeCodePadding || 4,
+        oneTimeCodeCurrentNumber: settings.oneTimeCodeCurrentNumber || 0,
       });
     }
   }, [settings, settingsForm]);
@@ -834,6 +841,51 @@ export default function TmsSettingsPage() {
                       <FormField
                         control={settingsForm.control}
                         name="contractCodeCurrentNumber"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Одоогийн дугаар</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-card border rounded-lg p-6">
+                    <h3 className="text-lg font-medium mb-4">1 удаагийн тээврийн кодчилол</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={settingsForm.control}
+                        name="oneTimeCodePrefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын угтвар</FormLabel>
+                            <FormControl>
+                              <Input placeholder="OT-" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="oneTimeCodePadding"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын цифрийн урт</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={10} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="oneTimeCodeCurrentNumber"
                         render={({ field }) => (
                           <FormItem className="col-span-2">
                             <FormLabel>Одоогийн дугаар</FormLabel>

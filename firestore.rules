@@ -830,6 +830,11 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
 
+    // ─── 1 удаагийн тээвэр (Орон нутаг / Хот доторх / Автокран) ──────────
+    match /tms_one_time_transports/{transportId} {
+      allow read, write: if isTmsAllowed();
+    }
+
     // ─── Машины бүртгэл (өдрийн үзлэг, түлш, odometer, засвар) ───────────
     match /tms_vehicle_maintenance/{maintId} {
       allow read: if isTmsAllowed()
