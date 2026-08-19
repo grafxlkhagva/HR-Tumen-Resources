@@ -37,6 +37,7 @@ import {
     CalendarDays,
     ChevronRight,
     FileText,
+    PenLine,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -299,7 +300,7 @@ function AckCard({
     badge: React.ReactNode;
     signed: boolean;
     actionLabel: string;
-    onAcknowledge: () => void;
+    onAcknowledge?: () => void;
 }) {
     const router = useRouter();
     const clickable = !!href;
@@ -338,9 +339,20 @@ function AckCard({
                     {signed ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
                             <CheckCircle2 className="h-4 w-4" />
-                            {actionLabel}
+                            {actionLabel} — гарын үсэг зурсан
                         </span>
+                    ) : clickable ? (
+                        // Сургалт/зааварчилгаа: дэлгэрэнгүй дээр материал үзээд гарын үсэг зурна
+                        <button
+                            type="button"
+                            className="inline-flex items-center gap-1 text-xs font-medium text-primary"
+                            onClick={() => router.push(href!)}
+                        >
+                            <PenLine className="h-3.5 w-3.5" />
+                            Гарын үсэг зурах
+                        </button>
                     ) : (
+                        // Сэрэмжлүүлэг: шууд танилцсан тэмдэглэх
                         <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAcknowledge}>
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             {actionLabel}

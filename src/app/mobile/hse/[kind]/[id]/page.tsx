@@ -6,13 +6,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { doc, arrayUnion } from 'firebase/firestore';
 import { useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useEmployeeSignature } from '@/hooks/use-employee-signature';
+import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/app/hse/components/status-badge';
+import { SignDialog } from '../../_components/sign-dialog';
 import { HSE_COLLECTIONS, scheduleStatusTone, type Training, type Briefing } from '@/app/hse/types';
-import { ArrowLeft, CalendarDays, CheckCircle2, FileText, GraduationCap, ClipboardCheck, ExternalLink } from 'lucide-react';
+import { ArrowLeft, CalendarDays, CheckCircle2, FileText, GraduationCap, ClipboardCheck, ExternalLink, Eye, PenLine } from 'lucide-react';
 
 type Kind = 'training' | 'briefing';
 
@@ -107,12 +109,30 @@ export default function MobileHseItemDetailPage() {
     }, [cfg, router]);
     if (!cfg) return null;
 
+    const { signature } = useEmployeeSignature();
+
+    const [materialOpened, setMaterialOpened] = React.useState(false);
+    const [signOpen, setSignOpen] = React.useState(false);
+
     const signedIds = (item?.[cfg.signField] as string[] | undefined) ?? [];
     const signed = !!uid && signedIds.includes(uid);
 
-    const acknowledge = () => {
+    const hasMaterial = !!item?.pdfUrl;
+    const canSign = !hasMaterial || materialOpened; // материал байвал нээсний дараа л зурна
+
+    const employeeName = employeeProfile
+        ? `${employeeProfile.lastName ?? ''} ${employeeProfile.firstName ?? ''}`.trim()
+        : undefined;
+
+    // Гарын үсэг баталгаажуулсан: signField-д нэмээд, өөрийн профайлд аудит бичлэг үлдээнэ.
+    const recordSignature = () => {
         if (!firestore || !uid || !item) return;
         updateDocumentNonBlocking(doc(firestore, cfg.collection, item.id), { [cfg.signField]: arrayUnion(uid) });
+        setDocumentNonBlocking(
+            doc(firestore, `employees/${uid}/hseSignatures/${item.id}`),
+            { kind, itemId: item.id, garchig: item.garchig ?? '', signedAt: Date.now() },
+            { merge: true },
+        );
     };
 
     const loading = isLoading || !employeeProfile;
@@ -201,18 +221,29 @@ export default function MobileHseItemDetailPage() {
                         <div className="space-y-2">
                             <h3 className="text-sm font-semibold">Сургалтын материал</h3>
                             {item.pdfUrl ? (
-                                <>
-                                    <MaterialViewer url={item.pdfUrl} title={item.garchig} />
-                                    <a
-                                        href={item.pdfUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:underline"
+                                materialOpened ? (
+                                    <>
+                                        <MaterialViewer url={item.pdfUrl} title={item.garchig} />
+                                        <a
+                                            href={item.pdfUrl}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:underline"
+                                        >
+                                            <ExternalLink className="h-3.5 w-3.5" />
+                                            Бүтэн дэлгэцээр нээх
+                                        </a>
+                                    </>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        className="w-full gap-2"
+                                        onClick={() => setMaterialOpened(true)}
                                     >
-                                        <ExternalLink className="h-3.5 w-3.5" />
-                                        Бүтэн дэлгэцээр нээх
-                                    </a>
-                                </>
+                                        <Eye className="h-4 w-4" />
+                                        Сургалтын материал нээж унших
+                                    </Button>
+                                )
                             ) : (
                                 <Card>
                                     <CardContent className="p-4">
@@ -222,20 +253,56 @@ export default function MobileHseItemDetailPage() {
                             )}
                         </div>
 
-                        {/* Танилцсан / Хамрагдсан */}
+                        {/* Гарын үсгээр баталгаажуулах */}
                         <div className="pt-1">
                             {signed ? (
-                                <div className="flex items-center justify-center gap-2 rounded-xl bg-success/10 py-3 text-sm font-medium text-success">
-                                    <CheckCircle2 className="h-5 w-5" />
-                                    {cfg.actionLabel}
+                                <div className="rounded-xl border border-success/30 bg-success/10 p-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-success">
+                                        <CheckCircle2 className="h-5 w-5" />
+                                        {cfg.actionLabel} — гарын үсэг зурсан
+                                    </div>
+                                    {signature?.dataUrl && (
+                                        <div className="mt-3 flex items-center justify-between gap-3">
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                                src={signature.dataUrl}
+                                                alt="Гарын үсэг"
+                                                className="max-h-16 rounded border bg-white object-contain px-2"
+                                            />
+                                            {employeeName && (
+                                                <span className="text-xs text-muted-foreground">{employeeName}</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
-                                <Button className="w-full gap-2" size="lg" onClick={acknowledge}>
-                                    <CheckCircle2 className="h-5 w-5" />
-                                    {cfg.actionLabel} гэж бүртгүүлэх
-                                </Button>
+                                <>
+                                    <Button
+                                        className="w-full gap-2"
+                                        size="lg"
+                                        disabled={!canSign}
+                                        onClick={() => setSignOpen(true)}
+                                    >
+                                        <PenLine className="h-5 w-5" />
+                                        Гарын үсэг зурах
+                                    </Button>
+                                    {!canSign && (
+                                        <p className="mt-2 text-center text-xs text-muted-foreground">
+                                            Эхлээд сургалтын материалтай танилцана уу.
+                                        </p>
+                                    )}
+                                </>
                             )}
                         </div>
+
+                        <SignDialog
+                            open={signOpen}
+                            onOpenChange={setSignOpen}
+                            itemTitle={item.garchig ?? ''}
+                            actionLabel={cfg.actionLabel}
+                            employeeName={employeeName}
+                            onConfirm={recordSignature}
+                        />
                     </>
                 )}
             </div>
