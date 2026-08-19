@@ -71,8 +71,10 @@ import {
     Trash2,
     Truck,
     Users,
+    Send,
 } from 'lucide-react';
 import type {
+    Activity,
     Company,
     CompanyStats,
     Contact,
@@ -99,6 +101,9 @@ import {
 } from '../../_types';
 import { moveCompanyStage, logAudit } from '../../_lib/crm-actions';
 import { formatM, normName, npsIndex, TONE_TEXT } from '../../_lib/stats';
+import { scoreCompany } from '../../_lib/lead-score';
+import { LeadScoreBadge } from '../../_components/lead-score-badge';
+import { SendSurveyDialog } from '../../_components/send-survey-dialog';
 import { useKamScope } from '../../_lib/use-kam-scope';
 import { LifecycleBadge } from '../../_components/lifecycle-badge';
 import { ActivityTimeline } from '../../_components/activity-timeline';
@@ -176,6 +181,43 @@ export default function CompanyDetailPage() {
         [firestore, id],
     );
     const { data: linkedTickets } = useCollection<Ticket>(ticketsQuery);
+
+    // Лийд оноонд — энэ компанийн үйл ажиллагаа (сүүлийн огноо авахад).
+    const companyActivitiesQuery = useMemoFirebase(
+        () =>
+            firestore && id
+                ? query(collection(firestore, 'crm_activities'), where('companyIds', 'array-contains', id))
+                : null,
+        [firestore, id],
+    );
+    const { data: companyActivities } = useCollection<Activity>(companyActivitiesQuery);
+
+    const lastActivityMs = React.useMemo(() => {
+        let m = 0;
+        (companyActivities || []).forEach((a) => {
+            const ms = a.createdAt?.toMillis?.() ?? 0;
+            if (ms > m) m = ms;
+        });
+        return m || null;
+    }, [companyActivities]);
+
+    // Лийд оноонд — компанийн агрегат (нэрийн түлхүүрээр).
+    const companyKey = company?.name ? normName(company.name) : null;
+    const leadStatsQuery = useMemoFirebase(
+        () =>
+            firestore && companyKey
+                ? query(collection(firestore, 'crm_company_stats'), where('companyKey', '==', companyKey))
+                : null,
+        [firestore, companyKey],
+    );
+    const { data: leadStatsRows } = useCollection<CompanyStats>(leadStatsQuery);
+    const leadScore = React.useMemo(
+        () =>
+            company
+                ? scoreCompany({ company, stats: leadStatsRows?.[0] ?? null, lastActivityMs })
+                : null,
+        [company, leadStatsRows, lastActivityMs],
+    );
 
     const employeesRef = useMemoFirebase(
         () => (firestore ? collection(firestore, 'employees') : null),
@@ -298,6 +340,7 @@ export default function CompanyDetailPage() {
                             >
                                 {shortStageLabel(normStage(company.funnelStage))}
                             </span>
+                            {leadScore && <LeadScoreBadge score={leadScore} />}
                         </div>
                         {company.domain && (
                             <div className="text-[11px] text-muted-foreground truncate">
@@ -1161,6 +1204,7 @@ function NpsTab({
     const [score, setScore] = React.useState('');
     const [note, setNote] = React.useState('');
     const [isSaving, setIsSaving] = React.useState(false);
+    const [sendOpen, setSendOpen] = React.useState(false);
 
     const surveysQuery = useMemoFirebase(
         () =>
@@ -1237,20 +1281,38 @@ function NpsTab({
                         <Smile className="h-4 w-4 text-cyan-600" />
                         Сэтгэл ханамж (NPS)
                     </div>
-                    <div className="text-right">
-                        <div
-                            className={cn(
-                                'text-2xl font-bold tabular-nums',
-                                indexTone ? TONE_TEXT[indexTone] : 'text-muted-foreground',
-                            )}
+                    <div className="flex items-center gap-3">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSendOpen(true)}
                         >
-                            {index === null ? '—' : index}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                            NPS индекс · {sorted.length} үнэлгээ
+                            <Send className="mr-1.5 h-4 w-4" />
+                            Судалгаа илгээх
+                        </Button>
+                        <div className="text-right">
+                            <div
+                                className={cn(
+                                    'text-2xl font-bold tabular-nums',
+                                    indexTone ? TONE_TEXT[indexTone] : 'text-muted-foreground',
+                                )}
+                            >
+                                {index === null ? '—' : index}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">
+                                NPS индекс · {sorted.length} үнэлгээ
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <SendSurveyDialog
+                    open={sendOpen}
+                    onOpenChange={setSendOpen}
+                    companyId={companyId}
+                    companyName={companyName}
+                    kam={actor.kam ?? null}
+                />
 
                 <form onSubmit={handleAdd} className="mt-4 flex items-end gap-2 flex-wrap">
                     <div className="space-y-1">

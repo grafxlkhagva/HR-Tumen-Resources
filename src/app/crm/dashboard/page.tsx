@@ -23,7 +23,8 @@ import {
     type Survey,
     type SyncStatus,
 } from '../_types';
-import { normName, targetTone, type Tone } from '../_lib/stats';
+import { normName, targetTone, buildCustomerRow, type Tone } from '../_lib/stats';
+import type { CompanyStats } from '../_types';
 import { useKamScope } from '../_lib/use-kam-scope';
 import type { Employee } from '@/types';
 import { StatCard } from '../reports/_components/stat-card';
@@ -122,6 +123,12 @@ export default function CrmDashboardPage() {
     );
     const { data: surveys } = useCollection<Survey>(surveysRef);
 
+    const companyStatsRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_company_stats') : null),
+        [firestore],
+    );
+    const { data: companyStats } = useCollection<CompanyStats>(companyStatsRef);
+
     // Админд л хэрэгтэй дата (эрхгүй хэрэглэгчээс огт уншихгүй)
     const syncRef = useMemoFirebase(
         () => (firestore && isDirector ? doc(firestore, 'crm_settings', 'sync') : null),
@@ -155,6 +162,19 @@ export default function CrmDashboardPage() {
         const list = activities.filter((a) => a.type === 'meeting');
         return kamName ? list.filter((a) => a.kam === kamName) : list;
     }, [activities, kamName]);
+
+    // Churn эрсдэлтэй харилцагчид (KAM scope) — dashboard сануулгад.
+    const churnRows = React.useMemo(() => {
+        const nowMonth = new Date().getMonth() + 1;
+        const scoped = kamName
+            ? (companyStats || []).filter((s) => s.kam === kamName)
+            : companyStats || [];
+        return scoped
+            .map((s) => buildCustomerRow(s, nowMonth))
+            .filter((r) => r.risk === 'high')
+            .sort((a, b) => b.rev2025 - a.rev2025)
+            .slice(0, 6);
+    }, [companyStats, kamName]);
 
     const scopedSurveys = React.useMemo(() => {
         if (!kamName) return surveys;
@@ -323,8 +343,20 @@ export default function CrmDashboardPage() {
             });
         });
 
+        // 6. Churn эрсдэл өндөр харилцагчид
+        churnRows.forEach((r) => {
+            out.push({
+                key: `churn-${r.stats.companyKey}`,
+                level: 'warn',
+                type: 'Эрсдэл',
+                text: `${r.stats.name} — churn эрсдэл өндөр, эргэн холбогдоно`,
+                href: r.stats.companyId ? `/crm/companies/${r.stats.companyId}` : '/crm/automation',
+                icon: 'nps',
+            });
+        });
+
         return out;
-    }, [scopedDeals, tasks, meetings, scopedSurveys]);
+    }, [scopedDeals, tasks, meetings, scopedSurveys, churnRows]);
 
     const isLoading = scope.isLoading || (isStats26Loading && !stats26);
 

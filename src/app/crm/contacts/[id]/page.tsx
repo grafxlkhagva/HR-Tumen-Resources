@@ -56,6 +56,7 @@ import { DEFAULT_PIPELINE, formatMoney, getStage } from '../../_types';
 import { ActivityTimeline } from '../../_components/activity-timeline';
 import { TicketsCard } from '../../_components/tickets-card';
 import { SendEmailDialog } from '../../_components/send-email-dialog';
+import { CompanyLeadScore } from '../../_components/company-lead-score';
 import {
     LEAD_STATUSES,
     LEAD_STATUS_LABELS,
@@ -208,6 +209,9 @@ export default function ContactDetailPage() {
                                 {fullName(contact)}
                             </h1>
                             <LifecycleBadge stage={contact.lifecycleStage} />
+                            {contact.companyId && (
+                                <CompanyLeadScore companyId={contact.companyId} compact />
+                            )}
                         </div>
                         {contact.jobTitle && (
                             <div className="text-[11px] text-muted-foreground truncate">

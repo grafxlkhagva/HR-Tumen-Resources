@@ -229,3 +229,66 @@ Summarize.`;
         return output;
     },
 );
+
+// ─────────────────────────────────────── CHAT WITH DATA
+
+const ChatMessageSchema = z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+});
+
+export const CrmChatInputSchema = z.object({
+    /** Хэрэглэгчийн асуулт. */
+    question: z.string(),
+    /** Клиент талд бэлдсэн дата хураангуй (текст) — AI зөвхөн үүнээс хариулна. */
+    snapshot: z.string(),
+    /** Өмнөх харилцан яриа (сүүлийн хэдэн мессеж). */
+    history: z.array(ChatMessageSchema).optional(),
+    language: z.enum(['mn', 'en']).default('mn'),
+});
+
+export const CrmChatOutputSchema = z.object({
+    answer: z.string().describe('Асуултын хариу. Markdown зөвшөөрөгдөнө.'),
+});
+
+export type CrmChatInput = z.infer<typeof CrmChatInputSchema>;
+export type CrmChatOutput = z.infer<typeof CrmChatOutputSchema>;
+
+export const crmChatFlow = ai.defineFlow(
+    {
+        name: 'crmChat',
+        inputSchema: CrmChatInputSchema,
+        outputSchema: CrmChatOutputSchema,
+    },
+    async (input) => {
+        const { question, snapshot, history, language } = input;
+        const lang = language === 'en' ? 'English' : 'Mongolian';
+
+        const system = `You are a CRM/sales analytics assistant for "Түмэн Тээх" logistics company.
+- Answer ONLY using the DATA SNAPSHOT provided below. Do NOT invent numbers.
+- Copy numbers EXACTLY as they appear in the snapshot (keep commas, ₮, %, M).
+- If the snapshot lacks the needed data, say so honestly (in ${lang}) and suggest what page/data would help.
+- Be concise and practical. Use short paragraphs or bullet lists. Markdown allowed.
+- Output language: ${lang}. If the user's question is in Mongolian, answer in Mongolian.
+
+=== DATA SNAPSHOT ===
+${snapshot}
+=== END SNAPSHOT ===`;
+
+        const historyText = (history || [])
+            .slice(-6)
+            .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+            .join('\n');
+
+        const prompt = `${historyText ? historyText + '\n' : ''}User: ${question}`;
+
+        const { output } = await ai.generate({
+            system,
+            prompt,
+            output: { schema: CrmChatOutputSchema },
+        });
+
+        if (!output) throw new Error('AI did not return an answer.');
+        return output;
+    },
+);

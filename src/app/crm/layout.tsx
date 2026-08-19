@@ -7,6 +7,7 @@ import { useUser, useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import {
     Loader2,
     HeartHandshake,
@@ -32,10 +33,15 @@ import {
     CalendarRange,
     Truck,
     ScrollText,
+    Menu,
+    Sparkles,
+    Zap,
 } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 import { PortalSwitcher } from '@/components/portal-switcher';
+import { CommandPalette } from './_components/command-palette';
+import { NotificationBell } from './_components/notification-bell';
 
 type NavItem = {
     href: string;
@@ -76,6 +82,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     {
         title: 'Аналитик',
         items: [
+            { href: '/crm/assistant', label: 'AI туслах', icon: Sparkles },
             { href: '/crm/analytics', label: 'Шинжилгээ', icon: LineChart },
             { href: '/crm/performance', label: 'Гүйцэтгэл', icon: Gauge },
             { href: '/crm/reports', label: 'Тайлан', icon: BarChart3 },
@@ -86,6 +93,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
     {
         title: 'Tools',
         items: [
+            { href: '/crm/automation', label: 'Автоматжуулалт', icon: Zap },
             { href: '/crm/import', label: 'HubSpot импорт', icon: Upload },
             { href: '/crm/import-prototype', label: 'Прототип импорт', icon: Upload, adminOnly: true },
             { href: '/crm/audit', label: 'Аудит лог', icon: ScrollText, adminOnly: true },
@@ -100,6 +108,25 @@ function CrmShell({ children }: { children: React.ReactNode }) {
     const { user, isUserLoading } = useUser();
     const { employeeProfile, isProfileLoading } = useEmployeeProfile();
     const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+    const [cmdOpen, setCmdOpen] = React.useState(false);
+    const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
+
+    // ⌘K / Ctrl+K — глобал хайлт нээх/хаах.
+    React.useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                e.preventDefault();
+                setCmdOpen((v) => !v);
+            }
+        };
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, []);
+
+    // Хуудас солигдоход мобайл цэсийг хаах.
+    React.useEffect(() => {
+        setMobileNavOpen(false);
+    }, [pathname]);
 
     const hasAccess = React.useMemo(() => {
         if (!employeeProfile) return null;
@@ -162,33 +189,22 @@ function CrmShell({ children }: { children: React.ReactNode }) {
             ? `${employeeProfile.firstName} ${employeeProfile.lastName}`
             : user?.email ?? user?.displayName ?? 'Хэрэглэгч';
 
-    return (
-        <div className="flex h-screen overflow-hidden bg-background">
-            <aside className="flex w-60 flex-col border-r bg-muted/30">
-                <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
-                    <Link href="/crm" className="flex items-center gap-2 font-semibold min-w-0">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 shrink-0">
-                            <HeartHandshake className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
-                        </div>
-                        <span className="truncate">CRM</span>
-                    </Link>
-                    <PortalSwitcher currentPortalId="crm" />
-                </div>
+    const sidebarBody = (
+        <>
+            <div className="px-3 py-3 border-b">
+                <button
+                    type="button"
+                    onClick={() => setCmdOpen(true)}
+                    className="w-full flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground hover:border-primary/30 transition-colors"
+                    aria-label="Хайх"
+                >
+                    <Search className="h-4 w-4" />
+                    <span>Хайх...</span>
+                    <span className="ml-auto text-[10px] text-muted-foreground/60">⌘K</span>
+                </button>
+            </div>
 
-                <div className="px-3 py-3 border-b">
-                    <button
-                        type="button"
-                        className="w-full flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm text-muted-foreground hover:border-primary/30 transition-colors"
-                        disabled
-                        aria-label="Хайх"
-                    >
-                        <Search className="h-4 w-4" />
-                        <span>Хайх...</span>
-                        <span className="ml-auto text-[10px] text-muted-foreground/60">⌘K</span>
-                    </button>
-                </div>
-
-                <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+            <nav className="flex-1 overflow-y-auto p-3 space-y-4">
                     {navSections.map((section) => (
                         <div key={section.title} className="space-y-1">
                             <div className="px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -251,9 +267,76 @@ function CrmShell({ children }: { children: React.ReactNode }) {
                         Гарах
                     </Button>
                 </div>
+        </>
+    );
+
+    const brandHeader = (
+        <div className="flex h-14 items-center justify-between gap-2 border-b px-4">
+            <Link href="/crm" className="flex items-center gap-2 font-semibold min-w-0">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 shrink-0">
+                    <HeartHandshake className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <span className="truncate">CRM</span>
+            </Link>
+            <div className="flex items-center gap-1.5">
+                <NotificationBell />
+                <PortalSwitcher currentPortalId="crm" />
+            </div>
+        </div>
+    );
+
+    return (
+        <div className="flex h-screen overflow-hidden bg-background">
+            {/* Desktop sidebar */}
+            <aside className="hidden md:flex w-60 flex-col border-r bg-muted/30">
+                {brandHeader}
+                {sidebarBody}
             </aside>
 
-            <main className="flex-1 flex flex-col overflow-hidden">{children}</main>
+            {/* Mobile drawer */}
+            <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+                <SheetContent side="left" className="w-72 p-0 flex flex-col bg-muted/30">
+                    <SheetTitle className="sr-only">CRM цэс</SheetTitle>
+                    {brandHeader}
+                    {sidebarBody}
+                </SheetContent>
+            </Sheet>
+
+            <main className="flex-1 flex flex-col overflow-hidden">
+                {/* Mobile top bar */}
+                <div className="flex md:hidden h-14 items-center gap-2 border-b bg-muted/30 px-3">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={() => setMobileNavOpen(true)}
+                        aria-label="Цэс нээх"
+                    >
+                        <Menu className="h-5 w-5" />
+                    </Button>
+                    <Link href="/crm" className="flex items-center gap-2 font-semibold min-w-0">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-cyan-500/10 shrink-0">
+                            <HeartHandshake className="h-4 w-4 text-cyan-600 dark:text-cyan-400" />
+                        </div>
+                        <span className="truncate text-sm">CRM</span>
+                    </Link>
+                    <div className="ml-auto flex items-center gap-1.5">
+                        <NotificationBell />
+                        <button
+                            type="button"
+                            onClick={() => setCmdOpen(true)}
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border bg-background text-muted-foreground shrink-0"
+                            aria-label="Хайх"
+                        >
+                            <Search className="h-4 w-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {children}
+            </main>
+
+            <CommandPalette open={cmdOpen} onOpenChange={setCmdOpen} />
         </div>
     );
 }

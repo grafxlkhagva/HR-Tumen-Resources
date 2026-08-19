@@ -40,10 +40,16 @@ import {
     KAM_LIST,
     SEGMENTS,
     type Company,
+    type CompanyStats,
     type Contact,
+    type Activity,
     type FunnelStage,
 } from '../_types';
 import { logAudit } from '../_lib/crm-actions';
+import { normName } from '../_lib/stats';
+import { scoreCompany } from '../_lib/lead-score';
+import { LeadScoreBadge } from '../_components/lead-score-badge';
+import { SavedViews } from '../_components/saved-views';
 import { useKamScope } from '../_lib/use-kam-scope';
 import { NewCompanyDialog } from './new-company-dialog';
 
@@ -89,6 +95,8 @@ function CompaniesPageInner() {
     const [kamFilter, setKamFilter] = React.useState<string | null>(null);
     const [selected, setSelected] = React.useState<Set<string>>(new Set());
     const [bulkKam, setBulkKam] = React.useState('none');
+    const [bandFilter, setBandFilter] = React.useState<'all' | 'hot' | 'warm' | 'cold'>('all');
+    const [scoreSort, setScoreSort] = React.useState(false);
 
     const stageParamRaw = searchParams.get('stage');
     const stageFilter: FunnelStage | null = ALL_STAGES.includes(
@@ -132,6 +140,56 @@ function CompaniesPageInner() {
         return counts;
     }, [contacts]);
 
+    // ── Лийд оноонд хэрэгтэй дата: компанийн агрегат + үйл ажиллагаа ──
+    const companyStatsRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_company_stats') : null),
+        [firestore],
+    );
+    const { data: companyStats } = useCollection<CompanyStats>(companyStatsRef);
+
+    const activitiesRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_activities') : null),
+        [firestore],
+    );
+    const { data: activities } = useCollection<Activity>(activitiesRef);
+
+    // stats-ыг companyId эсвэл нэрийн түлхүүрээр индекслэнэ.
+    const statsByCompany = React.useMemo(() => {
+        const byId = new Map<string, CompanyStats>();
+        const byKey = new Map<string, CompanyStats>();
+        (companyStats || []).forEach((s) => {
+            if (s.companyId) byId.set(s.companyId, s);
+            if (s.companyKey) byKey.set(s.companyKey, s);
+        });
+        return { byId, byKey };
+    }, [companyStats]);
+
+    // Компани бүрийн сүүлийн үйл ажиллагааны огноо (ms).
+    const lastActivityByCompany = React.useMemo(() => {
+        const map = new Map<string, number>();
+        (activities || []).forEach((a) => {
+            const ms = a.createdAt?.toMillis?.() ?? 0;
+            if (!ms) return;
+            (a.companyIds || []).forEach((cid) => {
+                if (ms > (map.get(cid) ?? 0)) map.set(cid, ms);
+            });
+        });
+        return map;
+    }, [activities]);
+
+    const scoreOf = React.useCallback(
+        (c: Company) => {
+            const stats =
+                statsByCompany.byId.get(c.id) ?? statsByCompany.byKey.get(normName(c.name));
+            return scoreCompany({
+                company: c,
+                stats,
+                lastActivityMs: lastActivityByCompany.get(c.id) ?? null,
+            });
+        },
+        [statsByCompany, lastActivityByCompany],
+    );
+
     // Шатнаас БУСАД шүүлтүүрийг тусгасан суурь жагсаалт (chips-ийн тоо үүн дээр)
     const baseFiltered = React.useMemo(() => {
         const list = companies || [];
@@ -165,14 +223,24 @@ function CompaniesPageInner() {
     }, [baseFiltered]);
 
     const filtered = React.useMemo(() => {
-        if (!stageFilter) return baseFiltered;
-        return baseFiltered.filter((c) => normStage(c.funnelStage) === stageFilter);
-    }, [baseFiltered, stageFilter]);
+        let list = stageFilter
+            ? baseFiltered.filter((c) => normStage(c.funnelStage) === stageFilter)
+            : baseFiltered;
+        if (bandFilter !== 'all') {
+            list = list.filter((c) => scoreOf(c).band === bandFilter);
+        }
+        if (scoreSort) {
+            list = [...list].sort((a, b) => scoreOf(b).score - scoreOf(a).score);
+        }
+        return list;
+    }, [baseFiltered, stageFilter, bandFilter, scoreSort, scoreOf]);
 
     const hasFilter =
         !!stageFilter ||
         segmentFilter !== 'all' ||
         effectiveKam !== 'all' ||
+        bandFilter !== 'all' ||
+        scoreSort ||
         searchTerm.trim().length > 0;
 
     const toggleSelected = React.useCallback((id: string, on: boolean) => {
@@ -300,6 +368,18 @@ function CompaniesPageInner() {
                     </SelectContent>
                 </Select>
 
+                <Select value={bandFilter} onValueChange={(v) => setBandFilter(v as typeof bandFilter)}>
+                    <SelectTrigger className="h-9 w-[150px]">
+                        <SelectValue placeholder="Оноо" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="all">Бүх оноо</SelectItem>
+                        <SelectItem value="hot">🔥 Халуун</SelectItem>
+                        <SelectItem value="warm">🌤 Бүлээн</SelectItem>
+                        <SelectItem value="cold">❄️ Хүйтэн</SelectItem>
+                    </SelectContent>
+                </Select>
+
                 {hasFilter && (
                     <Button
                         variant="ghost"
@@ -310,12 +390,38 @@ function CompaniesPageInner() {
                             setSegmentFilter('all');
                             setKamFilter('all');
                             setStageFilter(null);
+                            setBandFilter('all');
+                            setScoreSort(false);
                         }}
                     >
                         <X className="h-3.5 w-3.5 mr-1" />
                         Цэвэрлэх
                     </Button>
                 )}
+
+                <div className="ml-auto">
+                    <SavedViews
+                        viewKey="companies"
+                        current={{ searchTerm, segmentFilter, kamFilter, stageFilter, bandFilter, scoreSort }}
+                        hasActive={hasFilter}
+                        onApply={(s) => {
+                            setSearchTerm(s.searchTerm);
+                            setSegmentFilter(s.segmentFilter);
+                            setKamFilter(s.kamFilter);
+                            setStageFilter(s.stageFilter);
+                            setBandFilter(s.bandFilter);
+                            setScoreSort(s.scoreSort);
+                        }}
+                        isActive={(s) =>
+                            s.searchTerm === searchTerm &&
+                            s.segmentFilter === segmentFilter &&
+                            (s.kamFilter ?? null) === (kamFilter ?? null) &&
+                            (s.stageFilter ?? null) === (stageFilter ?? null) &&
+                            s.bandFilter === bandFilter &&
+                            s.scoreSort === scoreSort
+                        }
+                    />
+                </div>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -341,6 +447,18 @@ function CompaniesPageInner() {
                                     </TableHead>
                                 )}
                                 <TableHead className="w-[260px]">Нэр</TableHead>
+                                <TableHead className="w-[80px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => setScoreSort((v) => !v)}
+                                        className={cn(
+                                            'inline-flex items-center gap-1 hover:text-foreground',
+                                            scoreSort && 'text-cyan-700 font-semibold',
+                                        )}
+                                    >
+                                        Оноо {scoreSort ? '↓' : '⇅'}
+                                    </button>
+                                </TableHead>
                                 <TableHead>Шат</TableHead>
                                 <TableHead>Сегмент</TableHead>
                                 <TableHead>Салбар</TableHead>
@@ -353,6 +471,7 @@ function CompaniesPageInner() {
                         <TableBody>
                             {filtered.map((c) => {
                                 const st = normStage(c.funnelStage);
+                                const sc = scoreOf(c);
                                 return (
                                     <TableRow
                                         key={c.id}
@@ -391,6 +510,9 @@ function CompaniesPageInner() {
                                                     )}
                                                 </div>
                                             </Link>
+                                        </TableCell>
+                                        <TableCell onClick={(e) => e.stopPropagation()}>
+                                            <LeadScoreBadge score={sc} compact />
                                         </TableCell>
                                         <TableCell>
                                             <span

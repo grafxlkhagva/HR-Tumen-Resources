@@ -60,6 +60,7 @@ import { useKamScope } from '../../_lib/use-kam-scope';
 import { ActivityTimeline } from '../../_components/activity-timeline';
 import { TicketsCard } from '../../_components/tickets-card';
 import { QuotesCard } from '../../_components/quotes-card';
+import { CompanyLeadScore } from '../../_components/company-lead-score';
 import { StageReasonDialog } from '../_components/stage-reason-dialog';
 import { SourceTypeBadge, DaysChip, daysInStage } from '../_components/deal-badges';
 
@@ -261,7 +262,10 @@ export default function DealDetailPage() {
                         <Briefcase className="h-4 w-4 text-cyan-600" />
                     </div>
                     <div className="min-w-0">
-                        <h1 className="text-base font-semibold truncate">{deal.name}</h1>
+                        <div className="flex items-center gap-2 min-w-0">
+                            <h1 className="text-base font-semibold truncate">{deal.name}</h1>
+                            {deal.companyId && <CompanyLeadScore companyId={deal.companyId} compact />}
+                        </div>
                         <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                             <span
                                 className="inline-flex items-center gap-1"
