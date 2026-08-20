@@ -227,6 +227,9 @@ export interface TmsSettings {
   recurringCodePrefix?: string;
   recurringCodePadding?: number;
   recurringCodeCurrentNumber?: number;
+  contractR1CodePrefix?: string;
+  contractR1CodePadding?: number;
+  contractR1CodeCurrentNumber?: number;
   updatedAt?: Timestamp;
 }
 export const TMS_SETTINGS_COLLECTION = 'tms_settings';
@@ -1034,3 +1037,83 @@ export interface TmsRecurringTransport {
 }
 
 export const TMS_RECURRING_TRANSPORTS_COLLECTION = 'tms_recurring_transports';
+
+// ==================================================================
+// ГЭРЭЭ REV#1 (contracts rev1)
+// Prototype-ийн contracts модулийн порт — тээвэрлэгчид, машин+жолооч,
+// нэхэмжлэх давтамж, rate unit-тэй үйлчилгээний мөрүүд.
+// Одоогийн tms_contracts-тай зэрэгцэн ажиллана (хөндөгдөхгүй).
+// ==================================================================
+
+/** Нэхэмжлэх давтамж */
+export type TmsCr1BillingPeriod = 'weekly' | 'biweekly' | 'monthly' | 'custom';
+
+/** Үйлчилгээний төрөл (prototype-ийн shipment төрлүүдтэй ижил нэршил) */
+export type TmsCr1ServiceType =
+  | 'tugeelt'
+  | 'orn_nutag'
+  | 'dotor'
+  | 'avtokran'
+  | 'project'
+  | 'other';
+
+/** Үнэлгээний нэгж */
+export type TmsCr1RateUnit =
+  | 'daily'
+  | 'per_trip'
+  | 'per_ton_km'
+  | 'per_km'
+  | 'fixed'
+  | 'hourly'
+  | 'other';
+
+/** Гэрээ REV#1-ийн үйлчилгээний мөр */
+export interface TmsCr1Service {
+  id: string;
+  sequence: number;
+  serviceType: TmsCr1ServiceType;
+  /** Тэвш / бүхээгийн төрөл — чөлөөт текст */
+  vehicleBodyType?: string | null;
+  rateUnit: TmsCr1RateUnit;
+  /** Тээвэрчинд төлөх нэгж үнэ (₮ / нэгж) */
+  carrierRate?: number | null;
+  /** Захиалагчид нэхэмжлэх нэгж үнэ */
+  customerRate?: number | null;
+  /** per_ton_km / per_km нэгжид ЗААВАЛ */
+  distanceKm?: number | null;
+  notes?: string | null;
+}
+
+/** Гэрээнд хамаарах машин + үндсэн жолооч */
+export interface TmsCr1Vehicle {
+  vehicleId: string;
+  vehiclePlate?: string | null;
+  defaultDriverId?: string | null;
+  defaultDriverName?: string | null;
+}
+
+/** Гэрээ REV#1 */
+export interface TmsContractRev1 {
+  id: string;
+  /** Автомат дугаар — DC-0001 */
+  code?: string;
+  customerId: string;
+  customerRef?: DocumentReference;
+  customerName?: string | null;
+  /** 'YYYY-MM-DD' — orderBy талбар тул үргэлж бичигдэнэ */
+  startDate: string;
+  endDate?: string | null;
+  billingPeriod: TmsCr1BillingPeriod;
+  /** Тээвэрлэгч компаниуд — чөлөөт нэрсийн жагсаалт (OT/RT-ийн carrierName-тэй ижил загвар) */
+  carrierNames: string[];
+  services: TmsCr1Service[];
+  vehicles: TmsCr1Vehicle[];
+  /** Гэрээний нөхцөл */
+  terms?: string | null;
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_CONTRACTS_REV1_COLLECTION = 'tms_contracts_rev1';

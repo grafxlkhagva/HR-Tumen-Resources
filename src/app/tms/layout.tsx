@@ -8,7 +8,7 @@ import { signOut } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText, Satellite, Package, ReceiptText, Repeat } from 'lucide-react';
+import { Loader2, LayoutGrid, Users, LogOut, Warehouse, Truck, Settings, Car, FileText, Briefcase, Navigation, ShieldAlert, ScrollText, Satellite, Package, ReceiptText, Repeat, FileSignature } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
 import { PortalSwitcher } from '@/components/portal-switcher';
@@ -26,9 +26,18 @@ const navItems = [
   { href: '/tms/quotations', label: 'Үнийн санал', icon: FileText },
   { href: '/tms/quotes', label: 'Үнийн санал REV#1', icon: ReceiptText },
   { href: '/tms/contracts', label: 'Гэрээ', icon: ScrollText },
+  { href: '/tms/contracts-rev1', label: 'Гэрээ REV#1', icon: FileSignature },
   { href: '/tms/gps-settings', label: 'GPS тохиргоо', icon: Satellite },
   { href: '/tms/settings', label: 'Тохиргоо', icon: Settings },
 ] as const;
+
+/** Prototype-оос шинээр порт хийсэн цэсүүд — bold-оор ялгаж харуулна */
+const BOLD_NAV_HREFS = new Set<string>([
+  '/tms/one-time-transports',
+  '/tms/recurring-transports',
+  '/tms/quotes',
+  '/tms/contracts-rev1',
+]);
 
 function TmsShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -114,6 +123,7 @@ function TmsShell({ children }: { children: React.ReactNode }) {
                 href={href}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                  BOLD_NAV_HREFS.has(href) && 'font-bold',
                   isActive
                     ? 'bg-primary text-primary-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'

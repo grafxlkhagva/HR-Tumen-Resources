@@ -99,6 +99,9 @@ const settingsSchema = z.object({
   recurringCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
   recurringCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
   recurringCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+  contractR1CodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  contractR1CodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  contractR1CodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
 });
 
 type MakeFormValues = z.infer<typeof makeSchema>;
@@ -270,7 +273,8 @@ export default function TmsSettingsPage() {
       contractCodePrefix: 'CT', contractCodePadding: 5, contractCodeCurrentNumber: 0,
       oneTimeCodePrefix: 'OT-', oneTimeCodePadding: 4, oneTimeCodeCurrentNumber: 0,
       quoteCodePrefix: 'QT-', quoteCodePadding: 4, quoteCodeCurrentNumber: 0,
-      recurringCodePrefix: 'RT-', recurringCodePadding: 4, recurringCodeCurrentNumber: 0
+      recurringCodePrefix: 'RT-', recurringCodePadding: 4, recurringCodeCurrentNumber: 0,
+      contractR1CodePrefix: 'DC-', contractR1CodePadding: 4, contractR1CodeCurrentNumber: 0
     },
   });
 
@@ -295,6 +299,9 @@ export default function TmsSettingsPage() {
         recurringCodePrefix: settings.recurringCodePrefix || 'RT-',
         recurringCodePadding: settings.recurringCodePadding || 4,
         recurringCodeCurrentNumber: settings.recurringCodeCurrentNumber || 0,
+        contractR1CodePrefix: settings.contractR1CodePrefix || 'DC-',
+        contractR1CodePadding: settings.contractR1CodePadding || 4,
+        contractR1CodeCurrentNumber: settings.contractR1CodeCurrentNumber || 0,
       });
     }
   }, [settings, settingsForm]);
@@ -990,6 +997,51 @@ export default function TmsSettingsPage() {
                       <FormField
                         control={settingsForm.control}
                         name="recurringCodeCurrentNumber"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Одоогийн дугаар</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-card border rounded-lg p-6">
+                    <h3 className="text-lg font-medium mb-4">Гэрээ REV#1 кодчилол</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractR1CodePrefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын угтвар</FormLabel>
+                            <FormControl>
+                              <Input placeholder="DC-" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractR1CodePadding"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын цифрийн урт</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={10} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="contractR1CodeCurrentNumber"
                         render={({ field }) => (
                           <FormItem className="col-span-2">
                             <FormLabel>Одоогийн дугаар</FormLabel>

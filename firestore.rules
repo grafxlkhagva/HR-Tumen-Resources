@@ -845,6 +845,11 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
 
+    // ─── Гэрээ REV#1 ─────────────────────────────────────────────────────
+    match /tms_contracts_rev1/{contractId} {
+      allow read, write: if isTmsAllowed();
+    }
+
     // ─── Машины бүртгэл (өдрийн үзлэг, түлш, odometer, засвар) ───────────
     match /tms_vehicle_maintenance/{maintId} {
       allow read: if isTmsAllowed()
