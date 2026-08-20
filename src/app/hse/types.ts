@@ -85,6 +85,7 @@ export interface Hazard {
     imgUrl?: string; // анхны аюулын зураг
     videoUrl?: string; // анхны аюулын видео холбоос
     zalruulga?: HazardCorrection | null; // залруулга
+    tanilcsanIds?: string[]; // танилцсан ажилтан (хариуцагч/танилцагч)
     createdAt?: number;
 }
 
@@ -917,6 +918,7 @@ export interface PpeIssueItem {
     huleenAvsan?: boolean; // Хүлээн авсан (гарын үсэг)
     huleelgenOgson?: boolean; // Хүлээлгэн өгсөн (гарын үсэг)
     ognoo?: string; // Огноо
+    imgUrl?: string; // хэрэгслийн зураг
 }
 
 export interface PpeIssue {

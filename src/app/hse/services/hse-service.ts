@@ -66,3 +66,19 @@ export async function uploadHseFile(
     await uploadBytes(storageRef, file);
     return getDownloadURL(storageRef);
 }
+
+/**
+ * Аюулын залруулгын зураг — hse-corrections/{uid}/ зам дор байршуулна.
+ * Энэ зам нь нэвтэрсэн ажилтанд (hseAccess шаардахгүй) бичих боломжтой.
+ */
+export async function uploadCorrectionFile(
+    storage: FirebaseStorage,
+    uid: string,
+    file: File,
+): Promise<string> {
+    const ext = file.name.split('.').pop() || 'bin';
+    const path = `hse-corrections/${uid}/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file);
+    return getDownloadURL(storageRef);
+}

@@ -117,6 +117,13 @@ service cloud.firestore {
              request.resource.data.get(signField, []).hasOnly(resource.data.get(signField, []).concat([request.auth.uid]));
     }
 
+    // Аюулын хариуцагч (haritslahId) залруулга/төлөв/танилцсаныг л өөрчилнө.
+    function canFixHazard() {
+      return isSignedIn() &&
+             request.auth.uid == resource.data.get('haritslahId', '') &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['zalruulga', 'tuluw', 'tanilcsanIds']);
+    }
+
     function isCrmUser() {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
@@ -920,10 +927,11 @@ service cloud.firestore {
 
     // ─── ХАБЭА (HSE — Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) ───────────
     // hse_* collection-ууд: админ эсвэл hseAccess эрхтэй ажилтан унших/бичих.
-    // Аюул: хариуцагч ажилтан (haritslahId) өөрт оноогдсоныг унших боломжтой (зөвхөн харах).
+    // Аюул: хариуцагч ажилтан (haritslahId) унших + залруулга/танилцсан бүртгэх.
     match /hse_hazards/{docId} {
       allow read: if isHseAllowed() || resource.data.get('haritslahId', '') == request.auth.uid;
-      allow write: if isHseAllowed();
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canFixHazard();
     }
     match /hse_hazard_categories/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_take5/{docId} { allow read, write: if isHseAllowed(); }

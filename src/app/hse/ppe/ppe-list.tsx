@@ -169,9 +169,19 @@ export function PpeList() {
                                 {(detailItem.items ?? []).map((it, i) => (
                                     <div
                                         key={i}
-                                        className="flex items-center justify-between px-3 py-2 text-caption"
+                                        className="flex items-center gap-3 px-3 py-2 text-caption"
                                     >
-                                        <span>{it.torol}</span>
+                                        {it.imgUrl && (
+                                            <a href={it.imgUrl} target="_blank" rel="noreferrer">
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img
+                                                    src={it.imgUrl}
+                                                    alt={it.torol}
+                                                    className="h-10 w-10 rounded border object-cover"
+                                                />
+                                            </a>
+                                        )}
+                                        <span className="flex-1">{it.torol}</span>
                                         <span className="text-muted-foreground">{it.too ?? 1} ш</span>
                                     </div>
                                 ))}

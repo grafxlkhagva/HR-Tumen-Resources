@@ -98,13 +98,23 @@ export default function MobileHsePpeDetailPage() {
                             <CardContent className="p-4">
                                 <h3 className="text-sm font-semibold mb-2">Олгосон хэрэгсэл</h3>
                                 {item.items && item.items.length > 0 ? (
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-2">
                                         {item.items.map((it, i) => (
                                             <div
                                                 key={i}
-                                                className="flex items-center justify-between border-b pb-1.5 text-sm last:border-b-0 last:pb-0"
+                                                className="flex items-center gap-3 border-b pb-2 text-sm last:border-b-0 last:pb-0"
                                             >
-                                                <span>{it.torol}</span>
+                                                {it.imgUrl && (
+                                                    // eslint-disable-next-line @next/next/no-img-element
+                                                    <a href={it.imgUrl} target="_blank" rel="noreferrer">
+                                                        <img
+                                                            src={it.imgUrl}
+                                                            alt={it.torol}
+                                                            className="h-12 w-12 rounded-lg border object-cover"
+                                                        />
+                                                    </a>
+                                                )}
+                                                <span className="flex-1">{it.torol}</span>
                                                 <span className="text-muted-foreground">{it.too ?? 1} ш</span>
                                             </div>
                                         ))}

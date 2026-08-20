@@ -26,6 +26,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { EmployeeSelect } from '../components/employee-select';
+import { ImageUpload } from '../components/image-upload';
 import { createHseDoc, updateHseDoc } from '../services/hse-service';
 import {
     HSE_COLLECTIONS,
@@ -109,6 +110,7 @@ export function PpeIssueForm({
                     huleenAvsan: !!it.huleenAvsan,
                     huleelgenOgson: !!it.huleelgenOgson,
                     ognoo: it.ognoo || null,
+                    imgUrl: it.imgUrl || null,
                 }));
             const payload = {
                 ajiltanId: ajiltanId || null,
@@ -273,6 +275,15 @@ export function PpeIssueForm({
                                         />
                                         Хүлээлгэн өгсөн
                                     </label>
+                                </div>
+                                <div className="mt-3">
+                                    <FormFieldWrapper label="Зураг">
+                                        <ImageUpload
+                                            value={it.imgUrl}
+                                            onChange={(url) => setItem(i, { imgUrl: url })}
+                                            folder="ppe"
+                                        />
+                                    </FormFieldWrapper>
                                 </div>
                             </div>
                         ))}

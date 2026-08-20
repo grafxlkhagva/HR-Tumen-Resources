@@ -155,7 +155,7 @@ function HseContent() {
                 color: 'text-amber-600',
                 bg: 'bg-amber-50',
                 count: sortedHazards.length,
-                pending: sortedHazards.filter((h) => h.tuluw !== 'Хаагдсан').length,
+                pending: sortedHazards.filter((h) => notSigned(h.tanilcsanIds)).length,
             },
             {
                 key: 'violation' as FolderKey,
@@ -281,6 +281,7 @@ function HseContent() {
                             sortedHazards.map((h) => (
                                 <InfoCard
                                     key={h.id}
+                                    href={`/mobile/hse/hazard/${h.id}`}
                                     title={h.desc}
                                     date={h.ognoo}
                                     location={h.bairshil}
@@ -509,22 +510,29 @@ function AckCard({
     );
 }
 
-/** Зөвхөн харах мэдээллийн карт (аюул / зөрчил). */
+/** Мэдээллийн карт (аюул / зөрчил). href өгвөл дэлгэрэнгүй рүү шилжинэ. */
 function InfoCard({
+    href,
     title,
     subtitle,
     date,
     location,
     badges,
 }: {
+    href?: string;
     title: string;
     subtitle?: string;
     date?: string;
     location?: string;
     badges: React.ReactNode;
 }) {
+    const router = useRouter();
+    const clickable = !!href;
     return (
-        <Card>
+        <Card
+            className={clickable ? 'cursor-pointer active:opacity-70 transition-opacity' : ''}
+            onClick={clickable ? () => router.push(href!) : undefined}
+        >
             <CardContent className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                     <h3 className="font-medium text-sm line-clamp-2">{title}</h3>
@@ -544,6 +552,7 @@ function InfoCard({
                             {date}
                         </span>
                     )}
+                    {clickable && <ChevronRight className="ml-auto h-4 w-4" />}
                 </div>
             </CardContent>
         </Card>
