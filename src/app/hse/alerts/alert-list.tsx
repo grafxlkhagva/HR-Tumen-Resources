@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Video, Users } from 'lucide-react';
+import { Plus, Pencil, Trash2, Video, Users, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { EmptyState, AppConfirmDialog } from '@/components/patterns';
@@ -14,6 +14,7 @@ import { useHseEmployees } from '../components/use-hse-employees';
 import { deleteHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, type HseAlert } from '../types';
 import { AlertForm } from './alert-form';
+import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
 export function AlertList() {
     const { firestore } = useFirebase();
@@ -22,6 +23,7 @@ export function AlertList() {
 
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<HseAlert | null>(null);
+    const [detailItem, setDetailItem] = React.useState<HseAlert | null>(null);
 
     const alertsQuery = useMemoFirebase(
         () =>
@@ -131,6 +133,13 @@ export function AlertList() {
                                             <Button
                                                 variant="ghost"
                                                 size="icon-sm"
+                                                onClick={() => setDetailItem(a)}
+                                            >
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon-sm"
                                                 onClick={() => openEdit(a)}
                                             >
                                                 <Pencil className="h-4 w-4" />
@@ -155,6 +164,20 @@ export function AlertList() {
             )}
 
             <AlertForm open={formOpen} onOpenChange={setFormOpen} alert={editing} />
+
+            {detailItem && (
+                <SignersDetailDialog
+                    open={!!detailItem}
+                    onOpenChange={(v) => !v && setDetailItem(null)}
+                    title={detailItem.albaNer || detailItem.angilal || 'Сэрэмжлүүлэг'}
+                    subtitle={detailItem.desc}
+                    itemId={detailItem.id}
+                    assignedIds={detailItem.tanilcahIds ?? []}
+                    signedIds={detailItem.tanilcsanIds ?? []}
+                    images={[detailItem.imgUrl, detailItem.img2Url]}
+                    videoUrl={detailItem.videoUrl}
+                />
+            )}
         </section>
     );
 }

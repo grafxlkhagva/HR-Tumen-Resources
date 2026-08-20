@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -22,6 +22,7 @@ import { useHseEmployees } from '../components/use-hse-employees';
 import { deleteHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, type PpeIssue } from '../types';
 import { PpeIssueForm } from './ppe-issue-form';
+import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
 export function PpeList() {
     const { firestore } = useFirebase();
@@ -31,6 +32,7 @@ export function PpeList() {
     const [search, setSearch] = React.useState('');
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<PpeIssue | null>(null);
+    const [detailItem, setDetailItem] = React.useState<PpeIssue | null>(null);
 
     const ppeQuery = useMemoFirebase(
         () =>
@@ -125,6 +127,9 @@ export function PpeList() {
                                 <DataTableCell>{it.ognoo}</DataTableCell>
                                 <DataTableCell align="right">
                                     <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon-sm" onClick={() => setDetailItem(it)}>
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
                                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(it)}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
@@ -147,6 +152,39 @@ export function PpeList() {
             </DataTable>
 
             <PpeIssueForm open={formOpen} onOpenChange={setFormOpen} issue={editing} />
+
+            {detailItem && (
+                <SignersDetailDialog
+                    open={!!detailItem}
+                    onOpenChange={(v) => !v && setDetailItem(null)}
+                    title={detailItem.ajiltanId ? nameOf(detailItem.ajiltanId) : 'Хамгаалах хэрэгслийн олголт'}
+                    subtitle={[detailItem.albanTushaal, detailItem.ognoo].filter(Boolean).join(' · ')}
+                    itemId={detailItem.id}
+                    assignedIds={[detailItem.ajiltanId].filter(Boolean) as string[]}
+                    signedIds={detailItem.tanilcsanIds ?? []}
+                    extraContent={
+                        <div className="space-y-2">
+                            <h3 className="text-caption font-semibold">Олгосон хэрэгсэл</h3>
+                            <div className="divide-y rounded-lg border">
+                                {(detailItem.items ?? []).map((it, i) => (
+                                    <div
+                                        key={i}
+                                        className="flex items-center justify-between px-3 py-2 text-caption"
+                                    >
+                                        <span>{it.torol}</span>
+                                        <span className="text-muted-foreground">{it.too ?? 1} ш</span>
+                                    </div>
+                                ))}
+                                {(detailItem.items ?? []).length === 0 && (
+                                    <div className="px-3 py-2 text-caption text-muted-foreground">
+                                        Хэрэгсэл бүртгээгүй
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    }
+                />
+            )}
         </section>
     );
 }

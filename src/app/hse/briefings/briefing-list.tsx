@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search, Users, ImageIcon, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Users, ImageIcon, FileText, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -35,6 +35,7 @@ import {
     type Briefing,
 } from '../types';
 import { BriefingForm } from './briefing-form';
+import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
 export function BriefingList() {
     const { firestore } = useFirebase();
@@ -44,6 +45,7 @@ export function BriefingList() {
     const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<Briefing | null>(null);
+    const [detailItem, setDetailItem] = React.useState<Briefing | null>(null);
 
     const briefingQuery = useMemoFirebase(
         () =>
@@ -196,6 +198,9 @@ export function BriefingList() {
                                     </DataTableCell>
                                     <DataTableCell align="right">
                                         <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="icon-sm" onClick={() => setDetailItem(b)}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon-sm" onClick={() => openEdit(b)}>
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -219,6 +224,20 @@ export function BriefingList() {
             </DataTable>
 
             <BriefingForm open={formOpen} onOpenChange={setFormOpen} briefing={editing} />
+
+            {detailItem && (
+                <SignersDetailDialog
+                    open={!!detailItem}
+                    onOpenChange={(v) => !v && setDetailItem(null)}
+                    title={detailItem.garchig}
+                    subtitle={detailItem.torol}
+                    itemId={detailItem.id}
+                    assignedIds={detailItem.tanilcahIds ?? []}
+                    signedIds={detailItem.tanilcsanIds ?? []}
+                    images={[detailItem.imgUrl]}
+                    pdfUrl={detailItem.pdfUrl}
+                />
+            )}
         </section>
     );
 }

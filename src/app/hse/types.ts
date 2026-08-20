@@ -826,6 +826,7 @@ export interface Permit {
     duusahOgnoo: string; // хүчинтэй хугацаа дуусах огноо
     burtgesenId?: string; // бүртгэсэн ажилтан
     tailbar?: string;
+    tanilcsanIds?: string[]; // танилцаж гарын үсэг зурсан ажилтан (эзэмшигч)
     createdAt?: number;
 }
 
@@ -927,6 +928,7 @@ export interface PpeIssue {
     zuvshoorov?: boolean; // Найтлэг үндэслэлийг хүлээн зөвшөөрсөн (гарын үсэг)
     items: PpeIssueItem[]; // олгосон хэрэгслүүд
     ognoo: string; // бүртгэсэн огноо
+    tanilcsanIds?: string[]; // танилцаж гарын үсэг зурсан ажилтан (хүлээн авагч)
     createdAt?: number;
 }
 

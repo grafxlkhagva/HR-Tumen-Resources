@@ -1,12 +1,11 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { collection, query, where, doc, arrayUnion } from 'firebase/firestore';
+import React, { useMemo, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { collection, query, where } from 'firebase/firestore';
 import { useFirebase, useCollection, useMemoFirebase } from '@/firebase';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -18,15 +17,17 @@ import {
     violationStatusTone,
     scheduleStatusTone,
     effectiveScheduleStatus,
+    permitStatusTone,
     type Training,
     type Briefing,
     type HseAlert,
     type Hazard,
     type Violation,
+    type Permit,
+    type PpeIssue,
 } from '@/app/hse/types';
 import {
     ArrowLeft,
-    ShieldCheck,
     ShieldAlert,
     GraduationCap,
     ClipboardCheck,
@@ -39,8 +40,11 @@ import {
     ChevronRight,
     FileText,
     PenLine,
-    type LucideIcon,
+    FileCheck,
+    HardHat,
 } from 'lucide-react';
+
+type FolderKey = 'training' | 'briefing' | 'alert' | 'hazard' | 'violation' | 'permit' | 'ppe';
 
 /** createdAt буурахаар эрэмбэлнэ (Firestore composite index зайлсхийж client талд эрэмбэлнэ). */
 function byNewest<T extends { createdAt?: number }>(arr: (T & { id: string })[] | undefined): (T & { id: string })[] {
@@ -48,6 +52,18 @@ function byNewest<T extends { createdAt?: number }>(arr: (T & { id: string })[] 
 }
 
 export default function MobileHsePage() {
+    return (
+        <Suspense fallback={<HseSkeleton />}>
+            <HseContent />
+        </Suspense>
+    );
+}
+
+function HseContent() {
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const folder = searchParams.get('folder') as FolderKey | null;
+
     const { firestore } = useFirebase();
     const { employeeProfile } = useEmployeeProfile();
     const uid = employeeProfile?.id;
@@ -73,91 +89,143 @@ export default function MobileHsePage() {
         () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.violations), where('haritslahId', '==', uid)) : null),
         [firestore, uid],
     );
+    const permitQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.permits), where('ajiltanId', '==', uid)) : null),
+        [firestore, uid],
+    );
+    const ppeQuery = useMemoFirebase(
+        () => (firestore && uid ? query(collection(firestore, HSE_COLLECTIONS.ppeIssues), where('ajiltanId', '==', uid)) : null),
+        [firestore, uid],
+    );
 
     const { data: trainings, isLoading: lt } = useCollection<Training>(trainingQuery);
     const { data: briefings, isLoading: lb } = useCollection<Briefing>(briefingQuery);
     const { data: alerts, isLoading: la } = useCollection<HseAlert>(alertQuery);
     const { data: hazards, isLoading: lh } = useCollection<Hazard>(hazardQuery);
     const { data: violations, isLoading: lv } = useCollection<Violation>(violationQuery);
+    const { data: permits, isLoading: lp } = useCollection<Permit>(permitQuery);
+    const { data: ppeIssues, isLoading: lpp } = useCollection<PpeIssue>(ppeQuery);
 
-    const isLoading = !employeeProfile || lt || lb || la || lh || lv;
+    const isLoading = !employeeProfile || lt || lb || la || lh || lv || lp || lpp;
 
     const sortedTrainings = useMemo(() => byNewest(trainings), [trainings]);
     const sortedBriefings = useMemo(() => byNewest(briefings), [briefings]);
     const sortedAlerts = useMemo(() => byNewest(alerts), [alerts]);
     const sortedHazards = useMemo(() => byNewest(hazards), [hazards]);
     const sortedViolations = useMemo(() => byNewest(violations), [violations]);
+    const sortedPermits = useMemo(() => byNewest(permits), [permits]);
+    const sortedPpe = useMemo(() => byNewest(ppeIssues), [ppeIssues]);
 
-    const totalCount =
-        sortedTrainings.length + sortedBriefings.length + sortedAlerts.length + sortedHazards.length + sortedViolations.length;
+    const notSigned = (ids?: string[]) => !!uid && !(ids ?? []).includes(uid);
 
-    // Үйлдэл хүлээж буй зүйлсийн тоо: танилцаагүй сургалт/зааварчилгаа/сэрэмжлүүлэг + хаагдаагүй аюул/зөрчил.
-    const pendingCount = useMemo(() => {
-        if (!uid) return 0;
-        const notSigned = (ids?: string[]) => !(ids ?? []).includes(uid);
-        return (
-            sortedTrainings.filter((t) => notSigned(t.hamragdsanIds)).length +
-            sortedBriefings.filter((b) => notSigned(b.tanilcsanIds)).length +
-            sortedAlerts.filter((a) => notSigned(a.tanilcsanIds)).length +
-            sortedHazards.filter((h) => h.tuluw !== 'Хаагдсан').length +
-            sortedViolations.filter((v) => v.tuluw !== 'Хаагдсан').length
-        );
-    }, [uid, sortedTrainings, sortedBriefings, sortedAlerts, sortedHazards, sortedViolations]);
+    // Хавтас бүрийн meta + тоо + үйлдэл хүлээж буй тоо.
+    const categories = useMemo(
+        () => [
+            {
+                key: 'training' as FolderKey,
+                label: 'Сургалт',
+                icon: GraduationCap,
+                color: 'text-indigo-600',
+                bg: 'bg-indigo-50',
+                count: sortedTrainings.length,
+                pending: sortedTrainings.filter((t) => notSigned(t.hamragdsanIds)).length,
+            },
+            {
+                key: 'briefing' as FolderKey,
+                label: 'Зааварчилгаа',
+                icon: ClipboardCheck,
+                color: 'text-violet-600',
+                bg: 'bg-violet-50',
+                count: sortedBriefings.length,
+                pending: sortedBriefings.filter((b) => notSigned(b.tanilcsanIds)).length,
+            },
+            {
+                key: 'alert' as FolderKey,
+                label: 'Сэрэмжлүүлэг',
+                icon: Megaphone,
+                color: 'text-rose-600',
+                bg: 'bg-rose-50',
+                count: sortedAlerts.length,
+                pending: sortedAlerts.filter((a) => notSigned(a.tanilcsanIds)).length,
+            },
+            {
+                key: 'hazard' as FolderKey,
+                label: 'Аюул',
+                icon: AlertTriangle,
+                color: 'text-amber-600',
+                bg: 'bg-amber-50',
+                count: sortedHazards.length,
+                pending: sortedHazards.filter((h) => h.tuluw !== 'Хаагдсан').length,
+            },
+            {
+                key: 'violation' as FolderKey,
+                label: 'Зөрчил',
+                icon: Ban,
+                color: 'text-slate-600',
+                bg: 'bg-slate-100',
+                count: sortedViolations.length,
+                pending: sortedViolations.filter((v) => v.tuluw !== 'Хаагдсан').length,
+            },
+            {
+                key: 'permit' as FolderKey,
+                label: 'Ажлын зөвшөөрөл',
+                icon: FileCheck,
+                color: 'text-emerald-600',
+                bg: 'bg-emerald-50',
+                count: sortedPermits.length,
+                pending: sortedPermits.filter((p) => notSigned(p.tanilcsanIds)).length,
+            },
+            {
+                key: 'ppe' as FolderKey,
+                label: 'Хамгаалах хэрэгсэл',
+                icon: HardHat,
+                color: 'text-sky-600',
+                bg: 'bg-sky-50',
+                count: sortedPpe.length,
+                pending: sortedPpe.filter((it) => notSigned(it.tanilcsanIds)).length,
+            },
+        ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [uid, sortedTrainings, sortedBriefings, sortedAlerts, sortedHazards, sortedViolations, sortedPermits, sortedPpe],
+    );
 
-    const acknowledge = (colName: string, id: string, signField: 'hamragdsanIds' | 'tanilcsanIds') => {
-        if (!firestore || !uid) return;
-        updateDocumentNonBlocking(doc(firestore, colName, id), { [signField]: arrayUnion(uid) });
-    };
+    const totalPending = categories.reduce((s, c) => s + c.pending, 0);
+    const activeCat = categories.find((c) => c.key === folder) ?? null;
+
+    const goBack = () => router.push(folder ? '/mobile/hse' : '/mobile/home');
 
     return (
         <div className="flex flex-col min-h-full">
             {/* Header */}
             <div className="sticky top-0 z-10 bg-background border-b px-4 py-3">
                 <div className="flex items-center gap-3">
-                    <Link href="/mobile/home">
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <ArrowLeft className="h-4 w-4" />
-                        </Button>
-                    </Link>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={goBack}>
+                        <ArrowLeft className="h-4 w-4" />
+                    </Button>
                     <div>
-                        <h1 className="text-base font-semibold">ХАБЭА</h1>
-                        <p className="text-xs text-muted-foreground">Танд оноогдсон аюулгүй байдлын зүйлс</p>
+                        <h1 className="text-base font-semibold">{activeCat ? activeCat.label : 'ХАБЭА'}</h1>
+                        <p className="text-xs text-muted-foreground">
+                            {activeCat ? `${activeCat.count} зүйл` : 'Танд оноогдсон аюулгүй байдлын зүйлс'}
+                        </p>
                     </div>
                 </div>
             </div>
 
-            <div className="flex-1 p-4 space-y-5">
+            <div className="flex-1 p-4">
                 {isLoading ? (
-                    Array.from({ length: 3 }).map((_, i) => (
-                        <Card key={i}>
-                            <CardContent className="p-4">
-                                <Skeleton className="h-5 w-3/4 mb-2" />
-                                <Skeleton className="h-4 w-full mb-3" />
-                                <Skeleton className="h-8 w-28" />
-                            </CardContent>
-                        </Card>
-                    ))
-                ) : totalCount === 0 ? (
-                    <div className="flex flex-col items-center text-center py-16">
-                        <ShieldCheck className="h-12 w-12 text-muted-foreground/30 mb-3" />
-                        <p className="text-sm text-muted-foreground">Танд оноогдсон ХАБЭА-ийн зүйл алга байна</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* Үйлдэл шаардсан тойм */}
-                        {pendingCount > 0 && (
-                            <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center gap-3">
-                                <ShieldAlert className="h-5 w-5 text-red-600 flex-shrink-0" />
-                                <p className="text-sm text-red-700">
-                                    <span className="font-semibold">{pendingCount}</span> зүйл таны үйлдлийг хүлээж байна
-                                </p>
+                    <FolderGridSkeleton />
+                ) : activeCat ? (
+                    /* ─── Хавтасны доторх жагсаалт ─── */
+                    <div className="space-y-2">
+                        {activeCat.count === 0 ? (
+                            <div className="flex flex-col items-center text-center py-16">
+                                <activeCat.icon className="h-12 w-12 text-muted-foreground/30 mb-3" />
+                                <p className="text-sm text-muted-foreground">Энэ хавтаст оноогдсон зүйл алга</p>
                             </div>
-                        )}
-
-                        {/* Сургалт */}
-                        <Section title="Сургалт" icon={GraduationCap} count={sortedTrainings.length}>
-                            {sortedTrainings.map((t) => {
+                        ) : folder === 'training' ? (
+                            sortedTrainings.map((t) => {
                                 const signed = !!uid && (t.hamragdsanIds ?? []).includes(uid);
+                                const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
                                 return (
                                     <AckCard
                                         key={t.id}
@@ -165,22 +233,16 @@ export default function MobileHsePage() {
                                         title={t.garchig}
                                         date={t.huvaar}
                                         hasPdf={!!t.pdfUrl}
-                                        badge={(() => {
-                                            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
-                                            return <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>;
-                                        })()}
+                                        badge={<StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>}
                                         signed={signed}
                                         actionLabel="Хамрагдсан"
-                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.training, t.id, 'hamragdsanIds')}
                                     />
                                 );
-                            })}
-                        </Section>
-
-                        {/* Зааварчилгаа */}
-                        <Section title="Зааварчилгаа" icon={ClipboardCheck} count={sortedBriefings.length}>
-                            {sortedBriefings.map((b) => {
+                            })
+                        ) : folder === 'briefing' ? (
+                            sortedBriefings.map((b) => {
                                 const signed = !!uid && (b.tanilcsanIds ?? []).includes(uid);
+                                const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
                                 return (
                                     <AckCard
                                         key={b.id}
@@ -189,21 +251,14 @@ export default function MobileHsePage() {
                                         subtitle={b.torol}
                                         date={b.huvaar}
                                         hasPdf={!!b.pdfUrl}
-                                        badge={(() => {
-                                            const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
-                                            return <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>;
-                                        })()}
+                                        badge={<StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>}
                                         signed={signed}
                                         actionLabel="Танилцсан"
-                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.briefings, b.id, 'tanilcsanIds')}
                                     />
                                 );
-                            })}
-                        </Section>
-
-                        {/* Сэрэмжлүүлэг */}
-                        <Section title="Сэрэмжлүүлэг" icon={Megaphone} count={sortedAlerts.length}>
-                            {sortedAlerts.map((a) => {
+                            })
+                        ) : folder === 'alert' ? (
+                            sortedAlerts.map((a) => {
                                 const signed = !!uid && (a.tanilcsanIds ?? []).includes(uid);
                                 return (
                                     <AckCard
@@ -219,15 +274,11 @@ export default function MobileHsePage() {
                                         }
                                         signed={signed}
                                         actionLabel="Танилцсан"
-                                        onAcknowledge={() => acknowledge(HSE_COLLECTIONS.alerts, a.id, 'tanilcsanIds')}
                                     />
                                 );
-                            })}
-                        </Section>
-
-                        {/* Хариуцсан аюул */}
-                        <Section title="Хариуцсан аюул" icon={AlertTriangle} count={sortedHazards.length}>
-                            {sortedHazards.map((h) => (
+                            })
+                        ) : folder === 'hazard' ? (
+                            sortedHazards.map((h) => (
                                 <InfoCard
                                     key={h.id}
                                     title={h.desc}
@@ -240,12 +291,9 @@ export default function MobileHsePage() {
                                         </>
                                     }
                                 />
-                            ))}
-                        </Section>
-
-                        {/* Хариуцсан зөрчил */}
-                        <Section title="Хариуцсан зөрчил" icon={Ban} count={sortedViolations.length}>
-                            {sortedViolations.map((v) => (
+                            ))
+                        ) : folder === 'violation' ? (
+                            sortedViolations.map((v) => (
                                 <InfoCard
                                     key={v.id}
                                     title={v.desc}
@@ -254,41 +302,132 @@ export default function MobileHsePage() {
                                     location={v.bairshil}
                                     badges={<StatusBadge tone={violationStatusTone(v.tuluw)}>{v.tuluw}</StatusBadge>}
                                 />
+                            ))
+                        ) : folder === 'permit' ? (
+                            sortedPermits.map((p) => {
+                                const signed = !!uid && (p.tanilcsanIds ?? []).includes(uid);
+                                return (
+                                    <AckCard
+                                        key={p.id}
+                                        href={`/mobile/hse/permit/${p.id}`}
+                                        title={p.torol}
+                                        subtitle={`Хүчинтэй хугацаа: ${p.duusahOgnoo}`}
+                                        badge={<StatusBadge tone={permitStatusTone(p.tuluw)}>{p.tuluw}</StatusBadge>}
+                                        signed={signed}
+                                        actionLabel="Танилцсан"
+                                    />
+                                );
+                            })
+                        ) : folder === 'ppe' ? (
+                            sortedPpe.map((it) => {
+                                const signed = !!uid && (it.tanilcsanIds ?? []).includes(uid);
+                                return (
+                                    <AckCard
+                                        key={it.id}
+                                        href={`/mobile/hse/ppe/${it.id}`}
+                                        title={`Хамгаалах хэрэгсэл (${it.items?.length ?? 0} зүйл)`}
+                                        subtitle={it.ognoo}
+                                        badge={
+                                            <StatusBadge tone={signed ? 'green' : 'red'}>
+                                                {signed ? 'Танилцсан' : 'Танилцаагүй'}
+                                            </StatusBadge>
+                                        }
+                                        signed={signed}
+                                        actionLabel="Танилцсан"
+                                    />
+                                );
+                            })
+                        ) : null}
+                    </div>
+                ) : (
+                    /* ─── Хавтасны grid ─── */
+                    <div className="space-y-4">
+                        {totalPending > 0 && (
+                            <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center gap-3">
+                                <ShieldAlert className="h-5 w-5 text-red-600 flex-shrink-0" />
+                                <p className="text-sm text-red-700">
+                                    <span className="font-semibold">{totalPending}</span> зүйл таны үйлдлийг хүлээж байна
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {categories.map((c) => (
+                                <button
+                                    key={c.key}
+                                    type="button"
+                                    className="text-left"
+                                    onClick={() => router.push(`/mobile/hse?folder=${c.key}`)}
+                                >
+                                    <Card className="h-full active:scale-95 transition-transform">
+                                        <CardContent className="p-4">
+                                            <div className="flex items-start justify-between">
+                                                <div
+                                                    className={cn(
+                                                        'flex h-11 w-11 items-center justify-center rounded-xl',
+                                                        c.bg,
+                                                        c.color,
+                                                    )}
+                                                >
+                                                    <c.icon className="h-5 w-5" />
+                                                </div>
+                                                {c.pending > 0 && (
+                                                    <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                                        {c.pending}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <h3 className="mt-3 text-sm font-semibold">{c.label}</h3>
+                                            <p className="text-xs text-muted-foreground">{c.count} зүйл</p>
+                                        </CardContent>
+                                    </Card>
+                                </button>
                             ))}
-                        </Section>
-                    </>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
     );
 }
 
-/** Ангиллын гарчиг + тоо бүхий хэсэг. Хоосон бол юу ч харуулахгүй. */
-function Section({
-    title,
-    icon: Icon,
-    count,
-    children,
-}: {
-    title: string;
-    icon: LucideIcon;
-    count: number;
-    children: React.ReactNode;
-}) {
-    if (count === 0) return null;
+/* ─── Ачаалалтын скелетон ─── */
+function HseSkeleton() {
     return (
-        <section className="space-y-2">
-            <div className="flex items-center gap-2 px-1">
-                <Icon className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold">{title}</h2>
-                <span className="text-xs text-muted-foreground">({count})</span>
+        <div className="flex flex-col min-h-full">
+            <div className="sticky top-0 z-10 bg-background border-b px-4 py-3">
+                <div className="flex items-center gap-3">
+                    <div className="h-8 w-8" />
+                    <div>
+                        <h1 className="text-base font-semibold">ХАБЭА</h1>
+                        <p className="text-xs text-muted-foreground">Танд оноогдсон аюулгүй байдлын зүйлс</p>
+                    </div>
+                </div>
             </div>
-            <div className="space-y-2">{children}</div>
-        </section>
+            <div className="flex-1 p-4">
+                <FolderGridSkeleton />
+            </div>
+        </div>
     );
 }
 
-/** Танилцах шаардлагатай карт — дэлгэрэнгүй рүү холбогдож, "Танилцсан/Хамрагдсан" товчтой. */
+function FolderGridSkeleton() {
+    return (
+        <div className="grid grid-cols-2 gap-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+                <Card key={i}>
+                    <CardContent className="p-4">
+                        <Skeleton className="h-11 w-11 rounded-xl" />
+                        <Skeleton className="mt-3 h-4 w-2/3" />
+                        <Skeleton className="mt-2 h-3 w-1/3" />
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
+    );
+}
+
+/** Танилцах шаардлагатай карт — дэлгэрэнгүй рүү холбогдож, төлөв/гарын үсгийн заалттай. */
 function AckCard({
     href,
     title,
@@ -342,7 +481,7 @@ function AckCard({
                     </div>
                 </div>
 
-                {/* Танилцсан/Хамрагдсан үйлдэл */}
+                {/* Танилцсан/Хамрагдсан төлөв */}
                 <div className="mt-3 flex items-center justify-end border-t pt-3">
                     {signed ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-success">
@@ -350,7 +489,6 @@ function AckCard({
                             {actionLabel} — гарын үсэг зурсан
                         </span>
                     ) : clickable ? (
-                        // Сургалт/зааварчилгаа: дэлгэрэнгүй дээр материал үзээд гарын үсэг зурна
                         <button
                             type="button"
                             className="inline-flex items-center gap-1 text-xs font-medium text-primary"
@@ -360,7 +498,6 @@ function AckCard({
                             Гарын үсэг зурах
                         </button>
                     ) : (
-                        // Сэрэмжлүүлэг: шууд танилцсан тэмдэглэх
                         <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onAcknowledge}>
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             {actionLabel}
