@@ -835,6 +835,11 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
 
+    // ─── Үнийн санал REV#1 (quotes) ──────────────────────────────────────
+    match /tms_quotes/{quoteId} {
+      allow read, write: if isTmsAllowed();
+    }
+
     // ─── Машины бүртгэл (өдрийн үзлэг, түлш, odometer, засвар) ───────────
     match /tms_vehicle_maintenance/{maintId} {
       allow read: if isTmsAllowed()

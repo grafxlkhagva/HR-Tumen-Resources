@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { format } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { PageHeader } from '@/components/patterns/page-layout';
@@ -97,6 +98,14 @@ export default function OneTimeTransportDetailPage() {
               #{t.code || t.id.slice(0, 8)}
             </span>
             {paymentMeta ? <Badge variant={paymentMeta.variant}>{paymentMeta.label}</Badge> : null}
+            {t.quoteId ? (
+              <Link
+                href={'/tms/quotes/' + t.quoteId}
+                className="inline-flex items-center rounded-full border border-violet-300 bg-violet-50 px-2.5 py-0.5 text-xs text-violet-700 hover:bg-violet-100 dark:bg-violet-950/30 dark:border-violet-800 dark:text-violet-300"
+              >
+                💼 {t.quoteCode || 'Үнийн санал'} →
+              </Link>
+            ) : null}
           </div>
 
           <MissingFieldsHint

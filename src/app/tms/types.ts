@@ -221,6 +221,9 @@ export interface TmsSettings {
   oneTimeCodePrefix?: string;
   oneTimeCodePadding?: number;
   oneTimeCodeCurrentNumber?: number;
+  quoteCodePrefix?: string;
+  quoteCodePadding?: number;
+  quoteCodeCurrentNumber?: number;
   updatedAt?: Timestamp;
 }
 export const TMS_SETTINGS_COLLECTION = 'tms_settings';
@@ -702,6 +705,9 @@ export interface TmsOneTimeTransport {
   id: string;
   /** Автомат дугаар — OT-0001 */
   code?: string;
+  /** Үнийн санал REV#1-ээс хөрвүүлсэн бол эх саналын холбоос */
+  quoteId?: string | null;
+  quoteCode?: string | null;
   type: TmsOneTimeTransportType;
   status: TmsOneTimeTransportStatus;
   paymentStatus?: TmsOneTimePaymentStatus;
@@ -784,3 +790,118 @@ export interface TmsOneTimeTransport {
 }
 
 export const TMS_ONE_TIME_TRANSPORTS_COLLECTION = 'tms_one_time_transports';
+
+// ==================================================================
+// ҮНИЙН САНАЛ REV#1 (quotes)
+// Prototype (tumentech-tms) quotes модулиас порт хийсэн.
+// Одоогийн tms_quotations-тай зэрэгцэн ажиллана — өөр коллекц, өөр төрлүүд.
+// ==================================================================
+
+/**
+ * Үнийн саналын төлөв.
+ * draft → sent → accepted → converted; sent-ээс rejected/expired; буцаалтууд бий.
+ */
+export type TmsQuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted' | 'expired';
+
+/** Формын төрөл: Богино (~8 талбар) / Дэлгэрэнгүй (бүрэн) */
+export type TmsQuoteFormType = 'short' | 'long';
+
+/** Саналын хүрээ — international нь одоогоор stub ("тун удахгүй") */
+export type TmsQuoteScope = 'domestic' | 'international';
+
+/** "Үнэд хамаарах зүйлс" checklist-ийн түлхүүрүүд */
+export type TmsQuotePriceScopeKey =
+  | 'fuel'
+  | 'tolls'
+  | 'loading'
+  | 'insurance'
+  | 'customs'
+  | 'driver_food'
+  | 'vat'
+  | 'parking';
+
+/** Үнэд орсон / ороогүй */
+export type TmsQuotePriceScopeValue = 'in' | 'out';
+
+/** Төлбөрийн төрөл */
+export type TmsQuotePaymentTerms = 'cash' | 'prepayment' | 'credit' | 'contract';
+
+/** Дэлгэрэнгүй формын нэмэлт талбарууд (үүрлэсэн) */
+export interface TmsQuoteDetails {
+  scope?: TmsQuoteScope | null;
+  pickupAddress?: string | null;
+  dropoffAddress?: string | null;
+  preferredPickupDate?: string | null;
+  deliveryDeadline?: string | null;
+  /** Үнэ хүчинтэй хоног — default 30, ⏰ хугацаа хэтрэлтийн тооцоонд */
+  validDays?: number | null;
+  prepaymentPct?: number | null;
+  paymentDueDays?: number | null;
+  additionalServices?: string | null;
+  priceScope?: Partial<Record<TmsQuotePriceScopeKey, TmsQuotePriceScopeValue>>;
+  paymentTerms?: TmsQuotePaymentTerms | null;
+}
+
+/** Үнийн санал REV#1 */
+export interface TmsQuote {
+  id: string;
+  /** Автомат дугаар — QT-0001 */
+  code?: string;
+  formType: TmsQuoteFormType;
+  status: TmsQuoteStatus;
+  /** 'YYYY-MM-DD' — orderBy талбар тул ҮРГЭЛЖ бичигдэнэ (формд заавал) */
+  requestDate: string;
+  sentDate?: string | null;
+  acceptedDate?: string | null;
+
+  customerId: string;
+  customerRef?: DocumentReference;
+  customerName?: string | null;
+  contactPerson?: string | null;
+  contactPhone?: string | null;
+  contactEmail?: string | null;
+  /** Борлуулалтын менежер — засварт ХАДГАЛАГДАНА (шинэ хэрэглэгчээр дарж бичихгүй) */
+  kamEmployeeId?: string | null;
+  kamEmployeeName?: string | null;
+
+  fromLocation?: string | null;
+  toLocation?: string | null;
+  vehicleMakeId?: string | null;
+  vehicleMakeName?: string | null;
+  /** Тэвш / Бүхээг */
+  bodyType?: string | null;
+  cargoType?: string | null;
+  cargoDescription?: string | null;
+  weightKg?: number | null;
+  volumeM3?: number | null;
+  packagingTypeId?: string | null;
+  transportCount?: number | null;
+  currency?: string;
+
+  // Мөнгө — бүгд Math.round хийсэн бүхэл ₮
+  /** 🔒 ДОТООД — тээвэрчинд төлөх, НӨАТ-гүй (захиалагчид хэзээ ч харагдахгүй) */
+  agentPrice?: number;
+  /** 📄 Захиалагчид нэхэмжлэх, НӨАТ-гүй */
+  transportPrice?: number;
+  /** round(transportPrice / 10) */
+  vatAmount?: number;
+  /** transportPrice + vatAmount — захиалагчид харагдах цор ганц дүн */
+  totalPrice?: number;
+  /** KAM шимтгэл — зөвхөн дэлгэрэнгүй формд */
+  commission?: number | null;
+
+  rejectReason?: string | null;
+  notes?: string | null;
+  /** Хөлдөөлт — статусаас хараат бус, засварыг хаана */
+  isLocked?: boolean;
+  lockedAt?: Timestamp | null;
+  /** Хөрвүүлсэн 1 удаагийн тээврийн холбоос */
+  convertedTransportId?: string | null;
+  convertedTransportCode?: string | null;
+
+  details?: TmsQuoteDetails;
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_QUOTES_COLLECTION = 'tms_quotes';
