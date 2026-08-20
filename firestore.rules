@@ -96,6 +96,34 @@ service cloud.firestore {
       return isAdmin() || isHseUser();
     }
 
+    // Оноогдсон ажилтан өөрийн ID-г "танилцсан/хамрагдсан" массивт нэмэхийг л зөвшөөрнө.
+    // assignField (жишээ tanilcahIds) дотор байгаа ажилтан signField (tanilcsanIds)-д
+    // ЗӨВХӨН өөрийн uid-г нэмнэ — өөр талбар өөрчлөх, бусдын ID нэмэх/хасахыг хориглоно.
+    function canSelfAck(assignField, signField) {
+      return isSignedIn() &&
+             request.auth.uid in resource.data.get(assignField, []) &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly([signField]) &&
+             request.resource.data.get(signField, []).hasAll(resource.data.get(signField, [])) &&
+             request.resource.data.get(signField, []).hasOnly(resource.data.get(signField, []).concat([request.auth.uid]));
+    }
+
+    // Нэг ажилтанд оноогдсон (assignField нь массив биш, нэг uid — жишээ ajiltanId)
+    // бичлэгт эзэмшигч өөрийн uid-г signField массивт л нэмнэ.
+    function canSelfAckSingle(assignField, signField) {
+      return isSignedIn() &&
+             request.auth.uid == resource.data.get(assignField, '') &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly([signField]) &&
+             request.resource.data.get(signField, []).hasAll(resource.data.get(signField, [])) &&
+             request.resource.data.get(signField, []).hasOnly(resource.data.get(signField, []).concat([request.auth.uid]));
+    }
+
+    // Аюулын хариуцагч (haritslahId) залруулга/төлөв/танилцсаныг л өөрчилнө.
+    function canFixHazard() {
+      return isSignedIn() &&
+             request.auth.uid == resource.data.get('haritslahId', '') &&
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['zalruulga', 'tuluw', 'tanilcsanIds']);
+    }
+
     function isCrmUser() {
       return isSignedIn() &&
              exists(/databases/$(database)/documents/employees/$(request.auth.uid)) &&
@@ -185,6 +213,16 @@ service cloud.firestore {
 
     match /employees/{employeeId}/point_profile/{docId} {
        allow read, write: if isEmployee();
+    }
+
+    // ХАБЭА менежер (админ/hseAccess) ажилтны гарын үсэг болон ХАБЭА-н танилцсан
+    // бүртгэлийг desktop дэлгэрэнгүйд харахын тулд унших эрх. Бичихийг ерөнхий
+    // employees дэд коллекцийн дүрэм (эзэмшигч/админ) хариуцна.
+    match /employees/{employeeId}/meta/{docId} {
+       allow read: if isOwner(employeeId) || isAdmin() || isHseAllowed();
+    }
+    match /employees/{employeeId}/hseSignatures/{docId} {
+       allow read: if isOwner(employeeId) || isAdmin() || isHseAllowed();
     }
 
     // Allow mentors/buddies to update assigned programs (e.g. mark tasks as done)
@@ -909,7 +947,12 @@ service cloud.firestore {
 
     // ─── ХАБЭА (HSE — Хөдөлмөрийн аюулгүй байдал, эрүүл ахуй) ───────────
     // hse_* collection-ууд: админ эсвэл hseAccess эрхтэй ажилтан унших/бичих.
-    match /hse_hazards/{docId} { allow read, write: if isHseAllowed(); }
+    // Аюул: хариуцагч ажилтан (haritslahId) унших + залруулга/танилцсан бүртгэх.
+    match /hse_hazards/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('haritslahId', '') == request.auth.uid;
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canFixHazard();
+    }
     match /hse_hazard_categories/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_take5/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_jha/{docId} { allow read, write: if isHseAllowed(); }
@@ -919,19 +962,48 @@ service cloud.firestore {
     match /hse_incident_notices/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_explanations/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_incident_investigations/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_alerts/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_violations/{docId} { allow read, write: if isHseAllowed(); }
+    // Сэрэмжлүүлэг: танилцах ажилтан унших + "танилцсан" гэж өөрийгөө бүртгэх (tanilcsanIds).
+    match /hse_alerts/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('tanilcahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('tanilcahIds', 'tanilcsanIds');
+    }
+    // Зөрчил: хариуцагч ажилтан унших (зөвхөн харах).
+    match /hse_violations/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('haritslahId', '') == request.auth.uid;
+      allow write: if isHseAllowed();
+    }
     match /hse_violation_categories/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_permits/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_training/{docId} { allow read, write: if isHseAllowed(); }
+    // Ажлын зөвшөөрөл: эзэмшигч ажилтан унших + "танилцсан" гэж өөрийгөө бүртгэх.
+    match /hse_permits/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('ajiltanId', '') == request.auth.uid;
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAckSingle('ajiltanId', 'tanilcsanIds');
+    }
+    // Сургалт: хамрагдах ажилтан унших + "хамрагдсан" гэж өөрийгөө бүртгэх (hamragdsanIds).
+    match /hse_training/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('hamragdahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('hamragdahIds', 'hamragdsanIds');
+    }
     match /hse_training_templates/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_briefings/{docId} { allow read, write: if isHseAllowed(); }
+    // Зааварчилгаа: танилцах ажилтан унших + "танилцсан" гэж өөрийгөө бүртгэх (tanilcsanIds).
+    match /hse_briefings/{docId} {
+      allow read: if isHseAllowed() || request.auth.uid in resource.data.get('tanilcahIds', []);
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAck('tanilcahIds', 'tanilcsanIds');
+    }
     match /hse_briefing_templates/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspections/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspection_checklists/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_nonconformities/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_ppe/{docId} { allow read, write: if isHseAllowed(); }
-    match /hse_ppe_issues/{docId} { allow read, write: if isHseAllowed(); }
+    // Хамгаалах хэрэгслийн олголт: хүлээн авагч ажилтан унших + "танилцсан" бүртгэх.
+    match /hse_ppe_issues/{docId} {
+      allow read: if isHseAllowed() || resource.data.get('ajiltanId', '') == request.auth.uid;
+      allow create, delete: if isHseAllowed();
+      allow update: if isHseAllowed() || canSelfAckSingle('ajiltanId', 'tanilcsanIds');
+    }
     match /hse_documents/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_org_info/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_org_config/{docId} { allow read, write: if isHseAllowed(); }

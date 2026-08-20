@@ -85,6 +85,7 @@ export interface Hazard {
     imgUrl?: string; // анхны аюулын зураг
     videoUrl?: string; // анхны аюулын видео холбоос
     zalruulga?: HazardCorrection | null; // залруулга
+    tanilcsanIds?: string[]; // танилцсан ажилтан (хариуцагч/танилцагч)
     createdAt?: number;
 }
 
@@ -620,6 +621,27 @@ export function scheduleStatusTone(s: ScheduleStatus): HseTone {
     }
 }
 
+/**
+ * Сургалт/зааварчилгааны төлөвийг хамрагдалт (гарын үсэг зурсан тоо)-оос
+ * автоматаар тодорхойлно. Гараар 'Цуцлагдсан' болгосон бол хадгална.
+ * — Хэн ч зураагүй → Төлөвлөгдсөн
+ * — Зарим нь зурсан → Явагдаж байна
+ * — Хуваарилагдсан бүгд зурсан → Дууссан
+ */
+export function effectiveScheduleStatus(
+    assignedIds: string[] | undefined,
+    signedIds: string[] | undefined,
+    stored?: ScheduleStatus,
+): ScheduleStatus {
+    if (stored === 'Цуцлагдсан') return 'Цуцлагдсан';
+    const assigned = assignedIds ?? [];
+    const total = assigned.length;
+    const done = (signedIds ?? []).filter((id) => assigned.includes(id)).length;
+    if (total > 0 && done >= total) return 'Дууссан';
+    if (done > 0) return 'Явагдаж байна';
+    return 'Төлөвлөгдсөн';
+}
+
 /** Сургалтын загварын төрөл — бүртгэлийн урсгалыг тодорхойлно. */
 export const TRAINING_TYPES = ['Сургалт', 'Урьдчилсан зааварчилгаа'] as const;
 export type TrainingType = (typeof TRAINING_TYPES)[number];
@@ -805,6 +827,7 @@ export interface Permit {
     duusahOgnoo: string; // хүчинтэй хугацаа дуусах огноо
     burtgesenId?: string; // бүртгэсэн ажилтан
     tailbar?: string;
+    tanilcsanIds?: string[]; // танилцаж гарын үсэг зурсан ажилтан (эзэмшигч)
     createdAt?: number;
 }
 
@@ -895,6 +918,7 @@ export interface PpeIssueItem {
     huleenAvsan?: boolean; // Хүлээн авсан (гарын үсэг)
     huleelgenOgson?: boolean; // Хүлээлгэн өгсөн (гарын үсэг)
     ognoo?: string; // Огноо
+    imgUrl?: string; // хэрэгслийн зураг
 }
 
 export interface PpeIssue {
@@ -906,6 +930,7 @@ export interface PpeIssue {
     zuvshoorov?: boolean; // Найтлэг үндэслэлийг хүлээн зөвшөөрсөн (гарын үсэг)
     items: PpeIssueItem[]; // олгосон хэрэгслүүд
     ognoo: string; // бүртгэсэн огноо
+    tanilcsanIds?: string[]; // танилцаж гарын үсэг зурсан ажилтан (хүлээн авагч)
     createdAt?: number;
 }
 

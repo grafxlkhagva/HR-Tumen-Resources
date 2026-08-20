@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search, TriangleAlert } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, TriangleAlert, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -31,6 +31,7 @@ import { useHseEmployees } from '../components/use-hse-employees';
 import { deleteHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, PERMIT_STATUSES, permitStatusTone, type Permit } from '../types';
 import { PermitForm } from './permit-form';
+import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
@@ -43,6 +44,7 @@ export default function PermitsPage() {
     const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<Permit | null>(null);
+    const [detailItem, setDetailItem] = React.useState<Permit | null>(null);
 
     const permitQuery = useMemoFirebase(
         () =>
@@ -167,6 +169,9 @@ export default function PermitsPage() {
                                 </DataTableCell>
                                 <DataTableCell align="right">
                                     <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon-sm" onClick={() => setDetailItem(p)}>
+                                            <Eye className="h-4 w-4" />
+                                        </Button>
                                         <Button variant="ghost" size="icon-sm" onClick={() => openEdit(p)}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
@@ -189,6 +194,18 @@ export default function PermitsPage() {
             </DataTable>
 
             <PermitForm open={formOpen} onOpenChange={setFormOpen} permit={editing} />
+
+            {detailItem && (
+                <SignersDetailDialog
+                    open={!!detailItem}
+                    onOpenChange={(v) => !v && setDetailItem(null)}
+                    title={detailItem.torol}
+                    subtitle={`Хүчинтэй хугацаа дуусах: ${detailItem.duusahOgnoo}`}
+                    itemId={detailItem.id}
+                    assignedIds={[detailItem.ajiltanId].filter(Boolean) as string[]}
+                    signedIds={detailItem.tanilcsanIds ?? []}
+                />
+            )}
         </div>
     );
 }

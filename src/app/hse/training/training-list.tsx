@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search, Users, ImageIcon, FileText } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Users, ImageIcon, FileText, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -27,8 +27,15 @@ import {
 } from '@/components/ui/select';
 import { StatusBadge } from '../components/status-badge';
 import { deleteHseDoc } from '../services/hse-service';
-import { HSE_COLLECTIONS, SCHEDULE_STATUSES, scheduleStatusTone, type Training } from '../types';
+import {
+    HSE_COLLECTIONS,
+    SCHEDULE_STATUSES,
+    scheduleStatusTone,
+    effectiveScheduleStatus,
+    type Training,
+} from '../types';
 import { TrainingForm } from './training-form';
+import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
 export function TrainingList() {
     const { firestore } = useFirebase();
@@ -38,6 +45,7 @@ export function TrainingList() {
     const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<Training | null>(null);
+    const [detailItem, setDetailItem] = React.useState<Training | null>(null);
 
     const trainingQuery = useMemoFirebase(
         () =>
@@ -50,7 +58,8 @@ export function TrainingList() {
 
     const filtered = React.useMemo(() => {
         return (trainings || []).filter((t) => {
-            if (statusFilter !== 'all' && t.tuluw !== statusFilter) return false;
+            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
+            if (statusFilter !== 'all' && eff !== statusFilter) return false;
             if (search && !t.garchig?.toLowerCase().includes(search.toLowerCase())) return false;
             return true;
         });
@@ -141,6 +150,7 @@ export function TrainingList() {
                     <DataTableBody>
                         {filtered.map((t) => {
                             const p = progress(t);
+                            const eff = effectiveScheduleStatus(t.hamragdahIds, t.hamragdsanIds, t.tuluw);
                             return (
                                 <DataTableRow key={t.id}>
                                     <DataTableCell className="font-medium">{t.garchig}</DataTableCell>
@@ -182,12 +192,15 @@ export function TrainingList() {
                                         </div>
                                     </DataTableCell>
                                     <DataTableCell align="center">
-                                        <StatusBadge tone={scheduleStatusTone(t.tuluw)}>
-                                            {t.tuluw}
+                                        <StatusBadge tone={scheduleStatusTone(eff)}>
+                                            {eff}
                                         </StatusBadge>
                                     </DataTableCell>
                                     <DataTableCell align="right">
                                         <div className="flex items-center justify-end gap-1">
+                                            <Button variant="ghost" size="icon-sm" onClick={() => setDetailItem(t)}>
+                                                <Eye className="h-4 w-4" />
+                                            </Button>
                                             <Button variant="ghost" size="icon-sm" onClick={() => openEdit(t)}>
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
@@ -211,6 +224,20 @@ export function TrainingList() {
             </DataTable>
 
             <TrainingForm open={formOpen} onOpenChange={setFormOpen} training={editing} />
+
+            {detailItem && (
+                <SignersDetailDialog
+                    open={!!detailItem}
+                    onOpenChange={(v) => !v && setDetailItem(null)}
+                    title={detailItem.garchig}
+                    subtitle={detailItem.huvaar}
+                    itemId={detailItem.id}
+                    assignedIds={detailItem.hamragdahIds ?? []}
+                    signedIds={detailItem.hamragdsanIds ?? []}
+                    images={[detailItem.imgUrl]}
+                    pdfUrl={detailItem.pdfUrl}
+                />
+            )}
         </section>
     );
 }

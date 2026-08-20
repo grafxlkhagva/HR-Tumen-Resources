@@ -13,12 +13,15 @@ export function ImageUpload({
     folder,
     disabled,
     className,
+    uploader,
 }: {
     value?: string;
     onChange: (url: string | undefined) => void;
-    folder: string;
+    folder?: string;
     disabled?: boolean;
     className?: string;
+    /** Захиалгат байршуулагч (жишээ: mobile залруулгын зам). Байхгүй бол hse/{folder}. */
+    uploader?: (file: File) => Promise<string>;
 }) {
     const { storage } = useFirebase();
     const [uploading, setUploading] = React.useState(false);
@@ -30,7 +33,7 @@ export function ImageUpload({
         setError(null);
         setUploading(true);
         try {
-            const url = await uploadHseFile(storage, folder, file);
+            const url = uploader ? await uploader(file) : await uploadHseFile(storage, folder ?? 'misc', file);
             onChange(url);
         } catch (e) {
             setError('Зураг байршуулахад алдаа гарлаа.');

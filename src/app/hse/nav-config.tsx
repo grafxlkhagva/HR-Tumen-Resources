@@ -10,9 +10,6 @@ import {
     FileBadge,
     HardHat,
     FileText,
-    Building2,
-    MessageSquareText,
-    Video,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -65,9 +62,6 @@ export const HSE_NAV: HseNavGroup[] = [
         title: 'Бичиг баримт',
         items: [
             { href: '/hse/documents', label: 'Баримт бичиг', icon: FileText },
-            { href: '/hse/org', label: 'Байгууллага', icon: Building2 },
-            { href: '/hse/surveys', label: 'Санал асуулга', icon: MessageSquareText },
-            { href: '/hse/videos', label: 'Видео сан', icon: Video },
         ],
     },
 ];
