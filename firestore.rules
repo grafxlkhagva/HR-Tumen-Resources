@@ -840,6 +840,11 @@ service cloud.firestore {
       allow read, write: if isTmsAllowed();
     }
 
+    // ─── Давтамжит тээвэр (Түгээлт / Төсөл — гэрээт) ─────────────────────
+    match /tms_recurring_transports/{transportId} {
+      allow read, write: if isTmsAllowed();
+    }
+
     // ─── Машины бүртгэл (өдрийн үзлэг, түлш, odometer, засвар) ───────────
     match /tms_vehicle_maintenance/{maintId} {
       allow read: if isTmsAllowed()

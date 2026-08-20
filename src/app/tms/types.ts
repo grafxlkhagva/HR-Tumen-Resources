@@ -224,6 +224,9 @@ export interface TmsSettings {
   quoteCodePrefix?: string;
   quoteCodePadding?: number;
   quoteCodeCurrentNumber?: number;
+  recurringCodePrefix?: string;
+  recurringCodePadding?: number;
+  recurringCodeCurrentNumber?: number;
   updatedAt?: Timestamp;
 }
 export const TMS_SETTINGS_COLLECTION = 'tms_settings';
@@ -500,7 +503,8 @@ export type TmsContractPriceType =
   | 'lump_sum'
   | 'per_day'
   | 'per_month'
-  | 'rental';
+  | 'rental'
+  | 'per_ton_km';
 
 export const TMS_CONTRACT_PRICE_TYPE_LABELS: Record<TmsContractPriceType, string> = {
   per_ton: 'Жин / тонноор',
@@ -508,6 +512,7 @@ export const TMS_CONTRACT_PRICE_TYPE_LABELS: Record<TmsContractPriceType, string
   per_day: 'Өдөрөөр',
   per_month: 'Сараар',
   rental: 'Түрээсээр',
+  per_ton_km: 'Тонн-км (⚖ жингээр)',
 };
 
 /** Гэрээнд тусгагдсан тээврийн үйлчилгээ */
@@ -538,6 +543,8 @@ export interface TmsContractService {
   price?: number;
   /** Үнэ тооцох нэгж (тонн, өдөр гэх мэт) */
   priceType?: TmsContractPriceType;
+  /** Чиглэлийн зай (км) — per_ton_km үнэлгээнд ЗААВАЛ (тонн × км × үнэ томьёонд) */
+  distanceKm?: number | null;
   /** @deprecated — ашгийн хувь (customerPrice - driverPrice зөрүүгээр тодорхойлогдоно) */
   profitMarginPercent?: number;
   currency?: string;
@@ -905,3 +912,125 @@ export interface TmsQuote {
 }
 
 export const TMS_QUOTES_COLLECTION = 'tms_quotes';
+
+// ==================================================================
+// ДАВТАМЖИТ ТЭЭВЭР (recurring transports)
+// Prototype-ийн shipments/cat/recurring (tugeelt/project) порт —
+// одоогийн tms_contracts гэрээнээс wizard-аар багцаар үүсдэг.
+// ==================================================================
+
+/** Давтамжит тээврийн төрөл: 🚚 Түгээлт / 🏗 Төсөл (тонн-км) */
+export type TmsRecurringTransportType = 'tugeelt' | 'project';
+
+/** Давтамжит тээврийн төлөв — 1 удаагийн тээвэртэй ижил урсгал */
+export type TmsRecurringTransportStatus =
+  | 'planned'
+  | 'in_progress'
+  | 'completed'
+  | 'invoiced'
+  | 'paid'
+  | 'cancelled';
+
+/** Түгээлтийн зогсоол (хүлээн авагч) */
+export interface TmsRecurringStop {
+  id: string;
+  sequence: number;
+  address: string;
+  recipientName?: string | null;
+  recipientPhone?: string | null;
+  status: 'pending' | 'delivered';
+  deliveredAt?: string | null;
+  notes?: string | null;
+}
+
+/** Пүүний жингийн бүртгэл (per_ton_km үнэлгээнд) */
+export interface TmsRecurringWeighing {
+  emptyWeightKg: number;
+  loadedWeightKg: number;
+  cargoWeightKg: number;
+  cargoWeightTon: number;
+  weighedAt: string;
+  byEmployeeId?: string | null;
+  byEmployeeName?: string | null;
+}
+
+/** Давтамжит тээвэр — гэрээний үйлчилгээнээс үүссэн нэг рейс/өдрийн тээвэр */
+export interface TmsRecurringTransport {
+  id: string;
+  /** Автомат дугаар — RT-0001 */
+  code?: string;
+  type: TmsRecurringTransportType;
+  status: TmsRecurringTransportStatus;
+  paymentStatus?: TmsOneTimePaymentStatus;
+
+  // Гэрээний холбоос + snapshot (үйлчилгээг ID-гаар — prototype-ийн индексийн bug засав)
+  contractId: string;
+  contractCode?: string | null;
+  contractServiceId: string;
+  contractServiceName?: string | null;
+  /** Үнэлгээний нэгжийн snapshot (гэрээ өөрчлөгдөхөд тээвэр хэвээр) */
+  contractPriceType?: TmsContractPriceType | null;
+  /** per_ton_km-д: гэрээний зай (км) — тонн-км томьёоны км */
+  contractDistanceKm?: number | null;
+  /** per_ton_km-д ₮/т·км, бусад нэгжид нэгжийн ₮ — тээвэрчинд */
+  contractCarrierRate?: number | null;
+  /** мөн адил — захиалагчид */
+  contractCustomerRate?: number | null;
+
+  // Захиалагч (гэрээнээс)
+  customerId: string;
+  customerRef?: DocumentReference;
+  customerName?: string | null;
+  kamEmployeeId?: string | null;
+  kamEmployeeName?: string | null;
+
+  // Томилолт
+  vehicleId?: string | null;
+  vehiclePlate?: string | null;
+  driverId?: string | null;
+  driverName?: string | null;
+  driverPhone?: string | null;
+  /** Тээвэрчин компани — чөлөөт текст (OT-тэй ижил загвар) */
+  carrierName?: string | null;
+
+  // Чиглэл
+  origin?: string | null;
+  destination?: string | null;
+  totalDistanceKm?: number | null;
+  /** Түгээлтийн бүс (tugeelt) */
+  distributionZone?: string | null;
+  /** Зогсоол тутмын үнэ (tugeelt) */
+  perStopRate?: number | null;
+  /** Түгээлтийн зогсоолууд (tugeelt) */
+  stops?: TmsRecurringStop[];
+
+  // Хугацаа
+  /** 'YYYY-MM-DD' — orderBy талбар тул ҮРГЭЛЖ бичигдэнэ */
+  scheduledDate: string;
+  startedAt?: Timestamp | null;
+  completedAt?: Timestamp | null;
+
+  // Мөнгө (бүхэл ₮; per_ton_km-д жин бүртгэх хүртэл 0)
+  basePrice?: number;
+  vatAmount?: number;
+  totalPrice?: number;
+  costPrice?: number;
+
+  /** Пүүний жин — per_ton_km-д Дуусгахын өмнө заавал */
+  weighing?: TmsRecurringWeighing | null;
+
+  invoiceNumber?: string | null;
+  notes?: string | null;
+  cancelReason?: string | null;
+
+  /** Нэгтгэн тооцоонд (settlement) багтсан огноо — ирээдүйн модулийн талбар */
+  settledAt?: string | null;
+
+  /** 3 шатны checkpoint (loading шат хэрэглэгдэхгүй — Бэлэн байдалд нэгтгэгдсэн) */
+  checkpoints?: Partial<Record<TmsOneTimeCheckpointKey, TmsTransportCheckpoint>>;
+
+  createdAt: Timestamp;
+  updatedAt?: Timestamp;
+}
+
+export const TMS_RECURRING_TRANSPORTS_COLLECTION = 'tms_recurring_transports';

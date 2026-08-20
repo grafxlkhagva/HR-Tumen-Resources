@@ -96,6 +96,9 @@ const settingsSchema = z.object({
   quoteCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
   quoteCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
   quoteCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
+  recurringCodePrefix: z.string().min(1, 'Угтвар оруулна уу.'),
+  recurringCodePadding: z.coerce.number().min(1, 'Хамгийн багадаа 1 оронтой байна.').max(10, 'Хамгийн ихдээ 10 оронтой байна.'),
+  recurringCodeCurrentNumber: z.coerce.number().min(0, '0 эсвэл түүнээс дээш байх ёстой.'),
 });
 
 type MakeFormValues = z.infer<typeof makeSchema>;
@@ -266,7 +269,8 @@ export default function TmsSettingsPage() {
       quotationCodePrefix: 'QU', quotationCodePadding: 5, quotationCodeCurrentNumber: 0,
       contractCodePrefix: 'CT', contractCodePadding: 5, contractCodeCurrentNumber: 0,
       oneTimeCodePrefix: 'OT-', oneTimeCodePadding: 4, oneTimeCodeCurrentNumber: 0,
-      quoteCodePrefix: 'QT-', quoteCodePadding: 4, quoteCodeCurrentNumber: 0
+      quoteCodePrefix: 'QT-', quoteCodePadding: 4, quoteCodeCurrentNumber: 0,
+      recurringCodePrefix: 'RT-', recurringCodePadding: 4, recurringCodeCurrentNumber: 0
     },
   });
 
@@ -288,6 +292,9 @@ export default function TmsSettingsPage() {
         quoteCodePrefix: settings.quoteCodePrefix || 'QT-',
         quoteCodePadding: settings.quoteCodePadding || 4,
         quoteCodeCurrentNumber: settings.quoteCodeCurrentNumber || 0,
+        recurringCodePrefix: settings.recurringCodePrefix || 'RT-',
+        recurringCodePadding: settings.recurringCodePadding || 4,
+        recurringCodeCurrentNumber: settings.recurringCodeCurrentNumber || 0,
       });
     }
   }, [settings, settingsForm]);
@@ -938,6 +945,51 @@ export default function TmsSettingsPage() {
                       <FormField
                         control={settingsForm.control}
                         name="quoteCodeCurrentNumber"
+                        render={({ field }) => (
+                          <FormItem className="col-span-2">
+                            <FormLabel>Одоогийн дугаар</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={0} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="bg-card border rounded-lg p-6">
+                    <h3 className="text-lg font-medium mb-4">Давтамжит тээврийн кодчилол</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={settingsForm.control}
+                        name="recurringCodePrefix"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын угтвар</FormLabel>
+                            <FormControl>
+                              <Input placeholder="RT-" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="recurringCodePadding"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Кодын цифрийн урт</FormLabel>
+                            <FormControl>
+                              <Input type="number" min={1} max={10} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={settingsForm.control}
+                        name="recurringCodeCurrentNumber"
                         render={({ field }) => (
                           <FormItem className="col-span-2">
                             <FormLabel>Одоогийн дугаар</FormLabel>

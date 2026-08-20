@@ -76,10 +76,19 @@ const schema = z.object({
     trailerTypeId: z.string().optional(),
     customerPrice: z.coerce.number().min(0, 'Харилцагчийн үнэ оруулна уу.'),
     driverPrice: z.coerce.number().min(0, 'Жолоочийн үнэ оруулна уу.'),
-    priceType: z.enum(['per_ton', 'lump_sum', 'per_day', 'per_month', 'rental'], {
+    priceType: z.enum(['per_ton', 'lump_sum', 'per_day', 'per_month', 'rental', 'per_ton_km'], {
         required_error: 'Үнийн төрлийг сонгоно уу.',
     }),
+    distanceKm: z.coerce.number().min(0).optional(),
     conditions: z.string().optional(),
+}).superRefine((values, ctx) => {
+    if (values.priceType === 'per_ton_km' && !(Number(values.distanceKm) > 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['distanceKm'],
+            message: 'Тонн-км үнэлгээнд чиглэлийн зай (км) заавал.',
+        });
+    }
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -117,6 +126,7 @@ export function EditContractServiceDialog({
             customerPrice: service.customerPrice ?? service.price ?? 0,
             driverPrice: service.driverPrice ?? 0,
             priceType: service.priceType || 'lump_sum',
+            distanceKm: service.distanceKm ?? 0,
             conditions: service.conditions || '',
         },
     });
@@ -233,6 +243,7 @@ export function EditContractServiceDialog({
                 customerPrice: values.customerPrice,
                 driverPrice: values.driverPrice,
                 priceType: values.priceType,
+                distanceKm: values.priceType === 'per_ton_km' ? (values.distanceKm || null) : null,
                 conditions: values.conditions || null,
             };
 
@@ -519,6 +530,22 @@ export function EditContractServiceDialog({
                                     </FormItem>
                                 )}
                             />
+
+                            {form.watch('priceType') === 'per_ton_km' && (
+                                <FormField
+                                    control={form.control}
+                                    name="distanceKm"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>📏 Чиглэлийн зай (км) *</FormLabel>
+                                            <FormControl>
+                                                <Input type="number" min={0} placeholder="жишээ: 120" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <FormField
