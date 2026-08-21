@@ -17,6 +17,7 @@ interface DealColumnProps {
     deals: Deal[];
     companyNames: Map<string, string>;
     onQuoteSend: (deal: Deal, amount?: number) => Promise<void>;
+    onStageChange: (deal: Deal, newStageId: string) => void;
 }
 
 export function DealColumn({
@@ -24,6 +25,7 @@ export function DealColumn({
     deals,
     companyNames,
     onQuoteSend,
+    onStageChange,
 }: DealColumnProps) {
     const { setNodeRef, isOver } = useDroppable({ id: stage.id });
 
@@ -88,6 +90,7 @@ export function DealColumn({
                                 deal.companyId ? companyNames.get(deal.companyId) : undefined
                             }
                             onQuoteSend={stage.id === 'lead' ? onQuoteSend : undefined}
+                            onStageChange={onStageChange}
                         />
                     ))}
                 </SortableContext>

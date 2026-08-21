@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { formatMoney, type Deal, type PipelineStage } from '../../_types';
+import { formatMoney, TUMEN_PIPELINE, type Deal, type PipelineStage } from '../../_types';
 import {
     DaysChip,
     KamAvatar,
@@ -26,6 +26,8 @@ interface DealCardProps {
     companyName?: string;
     /** '💰 Үнийн санал илгээсэн' түргэн үйлдэл — зөвхөн lead багана дээр өгнө. */
     onQuoteSend?: (deal: Deal, amount?: number) => Promise<void>;
+    /** Картан дээрх dropdown-оор шат солих. */
+    onStageChange?: (deal: Deal, newStageId: string) => void;
     isOverlay?: boolean;
 }
 
@@ -34,6 +36,7 @@ export function DealCard({
     stage,
     companyName,
     onQuoteSend,
+    onStageChange,
     isOverlay,
 }: DealCardProps) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -134,6 +137,29 @@ export function DealCard({
 
             {isLead && onQuoteSend && !isOverlay && (
                 <QuoteQuickAction deal={deal} onQuoteSend={onQuoteSend} />
+            )}
+
+            {onStageChange && !isOverlay && (
+                <div onPointerDown={(e) => e.stopPropagation()} className="mt-2">
+                    <select
+                        value=""
+                        onChange={(e) => {
+                            if (e.target.value) onStageChange(deal, e.target.value);
+                            e.target.value = '';
+                        }}
+                        className="w-full rounded-md border bg-background px-2 py-1.5 text-[11px] font-medium text-muted-foreground"
+                        aria-label="Шат солих"
+                    >
+                        <option value="">▸ Шат солих...</option>
+                        {TUMEN_PIPELINE.stages
+                            .filter((s) => s.id !== stage.id)
+                            .map((s) => (
+                                <option key={s.id} value={s.id}>
+                                    {s.label} руу
+                                </option>
+                            ))}
+                    </select>
+                </div>
             )}
         </div>
     );

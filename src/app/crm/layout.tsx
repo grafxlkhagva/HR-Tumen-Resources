@@ -36,6 +36,7 @@ import {
     Menu,
     Sparkles,
     Zap,
+    Target,
 } from 'lucide-react';
 import { useEmployeeProfile } from '@/hooks/use-employee-profile';
 import { cn } from '@/lib/utils';
@@ -85,6 +86,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
             { href: '/crm/assistant', label: 'AI туслах', icon: Sparkles },
             { href: '/crm/analytics', label: 'Шинжилгээ', icon: LineChart },
             { href: '/crm/performance', label: 'Гүйцэтгэл', icon: Gauge },
+            { href: '/crm/plan', label: 'Борлуулалтын зорилт', icon: Target },
             { href: '/crm/reports', label: 'Тайлан', icon: BarChart3 },
             { href: '/crm/year/2026', label: 'Он жилээр', icon: CalendarRange },
             { href: '/crm/carriers', label: 'Тээвэрчин', icon: Truck },

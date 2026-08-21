@@ -5,7 +5,15 @@ import Link from 'next/link';
 import { collection, orderBy, query } from 'firebase/firestore';
 import { useCollection, useFirebase, useMemoFirebase } from '@/firebase';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import {
     Table,
     TableBody,
@@ -14,17 +22,21 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
-import { Plus, LayoutGrid, List, Briefcase } from 'lucide-react';
+import { Plus, LayoutGrid, List, Briefcase, Search, X } from 'lucide-react';
 import {
     TUMEN_PIPELINE,
+    DEAL_SOURCES,
+    KAM_LIST,
     formatMoney,
     getStage,
     type Company,
     type Contact,
     type Deal,
+    type Survey,
 } from '../_types';
 import { NewDealDialog } from './new-deal-dialog';
 import { DealKanban } from './_components/deal-kanban';
+import { DealAnalytics } from './_components/deal-analytics';
 import {
     DaysChip,
     SourceChip,
@@ -39,6 +51,10 @@ export default function CrmDealsPage() {
     const { firestore } = useFirebase();
     const [view, setView] = React.useState<ViewMode>('kanban');
     const [isAddOpen, setIsAddOpen] = React.useState(false);
+    const [search, setSearch] = React.useState('');
+    const [kamFilter, setKamFilter] = React.useState('all');
+    const [sourceFilter, setSourceFilter] = React.useState('all');
+    const [typeFilter, setTypeFilter] = React.useState('all');
 
     const dealsQuery = useMemoFirebase(
         () =>
@@ -60,6 +76,12 @@ export default function CrmDealsPage() {
         [firestore],
     );
     const { data: companies } = useCollection<Company>(companiesRef);
+
+    const surveysRef = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_surveys') : null),
+        [firestore],
+    );
+    const { data: surveys } = useCollection<Survey>(surveysRef);
 
     const companiesById = React.useMemo(() => {
         const map = new Map<string, Company>();
@@ -84,6 +106,41 @@ export default function CrmDealsPage() {
             return sum + (d.amount || 0) * (stage?.probability ?? 0);
         }, 0);
     }, [deals]);
+
+    const hasFilter =
+        search.trim() !== '' ||
+        kamFilter !== 'all' ||
+        sourceFilter !== 'all' ||
+        typeFilter !== 'all';
+
+    // Шүүлтүүр зөвхөн самбар/хүснэгтэд нөлөөлнө — дээд analytics бүх дүр зургийг хадгална.
+    const filteredDeals = React.useMemo(() => {
+        const list = deals || [];
+        const t = search.trim().toLowerCase();
+        return list.filter((d) => {
+            if (kamFilter !== 'all' && (d.kam || '') !== kamFilter) return false;
+            if (sourceFilter !== 'all' && (d.source || '') !== sourceFilter) return false;
+            if (typeFilter !== 'all') {
+                const st = d.sourceType === 'sql' ? 'sql' : 'mql';
+                if (st !== typeFilter) return false;
+            }
+            if (t) {
+                const hay = [d.name, d.direction, d.cargo, d.phone, d.kam, companyNames.get(d.companyId || '')]
+                    .filter(Boolean)
+                    .join(' ')
+                    .toLowerCase();
+                if (!hay.includes(t)) return false;
+            }
+            return true;
+        });
+    }, [deals, search, kamFilter, sourceFilter, typeFilter, companyNames]);
+
+    const clearFilters = React.useCallback(() => {
+        setSearch('');
+        setKamFilter('all');
+        setSourceFilter('all');
+        setTypeFilter('all');
+    }, []);
 
     return (
         <div className="flex h-full flex-col">
@@ -119,9 +176,52 @@ export default function CrmDealsPage() {
                 ) : !deals || deals.length === 0 ? (
                     <EmptyState onAdd={() => setIsAddOpen(true)} />
                 ) : view === 'kanban' ? (
-                    <DealKanban deals={deals} companiesById={companiesById} />
+                    <div className="h-full overflow-y-auto">
+                        <DealAnalytics
+                            deals={deals}
+                            companies={companies || []}
+                            surveys={surveys || []}
+                        />
+                        <div className="border-t">
+                            <DealFilterBar
+                                search={search}
+                                onSearch={setSearch}
+                                kam={kamFilter}
+                                onKam={setKamFilter}
+                                source={sourceFilter}
+                                onSource={setSourceFilter}
+                                type={typeFilter}
+                                onType={setTypeFilter}
+                                hasFilter={hasFilter}
+                                onClear={clearFilters}
+                                shown={filteredDeals.length}
+                                total={deals.length}
+                            />
+                        </div>
+                        <div className="h-[74vh] min-h-[480px] border-t">
+                            <DealKanban deals={filteredDeals} companiesById={companiesById} />
+                        </div>
+                    </div>
                 ) : (
-                    <DealTable deals={deals} companyNames={companyNames} />
+                    <div className="flex h-full flex-col">
+                        <DealFilterBar
+                            search={search}
+                            onSearch={setSearch}
+                            kam={kamFilter}
+                            onKam={setKamFilter}
+                            source={sourceFilter}
+                            onSource={setSourceFilter}
+                            type={typeFilter}
+                            onType={setTypeFilter}
+                            hasFilter={hasFilter}
+                            onClear={clearFilters}
+                            shown={filteredDeals.length}
+                            total={deals.length}
+                        />
+                        <div className="flex-1 overflow-hidden border-t">
+                            <DealTable deals={filteredDeals} companyNames={companyNames} />
+                        </div>
+                    </div>
                 )}
             </div>
 
@@ -131,6 +231,104 @@ export default function CrmDealsPage() {
                 contacts={contacts || []}
                 companies={companies || []}
             />
+        </div>
+    );
+}
+
+function DealFilterBar({
+    search,
+    onSearch,
+    kam,
+    onKam,
+    source,
+    onSource,
+    type,
+    onType,
+    hasFilter,
+    onClear,
+    shown,
+    total,
+}: {
+    search: string;
+    onSearch: (v: string) => void;
+    kam: string;
+    onKam: (v: string) => void;
+    source: string;
+    onSource: (v: string) => void;
+    type: string;
+    onType: (v: string) => void;
+    hasFilter: boolean;
+    onClear: () => void;
+    shown: number;
+    total: number;
+}) {
+    return (
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+            <div className="relative flex-1 min-w-[180px]">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                    value={search}
+                    onChange={(e) => onSearch(e.target.value)}
+                    placeholder="Нэр, чиглэл, компаниар хайх..."
+                    className="h-9 pl-9"
+                />
+            </div>
+
+            <Select value={kam} onValueChange={onKam}>
+                <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder="Бүх KAM" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Бүх KAM</SelectItem>
+                    {KAM_LIST.map((k) => (
+                        <SelectItem key={k} value={k}>
+                            {k}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+
+            <Select value={source} onValueChange={onSource}>
+                <SelectTrigger className="h-9 w-[150px]">
+                    <SelectValue placeholder="Бүх суваг" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Бүх суваг</SelectItem>
+                    {Object.entries(DEAL_SOURCES).map(([k, v]) => (
+                        <SelectItem key={k} value={k}>
+                            {v}
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+
+            <Select value={type} onValueChange={onType}>
+                <SelectTrigger className="h-9 w-[120px]">
+                    <SelectValue placeholder="MQL/SQL" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">MQL + SQL</SelectItem>
+                    <SelectItem value="mql">🌐 MQL</SelectItem>
+                    <SelectItem value="sql">📤 SQL</SelectItem>
+                </SelectContent>
+            </Select>
+
+            {hasFilter && (
+                <>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-9 text-muted-foreground"
+                        onClick={onClear}
+                    >
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        Цэвэрлэх
+                    </Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">
+                        {shown}/{total}
+                    </span>
+                </>
+            )}
         </div>
     );
 }

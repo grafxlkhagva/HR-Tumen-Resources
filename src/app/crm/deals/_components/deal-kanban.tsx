@@ -59,13 +59,25 @@ export function DealKanban({ deals, companiesById }: DealKanbanProps) {
         deals.forEach((d) => {
             map.get(normalizeStageId(d.stageId))?.push(d);
         });
-        map.forEach((arr) =>
-            arr.sort((a, b) => {
-                const da = a.updatedAt?.seconds || 0;
-                const db = b.updatedAt?.seconds || 0;
-                return db - da;
-            }),
-        );
+        // Lead багана: прототипийн адил quote_due-ээр (хугацаа хэтэрсэн/ойрхон эхэнд),
+        // огноогүй нь сүүлд. Бусад багана: сүүлд шинэчилсэн нь эхэнд.
+        const leadDeals = map.get('lead');
+        if (leadDeals) {
+            leadDeals.sort((a, b) => {
+                const qa = a.quoteDue || '';
+                const qb = b.quoteDue || '';
+                if (qa && qb) {
+                    if (qa !== qb) return qa < qb ? -1 : 1;
+                } else if (qa || qb) {
+                    return qa ? -1 : 1; // огноотой нь эхэнд
+                }
+                return (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0);
+            });
+        }
+        map.forEach((arr, stageId) => {
+            if (stageId === 'lead') return;
+            arr.sort((a, b) => (b.updatedAt?.seconds || 0) - (a.updatedAt?.seconds || 0));
+        });
         return map;
     }, [deals]);
 
@@ -142,6 +154,19 @@ export function DealKanban({ deals, companiesById }: DealKanbanProps) {
         [firestore, actor, toast],
     );
 
+    /** Картан дээрх dropdown-оос шат солих — drag-тай ижил дүрэм (pending/lost → шалтгаан). */
+    const requestStageChange = React.useCallback(
+        (deal: Deal, newStageId: string) => {
+            if (newStageId === normalizeStageId(deal.stageId)) return;
+            if (newStageId === 'pending' || newStageId === 'lost') {
+                setReasonMove({ deal, newStage: newStageId });
+                return;
+            }
+            void doMove(deal, newStageId);
+        },
+        [doMove],
+    );
+
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(String(event.active.id));
     };
@@ -194,6 +219,7 @@ export function DealKanban({ deals, companiesById }: DealKanbanProps) {
                             deals={dealsByStage.get(stage.id) || []}
                             companyNames={companyNames}
                             onQuoteSend={handleQuoteSend}
+                            onStageChange={requestStageChange}
                         />
                     ))}
                 </div>

@@ -19,9 +19,11 @@ import {
     formatMoney,
     type Activity,
     type Company,
+    type CompanyStats,
     type Contact,
     type Deal,
     type Quote,
+    type Survey,
     type Ticket,
 } from '../_types';
 import { StatCard } from './_components/stat-card';
@@ -31,6 +33,7 @@ import { LifecycleChart } from './_components/lifecycle-chart';
 import { ActivityVolumeChart } from './_components/activity-volume-chart';
 import { QuotesStatusChart } from './_components/quotes-status-chart';
 import { TopCompaniesList } from './_components/top-companies-list';
+import { BusinessReports } from './_components/business-reports';
 
 export default function CrmReportsPage() {
     const { firestore } = useFirebase();
@@ -79,6 +82,18 @@ export default function CrmReportsPage() {
         [firestore],
     );
     const { data: quotes } = useCollection<Quote>(quotesQ);
+
+    const companyStatsQ = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_company_stats') : null),
+        [firestore],
+    );
+    const { data: companyStats } = useCollection<CompanyStats>(companyStatsQ);
+
+    const surveysQ = useMemoFirebase(
+        () => (firestore ? collection(firestore, 'crm_surveys') : null),
+        [firestore],
+    );
+    const { data: surveys } = useCollection<Survey>(surveysQ);
 
     const stats = React.useMemo(() => {
         const allDeals = deals || [];
@@ -253,6 +268,19 @@ export default function CrmReportsPage() {
                                 >
                                     <TicketsSummary tickets={tickets || []} />
                                 </ChartCard>
+                            </div>
+
+                            {/* Бизнес шинжилгээ — прототип reports.html (analytics.py томьёо) */}
+                            <div className="mt-2">
+                                <h2 className="mb-3 text-sm font-semibold text-muted-foreground">
+                                    📊 Бизнес шинжилгээ
+                                </h2>
+                                <BusinessReports
+                                    companies={companies || []}
+                                    companyStats={companyStats || []}
+                                    surveys={surveys || []}
+                                    activities={activities || []}
+                                />
                             </div>
                         </>
                     )}
