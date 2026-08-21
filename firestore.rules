@@ -996,6 +996,7 @@ service cloud.firestore {
     match /hse_briefing_templates/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspections/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_inspection_checklists/{docId} { allow read, write: if isHseAllowed(); }
+    match /hse_inspection_checklist_templates/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_nonconformities/{docId} { allow read, write: if isHseAllowed(); }
     match /hse_ppe/{docId} { allow read, write: if isHseAllowed(); }
     // Хамгаалах хэрэгслийн олголт: хүлээн авагч ажилтан унших + "танилцсан" бүртгэх.

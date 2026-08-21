@@ -4,6 +4,7 @@ import * as React from 'react';
 import { PageHeader } from '@/components/patterns';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { InspectionList } from './inspection-list';
+import { ChecklistTemplateList } from './checklist-template-list';
 import { ChecklistList } from './checklist-list';
 import { NonconformityList } from './nonconformity-list';
 import { InspectionReport } from './inspection-report';
@@ -20,6 +21,7 @@ export default function InspectionsPage() {
             <Tabs defaultValue="list" className="space-y-6">
                 <TabsList className="flex-wrap">
                     <TabsTrigger value="list">Жагсаалт</TabsTrigger>
+                    <TabsTrigger value="templates">Загвар</TabsTrigger>
                     <TabsTrigger value="checklist">Хяналтын хуудас</TabsTrigger>
                     <TabsTrigger value="nonconformity">Үл тохирол арилгасан мэдээ</TabsTrigger>
                     <TabsTrigger value="report">Тайлан</TabsTrigger>
@@ -27,6 +29,10 @@ export default function InspectionsPage() {
 
                 <TabsContent value="list">
                     <InspectionList />
+                </TabsContent>
+
+                <TabsContent value="templates">
+                    <ChecklistTemplateList />
                 </TabsContent>
 
                 <TabsContent value="checklist">

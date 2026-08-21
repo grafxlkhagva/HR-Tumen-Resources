@@ -22,6 +22,7 @@ export const HSE_COLLECTIONS = {
     briefingTemplates: 'hse_briefing_templates',
     inspections: 'hse_inspections',
     inspectionChecklists: 'hse_inspection_checklists',
+    inspectionChecklistTemplates: 'hse_inspection_checklist_templates',
     nonconformities: 'hse_nonconformities',
     ppe: 'hse_ppe',
     ppeIssues: 'hse_ppe_issues',
@@ -747,6 +748,34 @@ export interface Inspection {
     ilrel?: string; // илрэл / дүгнэлт
     imgUrl?: string;
     tailbar?: string;
+    createdAt?: number;
+}
+
+// ─── Үзлэгийн хуудасны загвар (custom checklist template) ───────
+
+/** Асуултын хариултын төрлүүд. */
+export const CHECKLIST_ANSWER_TYPES = [
+    'Тийм/үгүй чагтлах',
+    'Тийм/үгүй NA',
+    'Мэдээлэл харуулах',
+    'Текст бичих',
+    'PDF хувилбар дээр дугуйлах',
+] as const;
+export type ChecklistAnswerType = (typeof CHECKLIST_ANSWER_TYPES)[number];
+
+export interface ChecklistTemplateQuestion {
+    asuult: string; // асуултын текст
+    hariultTorol: ChecklistAnswerType; // хариултын төрөл
+}
+
+/** Үзлэгийн хуудасны загвар. */
+export interface InspectionChecklistTemplate {
+    id: string;
+    ner: string; // Үзлэгийн хуудасны нэр
+    shaardah?: boolean; // Заавал бөглөхийг шаардах
+    questions: ChecklistTemplateQuestion[]; // асуултууд
+    pdfUrl?: string; // Үзлэгийн хуудасны PDF
+    burtgesenId?: string; // бүртгэсэн хэрэглэгч
     createdAt?: number;
 }
 
