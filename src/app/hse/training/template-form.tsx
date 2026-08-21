@@ -39,7 +39,7 @@ export function TemplateForm({
     onOpenChange: (open: boolean) => void;
     template?: TrainingTemplate | null;
 }) {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [saving, setSaving] = React.useState(false);
 
@@ -89,7 +89,10 @@ export function TemplateForm({
                 await updateHseDoc(firestore, HSE_COLLECTIONS.trainingTemplates, template.id, payload);
                 toast({ title: 'Загвар шинэчлэгдлээ.' });
             } else {
-                await createHseDoc(firestore, HSE_COLLECTIONS.trainingTemplates, payload);
+                await createHseDoc(firestore, HSE_COLLECTIONS.trainingTemplates, {
+                    ...payload,
+                    burtgesenId: user?.uid || null,
+                });
                 toast({ title: 'Загвар нэмэгдлээ.' });
             }
             onOpenChange(false);
@@ -145,12 +148,12 @@ export function TemplateForm({
                         />
                     </FormFieldWrapper>
 
-                    <FormFieldWrapper label="Тайлбар">
+                    <FormFieldWrapper label="Сургалтын агуулга">
                         <Textarea
                             value={tailbar}
                             onChange={(e) => setTailbar(e.target.value)}
-                            placeholder="Сургалтын агуулга, тайлбар..."
-                            rows={2}
+                            placeholder="Сургалтын агуулгыг текстээр оруулна уу..."
+                            rows={6}
                         />
                     </FormFieldWrapper>
 

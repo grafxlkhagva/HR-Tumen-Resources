@@ -671,6 +671,8 @@ export interface TrainingTemplate {
     tailbar?: string;
     imgUrl?: string; // сургалтын зураг
     pdfUrl?: string; // сургалтын материал (PDF)
+    onoo?: number; // хамрагдахад олгох оноо (дэлгэц)
+    burtgesenId?: string; // бүртгэсэн хэрэглэгч (ажилтан id)
     createdAt?: number;
 }
 
@@ -696,12 +698,11 @@ export function trainingTypeOf(t: { torol?: TrainingType }): TrainingType {
 }
 
 export const BRIEFING_TYPES = [
-    'Ажлын байрны аюулгүй байдал',
-    'Галын аюулгүй байдал',
-    'ХХХ зааварчилгаа',
-    'Тээврийн аюулгүй байдал',
-    'Ослын үеийн зааварчилгаа',
-    'Бусад',
+    'Урьдчилсан зааварчилгаа',
+    'Анхан шатны зааварчилгаа',
+    'Ээлжит зааварчилгаа',
+    'Ээлжит бус зааварчилгаа',
+    'Өдөр тутмын',
 ] as const;
 export type BriefingType = (typeof BRIEFING_TYPES)[number];
 
@@ -713,6 +714,8 @@ export interface BriefingTemplate {
     tailbar?: string;
     imgUrl?: string; // зааварчилгааны зураг
     pdfUrl?: string; // зааварчилгааны материал (PDF)
+    onoo?: number; // танилцахад олгох оноо (дэлгэц)
+    burtgesenId?: string; // бүртгэсэн хэрэглэгч (ажилтан id)
     createdAt?: number;
 }
 

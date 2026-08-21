@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Loader2, FileText, ImageIcon } from 'lucide-react';
+import { Loader2, FileText, ImageIcon, Plus, Trash2 } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -30,7 +30,19 @@ import { createHseDoc, updateHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, SCHEDULE_STATUSES, type Briefing } from '../types';
 import { useBriefingTemplates } from './use-briefing-templates';
 
-const todayStr = () => new Date().toISOString().slice(0, 10);
+/** Одоогийн орон нутгийн цагийг datetime-local утга болгоно (YYYY-MM-DDTHH:mm). */
+const nowDatetimeLocal = () => {
+    const d = new Date();
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
+
+/** Хадгалсан huvaar утгыг datetime-local input-д тохируулна. */
+const toDatetimeLocal = (s?: string) => {
+    if (!s) return nowDatetimeLocal();
+    if (s.includes('T')) return s.slice(0, 16);
+    return `${s}T00:00`; // зөвхөн огноо байсан хуучин бичлэг
+};
 
 export function BriefingForm({
     open,
@@ -48,24 +60,26 @@ export function BriefingForm({
 
     const [zagvarId, setZagvarId] = React.useState<string>('');
     const [tuluw, setTuluw] = React.useState<Briefing['tuluw']>('Төлөвлөгдсөн');
-    const [huvaar, setHuvaar] = React.useState(todayStr());
+    const [huvaaruud, setHuvaaruud] = React.useState<string[]>([nowDatetimeLocal()]);
     const [tanilcahIds, setTanilcahIds] = React.useState<string[]>([]);
     const [tanilcsanIds, setTanilcsanIds] = React.useState<string[]>([]);
     const [tailbar, setTailbar] = React.useState('');
+
+    const isEdit = !!briefing;
 
     React.useEffect(() => {
         if (!open) return;
         if (briefing) {
             setZagvarId(briefing.zagvarId || '');
             setTuluw(briefing.tuluw);
-            setHuvaar(briefing.huvaar);
+            setHuvaaruud([toDatetimeLocal(briefing.huvaar)]);
             setTanilcahIds(briefing.tanilcahIds || []);
             setTanilcsanIds(briefing.tanilcsanIds || []);
             setTailbar(briefing.tailbar || '');
         } else {
             setZagvarId('');
             setTuluw('Төлөвлөгдсөн');
-            setHuvaar(todayStr());
+            setHuvaaruud([nowDatetimeLocal()]);
             setTanilcahIds([]);
             setTanilcsanIds([]);
             setTailbar('');
@@ -77,32 +91,60 @@ export function BriefingForm({
         [templates, zagvarId],
     );
 
+    const setHuvaarAt = (i: number, v: string) =>
+        setHuvaaruud((prev) => prev.map((h, idx) => (idx === i ? v : h)));
+    const addHuvaar = () => setHuvaaruud((prev) => [...prev, nowDatetimeLocal()]);
+    const removeHuvaar = (i: number) =>
+        setHuvaaruud((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
+
     const handleSave = async () => {
         if (!firestore) return;
         if (!selectedTemplate) {
             toast({ title: 'Зааварчилгааны загвар сонгоно уу.', variant: 'destructive' });
             return;
         }
+        const dates = huvaaruud.filter(Boolean);
+        if (dates.length === 0) {
+            toast({ title: 'Хуваарьт огноо оруулна уу.', variant: 'destructive' });
+            return;
+        }
         setSaving(true);
         try {
-            const payload = {
+            const base = {
                 zagvarId: selectedTemplate.id,
                 garchig: selectedTemplate.ner,
                 torol: selectedTemplate.torol,
                 imgUrl: selectedTemplate.imgUrl || null,
                 pdfUrl: selectedTemplate.pdfUrl || null,
                 tuluw,
-                huvaar,
                 tanilcahIds,
-                tanilcsanIds,
                 tailbar: tailbar.trim() || null,
             };
             if (briefing) {
-                await updateHseDoc(firestore, HSE_COLLECTIONS.briefings, briefing.id, payload);
+                // Засах: нэг occurrence — эхний огноог хэрэглэнэ.
+                await updateHseDoc(firestore, HSE_COLLECTIONS.briefings, briefing.id, {
+                    ...base,
+                    huvaar: dates[0],
+                    tanilcsanIds,
+                });
                 toast({ title: 'Зааварчилгаа шинэчлэгдлээ.' });
             } else {
-                await createHseDoc(firestore, HSE_COLLECTIONS.briefings, payload);
-                toast({ title: 'Зааварчилгаа хуваарилагдлаа.' });
+                // Үүсгэх: огноо-цаг бүрд тусдаа occurrence (давтамжтай).
+                await Promise.all(
+                    dates.map((huvaar) =>
+                        createHseDoc(firestore, HSE_COLLECTIONS.briefings, {
+                            ...base,
+                            huvaar,
+                            tanilcsanIds: [],
+                        }),
+                    ),
+                );
+                toast({
+                    title:
+                        dates.length > 1
+                            ? `${dates.length} хуваарьт зааварчилгаа үүслээ.`
+                            : 'Зааварчилгаа хуваарилагдлаа.',
+                });
             }
             onOpenChange(false);
         } catch {
@@ -191,44 +233,64 @@ export function BriefingForm({
                         </div>
                     )}
 
-                    <FormRow columns={2}>
-                        <FormFieldWrapper label="Хуваарь">
-                            <Input
-                                type="date"
-                                value={huvaar}
-                                onChange={(e) => setHuvaar(e.target.value)}
-                            />
-                        </FormFieldWrapper>
-                        <FormFieldWrapper label="Төлөв">
-                            <Select value={tuluw} onValueChange={(v) => setTuluw(v as Briefing['tuluw'])}>
-                                <SelectTrigger>
-                                    <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {SCHEDULE_STATUSES.map((s) => (
-                                        <SelectItem key={s} value={s}>
-                                            {s}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </FormFieldWrapper>
-                    </FormRow>
+                    {/* Хуваарьт огноо-цаг (олон occurrence) */}
+                    <FormFieldWrapper
+                        label="Хуваарьт огноо, цаг"
+                        hint={isEdit ? undefined : 'Олон огноо нэмбэл тус бүрд давтан хуваарилагдана.'}
+                    >
+                        <div className="space-y-2">
+                            {huvaaruud.map((dt, i) => (
+                                <div key={i} className="flex items-center gap-2">
+                                    <Input
+                                        type="datetime-local"
+                                        value={dt}
+                                        onChange={(e) => setHuvaarAt(i, e.target.value)}
+                                    />
+                                    {!isEdit && huvaaruud.length > 1 && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon-sm"
+                                            onClick={() => removeHuvaar(i)}
+                                        >
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    )}
+                                </div>
+                            ))}
+                            {!isEdit && (
+                                <Button variant="outline" size="sm" onClick={addHuvaar}>
+                                    <Plus className="mr-1 h-3.5 w-3.5" />
+                                    Огноо нэмэх
+                                </Button>
+                            )}
+                        </div>
+                    </FormFieldWrapper>
+
+                    <FormFieldWrapper label="Төлөв">
+                        <Select value={tuluw} onValueChange={(v) => setTuluw(v as Briefing['tuluw'])}>
+                            <SelectTrigger>
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {SCHEDULE_STATUSES.map((s) => (
+                                    <SelectItem key={s} value={s}>
+                                        {s}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </FormFieldWrapper>
 
                     <FormFieldWrapper label="Танилцах ажилтнууд">
                         <EmployeeMultiSelect value={tanilcahIds} onChange={setTanilcahIds} />
                     </FormFieldWrapper>
 
-                    <FormFieldWrapper label="Танилцсан ажилтнууд">
-                        <EmployeeMultiSelect value={tanilcsanIds} onChange={setTanilcsanIds} />
-                    </FormFieldWrapper>
-
-                    <FormFieldWrapper label="Тайлбар">
+                    <FormFieldWrapper label="Нэмэлт зааварчилгаа">
                         <Textarea
                             value={tailbar}
                             onChange={(e) => setTailbar(e.target.value)}
-                            placeholder="Нэмэлт тайлбар..."
-                            rows={2}
+                            placeholder="Нэмэлт зааварчилгаа..."
+                            rows={3}
                         />
                     </FormFieldWrapper>
                 </AppDialogBody>

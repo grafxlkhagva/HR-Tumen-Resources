@@ -1,26 +1,75 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Pencil, Trash2, FileText, GraduationCap } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileText, ImageIcon } from 'lucide-react';
 import { useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
-import { AppConfirmDialog } from '@/components/patterns';
+import {
+    DataTable,
+    DataTableHeader,
+    DataTableColumn,
+    DataTableBody,
+    DataTableRow,
+    DataTableCell,
+    DataTableLoading,
+    DataTableEmpty,
+    AppConfirmDialog,
+} from '@/components/patterns';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatusBadge } from '../components/status-badge';
+import { Input } from '@/components/ui/input';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
+import { useHseEmployees } from '../components/use-hse-employees';
 import { deleteHseDoc } from '../services/hse-service';
 import { HSE_COLLECTIONS, type TrainingTemplate } from '../types';
 import { useTrainingTemplates } from './use-training-templates';
 import { TemplateForm } from './template-form';
 
+function fmtDateTime(ms?: number): string {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function dateOnly(ms?: number): string {
+    if (!ms) return '';
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function TemplateList() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
     const { templates, isLoading } = useTrainingTemplates();
+    const { nameOf } = useHseEmployees();
 
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<TrainingTemplate | null>(null);
+
+    const [fName, setFName] = React.useState('');
+    const [fUser, setFUser] = React.useState('all');
+    const [fDate, setFDate] = React.useState('');
+
+    const creators = React.useMemo(() => {
+        const ids = new Set<string>();
+        templates.forEach((t) => t.burtgesenId && ids.add(t.burtgesenId));
+        return Array.from(ids);
+    }, [templates]);
+
+    const filtered = React.useMemo(() => {
+        return templates.filter((t) => {
+            if (fName && !t.ner?.toLowerCase().includes(fName.toLowerCase())) return false;
+            if (fUser !== 'all' && t.burtgesenId !== fUser) return false;
+            if (fDate && dateOnly(t.createdAt) !== fDate) return false;
+            return true;
+        });
+    }, [templates, fName, fUser, fDate]);
 
     const openNew = () => {
         setEditing(null);
@@ -55,87 +104,92 @@ export function TemplateList() {
                 </Button>
             </div>
 
-            {isLoading ? (
-                <div className="grid gap-card sm:grid-cols-2 lg:grid-cols-3">
-                    {[0, 1, 2].map((i) => (
-                        <Skeleton key={i} className="h-56" />
-                    ))}
-                </div>
-            ) : templates.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-16 text-center">
-                    <GraduationCap className="h-8 w-8 text-muted-foreground" />
-                    <p className="text-caption text-muted-foreground">Загвар бүртгэгдээгүй байна</p>
-                    <Button variant="outline" size="sm" onClick={openNew}>
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        Шинэ загвар нэмэх
-                    </Button>
-                </div>
-            ) : (
-                <div className="grid gap-card sm:grid-cols-2 lg:grid-cols-3">
-                    {templates.map((t) => (
-                        <Card key={t.id} className="overflow-hidden">
-                            <div className="aspect-video bg-muted">
-                                {t.imgUrl ? (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img
-                                        src={t.imgUrl}
-                                        alt={t.ner}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full items-center justify-center">
-                                        <GraduationCap className="h-10 w-10 text-muted-foreground/40" />
+            <DataTable>
+                <DataTableHeader>
+                    <DataTableRow>
+                        <DataTableColumn className="w-10">№</DataTableColumn>
+                        <DataTableColumn>Сургалтын нэр</DataTableColumn>
+                        <DataTableColumn align="center">Хамрагдахад олгох оноо</DataTableColumn>
+                        <DataTableColumn align="center">Материал</DataTableColumn>
+                        <DataTableColumn>Бүртгэсэн огноо</DataTableColumn>
+                        <DataTableColumn>Бүртгэсэн хэрэглэгч</DataTableColumn>
+                        <DataTableColumn align="right">Үйлдэл</DataTableColumn>
+                    </DataTableRow>
+                    <DataTableRow className="hover:bg-transparent">
+                        <DataTableColumn />
+                        <DataTableColumn>
+                            <Input value={fName} onChange={(e) => setFName(e.target.value)} placeholder="Нэрээр хайх..." className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn />
+                        <DataTableColumn />
+                        <DataTableColumn>
+                            <Input type="date" value={fDate} onChange={(e) => setFDate(e.target.value)} className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn>
+                            <Select value={fUser} onValueChange={setFUser}>
+                                <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Сонгоно уу" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Бүгд</SelectItem>
+                                    {creators.map((id) => (
+                                        <SelectItem key={id} value={id}>
+                                            {nameOf(id)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </DataTableColumn>
+                        <DataTableColumn />
+                    </DataTableRow>
+                </DataTableHeader>
+                {isLoading ? (
+                    <DataTableLoading columns={7} />
+                ) : filtered.length === 0 ? (
+                    <DataTableEmpty columns={7} message="Загвар бүртгэгдээгүй байна" />
+                ) : (
+                    <DataTableBody>
+                        {filtered.map((t, i) => (
+                            <DataTableRow key={t.id}>
+                                <DataTableCell className="text-muted-foreground">{i + 1}</DataTableCell>
+                                <DataTableCell className="font-medium">
+                                    <div className="flex items-center gap-2">
+                                        {t.imgUrl && (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={t.imgUrl} alt="" className="h-8 w-8 rounded object-cover" />
+                                        )}
+                                        <div className="min-w-0">
+                                            <p className="truncate">{t.ner}</p>
+                                            {t.angilal && (
+                                                <p className="truncate text-micro text-muted-foreground">{t.angilal}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
-                            </div>
-                            <CardContent className="space-y-2 p-4">
-                                <div className="space-y-1">
-                                    <div className="flex items-start justify-between gap-2">
-                                        <p className="truncate font-medium">{t.ner}</p>
-                                        <StatusBadge
-                                            tone={
-                                                (t.torol || 'Сургалт') === 'Урьдчилсан зааварчилгаа'
-                                                    ? 'blue'
-                                                    : 'green'
-                                            }
-                                            className="flex-shrink-0"
-                                        >
-                                            {t.torol || 'Сургалт'}
-                                        </StatusBadge>
+                                </DataTableCell>
+                                <DataTableCell align="center">{t.onoo ?? '—'}</DataTableCell>
+                                <DataTableCell align="center">
+                                    <div className="flex items-center justify-center gap-2">
+                                        {t.imgUrl && (
+                                            <a href={t.imgUrl} target="_blank" rel="noreferrer" title="Зураг" className="text-muted-foreground hover:text-info">
+                                                <ImageIcon className="h-4 w-4" />
+                                            </a>
+                                        )}
+                                        {t.pdfUrl ? (
+                                            <a href={t.pdfUrl} target="_blank" rel="noreferrer" title="PDF" className="text-muted-foreground hover:text-error">
+                                                <FileText className="h-4 w-4" />
+                                            </a>
+                                        ) : (
+                                            !t.imgUrl && <span className="text-micro text-muted-foreground">—</span>
+                                        )}
                                     </div>
-                                    {t.angilal && (
-                                        <p className="truncate text-micro text-muted-foreground">
-                                            {t.angilal}
-                                        </p>
-                                    )}
-                                </div>
-                                {t.tailbar && (
-                                    <p className="line-clamp-2 text-caption text-muted-foreground">
-                                        {t.tailbar}
-                                    </p>
-                                )}
-                                <div className="flex items-center justify-between pt-1">
-                                    {t.pdfUrl ? (
-                                        <a
-                                            href={t.pdfUrl}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-caption text-error hover:underline"
-                                        >
-                                            <FileText className="h-3.5 w-3.5" />
-                                            PDF материал
-                                        </a>
-                                    ) : (
-                                        <span className="text-micro text-muted-foreground">
-                                            PDF алга
-                                        </span>
-                                    )}
-                                    <div className="flex items-center gap-1">
-                                        <Button
-                                            variant="ghost"
-                                            size="icon-sm"
-                                            onClick={() => openEdit(t)}
-                                        >
+                                </DataTableCell>
+                                <DataTableCell className="whitespace-nowrap text-muted-foreground">
+                                    {fmtDateTime(t.createdAt)}
+                                </DataTableCell>
+                                <DataTableCell>{t.burtgesenId ? nameOf(t.burtgesenId) : '—'}</DataTableCell>
+                                <DataTableCell align="right">
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button variant="ghost" size="icon-sm" onClick={() => openEdit(t)}>
                                             <Pencil className="h-4 w-4" />
                                         </Button>
                                         <AppConfirmDialog
@@ -149,12 +203,12 @@ export function TemplateList() {
                                             onConfirm={() => handleDelete(t)}
                                         />
                                     </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
-            )}
+                                </DataTableCell>
+                            </DataTableRow>
+                        ))}
+                    </DataTableBody>
+                )}
+            </DataTable>
 
             <TemplateForm open={formOpen} onOpenChange={setFormOpen} template={editing} />
         </section>

@@ -108,8 +108,18 @@ function HseContent() {
 
     const isLoading = !employeeProfile || lt || lb || la || lh || lv || lp || lpp;
 
-    const sortedTrainings = useMemo(() => byNewest(trainings), [trainings]);
-    const sortedBriefings = useMemo(() => byNewest(briefings), [briefings]);
+    const sortedTrainingsAll = useMemo(() => byNewest(trainings), [trainings]);
+    // Сургалт зөвхөн хуваарьт огноо-цаг болсны дараа ажилтанд харагдана.
+    const sortedTrainings = useMemo(
+        () => sortedTrainingsAll.filter((t) => !t.huvaar || new Date(t.huvaar).getTime() <= Date.now()),
+        [sortedTrainingsAll],
+    );
+    const sortedBriefingsAll = useMemo(() => byNewest(briefings), [briefings]);
+    // Зааварчилгаа зөвхөн хуваарьт огноо-цаг болсны дараа ажилтанд харагдана.
+    const sortedBriefings = useMemo(
+        () => sortedBriefingsAll.filter((b) => !b.huvaar || new Date(b.huvaar).getTime() <= Date.now()),
+        [sortedBriefingsAll],
+    );
     const sortedAlerts = useMemo(() => byNewest(alerts), [alerts]);
     const sortedHazards = useMemo(() => byNewest(hazards), [hazards]);
     const sortedViolations = useMemo(() => byNewest(violations), [violations]);

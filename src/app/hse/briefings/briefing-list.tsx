@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { collection, query, orderBy } from 'firebase/firestore';
-import { Plus, Pencil, Trash2, Search, Users, ImageIcon, FileText, Eye } from 'lucide-react';
+import { Plus, Pencil, Trash2, Users, ImageIcon, FileText, Eye } from 'lucide-react';
 import { useCollection, useMemoFirebase, useFirebase } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -30,6 +30,7 @@ import { deleteHseDoc } from '../services/hse-service';
 import {
     HSE_COLLECTIONS,
     SCHEDULE_STATUSES,
+    BRIEFING_TYPES,
     scheduleStatusTone,
     effectiveScheduleStatus,
     type Briefing,
@@ -37,15 +38,35 @@ import {
 import { BriefingForm } from './briefing-form';
 import { SignersDetailDialog } from '../components/signers-detail-dialog';
 
+/** ms → "YYYY-MM-DD HH:mm" */
+function fmtDateTime(ms?: number): string {
+    if (!ms) return '—';
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function dateOnlyMs(ms?: number): string {
+    if (!ms) return '';
+    const d = new Date(ms);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
 export function BriefingList() {
     const { firestore } = useFirebase();
     const { toast } = useToast();
 
-    const [search, setSearch] = React.useState('');
-    const [statusFilter, setStatusFilter] = React.useState<string>('all');
     const [formOpen, setFormOpen] = React.useState(false);
     const [editing, setEditing] = React.useState<Briefing | null>(null);
     const [detailItem, setDetailItem] = React.useState<Briefing | null>(null);
+
+    // Баганын шүүлтүүд
+    const [fTorol, setFTorol] = React.useState('all');
+    const [fZagvar, setFZagvar] = React.useState('');
+    const [fNemelt, setFNemelt] = React.useState('');
+    const [fStatus, setFStatus] = React.useState('all');
+    const [fHuvaar, setFHuvaar] = React.useState('');
+    const [fCreated, setFCreated] = React.useState('');
 
     const briefingQuery = useMemoFirebase(
         () =>
@@ -59,11 +80,15 @@ export function BriefingList() {
     const filtered = React.useMemo(() => {
         return (briefings || []).filter((b) => {
             const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
-            if (statusFilter !== 'all' && eff !== statusFilter) return false;
-            if (search && !b.garchig?.toLowerCase().includes(search.toLowerCase())) return false;
+            if (fTorol !== 'all' && b.torol !== fTorol) return false;
+            if (fStatus !== 'all' && eff !== fStatus) return false;
+            if (fZagvar && !b.garchig?.toLowerCase().includes(fZagvar.toLowerCase())) return false;
+            if (fNemelt && !(b.tailbar || '').toLowerCase().includes(fNemelt.toLowerCase())) return false;
+            if (fHuvaar && (b.huvaar || '').slice(0, 10) !== fHuvaar) return false;
+            if (fCreated && dateOnlyMs(b.createdAt) !== fCreated) return false;
             return true;
         });
-    }, [briefings, statusFilter, search]);
+    }, [briefings, fTorol, fStatus, fZagvar, fNemelt, fHuvaar, fCreated]);
 
     const openNew = () => {
         setEditing(null);
@@ -83,13 +108,6 @@ export function BriefingList() {
         }
     };
 
-    const progress = (b: Briefing) => {
-        const total = b.tanilcahIds?.length || 0;
-        const done = b.tanilcsanIds?.length || 0;
-        const pct = total ? Math.round((done / total) * 100) : 0;
-        return { total, done, pct };
-    };
-
     return (
         <section className="space-y-4">
             <div className="flex items-center justify-between gap-3">
@@ -105,96 +123,117 @@ export function BriefingList() {
                 </Button>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Хайх..."
-                        className="pl-9"
-                    />
-                </div>
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-44">
-                        <SelectValue placeholder="Төлөв" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Бүх төлөв</SelectItem>
-                        {SCHEDULE_STATUSES.map((s) => (
-                            <SelectItem key={s} value={s}>
-                                {s}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
             <DataTable>
                 <DataTableHeader>
                     <DataTableRow>
-                        <DataTableColumn>Гарчиг</DataTableColumn>
-                        <DataTableColumn>Төрөл</DataTableColumn>
-                        <DataTableColumn>Хуваарь</DataTableColumn>
-                        <DataTableColumn align="center">Танилцалт</DataTableColumn>
-                        <DataTableColumn align="center">Материал</DataTableColumn>
+                        <DataTableColumn className="w-10">№</DataTableColumn>
+                        <DataTableColumn>Зааварчилгааны төрөл</DataTableColumn>
+                        <DataTableColumn>Зааварчилгааны загвар</DataTableColumn>
+                        <DataTableColumn>Нэмэлт зааварчилгаа</DataTableColumn>
                         <DataTableColumn align="center">Төлөв</DataTableColumn>
+                        <DataTableColumn align="center">Танилцах</DataTableColumn>
+                        <DataTableColumn align="center">Танилцсан</DataTableColumn>
+                        <DataTableColumn>Хуваарьт огноо</DataTableColumn>
+                        <DataTableColumn>Бүртгэсэн огноо</DataTableColumn>
                         <DataTableColumn align="right">Үйлдэл</DataTableColumn>
+                    </DataTableRow>
+                    {/* Шүүлтийн мөр */}
+                    <DataTableRow className="hover:bg-transparent">
+                        <DataTableColumn />
+                        <DataTableColumn>
+                            <Select value={fTorol} onValueChange={setFTorol}>
+                                <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Бүгд" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Бүгд</SelectItem>
+                                    {BRIEFING_TYPES.map((t) => (
+                                        <SelectItem key={t} value={t}>
+                                            {t}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </DataTableColumn>
+                        <DataTableColumn>
+                            <Input value={fZagvar} onChange={(e) => setFZagvar(e.target.value)} placeholder="Хайх..." className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn>
+                            <Input value={fNemelt} onChange={(e) => setFNemelt(e.target.value)} placeholder="Хайх..." className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn>
+                            <Select value={fStatus} onValueChange={setFStatus}>
+                                <SelectTrigger className="h-8">
+                                    <SelectValue placeholder="Бүгд" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Бүгд</SelectItem>
+                                    {SCHEDULE_STATUSES.map((s) => (
+                                        <SelectItem key={s} value={s}>
+                                            {s}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </DataTableColumn>
+                        <DataTableColumn />
+                        <DataTableColumn />
+                        <DataTableColumn>
+                            <Input type="date" value={fHuvaar} onChange={(e) => setFHuvaar(e.target.value)} className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn>
+                            <Input type="date" value={fCreated} onChange={(e) => setFCreated(e.target.value)} className="h-8" />
+                        </DataTableColumn>
+                        <DataTableColumn />
                     </DataTableRow>
                 </DataTableHeader>
                 {isLoading ? (
-                    <DataTableLoading columns={7} />
+                    <DataTableLoading columns={10} />
                 ) : filtered.length === 0 ? (
-                    <DataTableEmpty columns={7} message="Хуваарилсан зааварчилгаа алга" />
+                    <DataTableEmpty columns={10} message="Хуваарилсан зааварчилгаа алга" />
                 ) : (
                     <DataTableBody>
-                        {filtered.map((b) => {
-                            const p = progress(b);
+                        {filtered.map((b, i) => {
+                            const total = b.tanilcahIds?.length || 0;
+                            const done = b.tanilcsanIds?.length || 0;
                             const eff = effectiveScheduleStatus(b.tanilcahIds, b.tanilcsanIds, b.tuluw);
                             return (
                                 <DataTableRow key={b.id}>
-                                    <DataTableCell className="font-medium">{b.garchig}</DataTableCell>
+                                    <DataTableCell className="text-muted-foreground">{i + 1}</DataTableCell>
                                     <DataTableCell>{b.torol}</DataTableCell>
-                                    <DataTableCell>{b.huvaar}</DataTableCell>
-                                    <DataTableCell align="center">
-                                        <span className="inline-flex items-center gap-1 text-caption">
-                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                                            {p.done}/{p.total} ({p.pct}%)
-                                        </span>
-                                    </DataTableCell>
-                                    <DataTableCell align="center">
-                                        <div className="flex items-center justify-center gap-2">
+                                    <DataTableCell className="font-medium">
+                                        <div className="flex items-center gap-2">
                                             {b.imgUrl && (
-                                                <a
-                                                    href={b.imgUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    title="Зураг"
-                                                    className="text-muted-foreground hover:text-info"
-                                                >
+                                                <a href={b.imgUrl} target="_blank" rel="noreferrer" title="Зураг" className="text-muted-foreground hover:text-info">
                                                     <ImageIcon className="h-4 w-4" />
                                                 </a>
                                             )}
                                             {b.pdfUrl && (
-                                                <a
-                                                    href={b.pdfUrl}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    title="PDF материал"
-                                                    className="text-muted-foreground hover:text-error"
-                                                >
+                                                <a href={b.pdfUrl} target="_blank" rel="noreferrer" title="PDF" className="text-muted-foreground hover:text-error">
                                                     <FileText className="h-4 w-4" />
                                                 </a>
                                             )}
-                                            {!b.imgUrl && !b.pdfUrl && (
-                                                <span className="text-micro text-muted-foreground">—</span>
-                                            )}
+                                            <span className="truncate">{b.garchig}</span>
                                         </div>
                                     </DataTableCell>
+                                    <DataTableCell className="max-w-[200px] truncate text-muted-foreground">
+                                        {b.tailbar || '—'}
+                                    </DataTableCell>
                                     <DataTableCell align="center">
-                                        <StatusBadge tone={scheduleStatusTone(eff)}>
-                                            {eff}
-                                        </StatusBadge>
+                                        <StatusBadge tone={scheduleStatusTone(eff)}>{eff}</StatusBadge>
+                                    </DataTableCell>
+                                    <DataTableCell align="center">
+                                        <span className="inline-flex items-center gap-1 text-caption">
+                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                            {total}
+                                        </span>
+                                    </DataTableCell>
+                                    <DataTableCell align="center">{done}</DataTableCell>
+                                    <DataTableCell className="whitespace-nowrap">
+                                        {b.huvaar ? b.huvaar.replace('T', ' ') : '—'}
+                                    </DataTableCell>
+                                    <DataTableCell className="whitespace-nowrap text-muted-foreground">
+                                        {fmtDateTime(b.createdAt)}
                                     </DataTableCell>
                                     <DataTableCell align="right">
                                         <div className="flex items-center justify-end gap-1">

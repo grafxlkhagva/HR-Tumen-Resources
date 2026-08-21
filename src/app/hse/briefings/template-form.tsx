@@ -39,12 +39,12 @@ export function TemplateForm({
     onOpenChange: (open: boolean) => void;
     template?: BriefingTemplate | null;
 }) {
-    const { firestore } = useFirebase();
+    const { firestore, user } = useFirebase();
     const { toast } = useToast();
     const [saving, setSaving] = React.useState(false);
 
     const [ner, setNer] = React.useState('');
-    const [torol, setTorol] = React.useState<BriefingTemplate['torol']>('Ажлын байрны аюулгүй байдал');
+    const [torol, setTorol] = React.useState<BriefingTemplate['torol']>(BRIEFING_TYPES[0]);
     const [tailbar, setTailbar] = React.useState('');
     const [imgUrl, setImgUrl] = React.useState<string | undefined>();
     const [pdfUrl, setPdfUrl] = React.useState<string | undefined>();
@@ -59,7 +59,7 @@ export function TemplateForm({
             setPdfUrl(template.pdfUrl);
         } else {
             setNer('');
-            setTorol('Ажлын байрны аюулгүй байдал');
+            setTorol(BRIEFING_TYPES[0]);
             setTailbar('');
             setImgUrl(undefined);
             setPdfUrl(undefined);
@@ -85,7 +85,10 @@ export function TemplateForm({
                 await updateHseDoc(firestore, HSE_COLLECTIONS.briefingTemplates, template.id, payload);
                 toast({ title: 'Загвар шинэчлэгдлээ.' });
             } else {
-                await createHseDoc(firestore, HSE_COLLECTIONS.briefingTemplates, payload);
+                await createHseDoc(firestore, HSE_COLLECTIONS.briefingTemplates, {
+                    ...payload,
+                    burtgesenId: user?.uid || null,
+                });
                 toast({ title: 'Загвар нэмэгдлээ.' });
             }
             onOpenChange(false);
@@ -130,12 +133,12 @@ export function TemplateForm({
                         </FormFieldWrapper>
                     </FormRow>
 
-                    <FormFieldWrapper label="Тайлбар">
+                    <FormFieldWrapper label="Зааварчилгаа">
                         <Textarea
                             value={tailbar}
                             onChange={(e) => setTailbar(e.target.value)}
-                            placeholder="Зааварчилгааны агуулга, тайлбар..."
-                            rows={2}
+                            placeholder="Зааварчилгааны агуулгыг текстээр оруулна уу..."
+                            rows={6}
                         />
                     </FormFieldWrapper>
 
